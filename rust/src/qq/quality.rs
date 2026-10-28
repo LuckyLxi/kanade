@@ -203,6 +203,24 @@ pub fn playback_chain(quality: Quality) -> Result<Vec<Quality>> {
     Ok(chain)
 }
 
+/// 比 `quality` 低一档的音质，用于播不了时自动降级；已经是最低档时为 None。
+pub fn lower(quality: Quality) -> Option<Quality> {
+    playback_chain(quality).ok()?.get(1).copied()
+}
+
+/// 歌曲缓存索引里记录的音质标识。
+pub fn cache_key(quality: Quality) -> String {
+    format!("{quality:?}")
+}
+
+pub fn from_cache_key(key: &str) -> Option<Quality> {
+    FORMATS.iter().map(|f| f.quality).find(|q| cache_key(*q) == key)
+}
+
+pub fn extension(quality: Quality) -> &'static str {
+    FORMATS.iter().find(|f| f.quality == quality).map_or("bin", |f| f.ext)
+}
+
 fn options_from_file(file: &Value) -> Vec<QualityOption> {
     FORMATS
         .iter()

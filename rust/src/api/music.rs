@@ -3,6 +3,7 @@
 
 use crate::api::error::ApiError;
 use crate::api::types::*;
+use crate::qq::audio_cache::cache;
 use crate::qq::{client, detail, library, login, music, quality};
 
 #[flutter_rust_bridge::frb(init)]
@@ -29,6 +30,61 @@ pub async fn get_search_suggestions(query: String) -> Result<Vec<SearchSuggestio
 
 pub async fn get_song_url(mid: String, media_mid: String, quality: Quality) -> Result<SongUrl, ApiError> {
     Ok(music::song_url(&mid, &media_mid, quality).await?)
+}
+
+/// 比 `quality` 低一档的音质；已是最低档时为 None。拿到链接却播不了时用来降级重试。
+#[flutter_rust_bridge::frb(sync)]
+pub fn lower_quality(quality: Quality) -> Option<Quality> {
+    quality::lower(quality)
+}
+
+/// 本地缓存的这首歌这个音质的文件路径。
+#[flutter_rust_bridge::frb(sync)]
+pub fn get_cached_audio(mid: String, quality: Quality) -> Option<String> {
+    cache().lookup(&mid, quality)
+}
+
+/// 这首歌任一音质的缓存（没网时用）。
+#[flutter_rust_bridge::frb(sync)]
+pub fn get_any_cached_audio(mid: String) -> Option<CachedAudio> {
+    cache().lookup_any(&mid).map(|(path, quality)| CachedAudio { path, quality })
+}
+
+/// 缓存文件播不了时删掉。
+#[flutter_rust_bridge::frb(sync)]
+pub fn remove_cached_audio(mid: String, quality: Quality) {
+    cache().remove(&mid, quality)
+}
+
+/// 把播放链接换成边播边存的本机地址；缓存关闭时原样返回。
+#[flutter_rust_bridge::frb(sync)]
+pub fn stream_audio(mid: String, quality: Quality, url: String) -> Result<String, ApiError> {
+    Ok(cache().stream(&mid, quality, &url)?)
+}
+
+/// 歌曲缓存上限（MB），0 表示关闭。
+#[flutter_rust_bridge::frb(sync)]
+pub fn get_audio_cache_limit_mb() -> i64 {
+    cache().limit_mb()
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn set_audio_cache_limit_mb(mb: i64) -> Result<(), ApiError> {
+    Ok(cache().set_limit_mb(mb)?)
+}
+
+/// 歌曲缓存占用的字节数。
+pub fn get_audio_cache_size() -> i64 {
+    cache().size()
+}
+
+pub fn clear_audio_cache() {
+    cache().clear()
+}
+
+/// 接口数据缓存占用的字节数。
+pub fn get_api_cache_size() -> i64 {
+    client::core().store.cache_size()
 }
 
 pub async fn get_song_qualities(mid: String) -> Result<Vec<QualityOption>, ApiError> {

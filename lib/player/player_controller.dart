@@ -29,6 +29,21 @@ class StreamFailed extends PlayerError {
   final String message;
 }
 
+/// 已解析好的音源：本地缓存文件，或（经过边播边存中转的）在线地址。
+typedef _Source = ({String url, Quality quality, bool cached});
+
+/// 刚打开、还没加载成功的音源。这时出错就降一档重试。
+class _Attempt {
+  _Attempt(this.song, this.source, this.start, this.play, this.token, this.urlToken);
+
+  final Song song;
+  final _Source source;
+  final Duration? start;
+  final bool play;
+  final int token;
+  final int urlToken;
+}
+
 /// 播放队列 + media_kit 播放器。播放链接和歌词都由 Rust 层提供。
 class PlayerController extends ChangeNotifier {
   PlayerController(this._auth) {
@@ -45,12 +60,18 @@ class PlayerController extends ChangeNotifier {
       _player.stream.position.listen((v) => position.value = v),
       _player.stream.duration.listen((v) {
         duration = v;
+        // 拿到时长说明音源已经加载成功
+        if (v > Duration.zero) _attempt = null;
         notifyListeners();
       }),
       _player.stream.completed.listen((done) {
         if (done) _onCompleted();
       }),
       _player.stream.error.listen((e) {
+        if (_attempt != null) {
+          _downgrade(e);
+          return;
+        }
         error = StreamFailed(e);
         notifyListeners();
       }),
@@ -65,8 +86,13 @@ class PlayerController extends ChangeNotifier {
   List<Song> queue = [];
   int index = -1;
 
-  /// 播放器里选择的音质，切歌后继续沿用；歌曲没有该档位时 Rust 层会降级。
-  Quality quality = Quality.high;
+  static const _defaultQualityKey = 'default_quality';
+
+  /// 设置里的默认音质，启动时作为播放器的初始音质。
+  Quality defaultQuality = Quality.values.asNameMap()[api.getPref(key: _defaultQualityKey)] ?? Quality.high;
+
+  /// 播放器里选择的音质，切歌后继续沿用；歌曲没有该档位或播不了时会降级。
+  late Quality quality = defaultQuality;
   PlayMode mode = PlayMode.sequence;
 
   bool playing = false;
@@ -87,8 +113,13 @@ class PlayerController extends ChangeNotifier {
   int _token = 0;
   int _qualitiesToken = 0;
 
-  /// 每次重新取播放链接（切歌或切音质）递增。
+  /// 每次重新取播放链接（切歌、切音质或降级重试）递增。
   int _urlToken = 0;
+
+  _Attempt? _attempt;
+
+  /// 当前这首歌之前已经连续跳过了几首播不了的歌。
+  int _skipped = 0;
 
   Song? get current => index >= 0 && index < queue.length ? queue[index] : null;
 
@@ -134,6 +165,8 @@ class PlayerController extends ChangeNotifier {
     if (i < 0 || i >= queue.length) return;
     final token = ++_token;
     final urlToken = ++_urlToken;
+    _attempt = null;
+    _skipped = skipped;
     index = i;
     loading = true;
     error = null;
@@ -149,23 +182,95 @@ class PlayerController extends ChangeNotifier {
     unawaited(refreshQualities());
     _loadLyric(song, token);
     try {
-      final u = await api.getSongUrl(mid: song.mid, mediaMid: song.mediaMid, quality: quality);
-      if (token != _token || urlToken != _urlToken) return;
-      actualQuality = u.quality;
-      await _player.open(_media(u.url));
+      await _open(song, quality, token: token, urlToken: urlToken);
     } catch (e) {
       if (token != _token || urlToken != _urlToken) return;
       error = PlaybackFailed(song, e);
-      // 自动跳过无法播放的歌，整个队列都失败时停下
-      if (queue.length > 1 && skipped < queue.length - 1) {
-        loading = false;
-        notifyListeners();
-        await playAt((i + 1) % queue.length, skipped: skipped + 1);
-        return;
-      }
+      if (await _skipFailed()) return;
     }
+    // 降级重试已经接手时由它收尾
+    if (token != _token || urlToken != _urlToken) return;
     loading = false;
     notifyListeners();
+  }
+
+  /// 自动跳过无法播放的歌，整个队列都失败时停下。返回是否跳了。
+  Future<bool> _skipFailed() async {
+    if (queue.length <= 1 || _skipped >= queue.length - 1) return false;
+    loading = false;
+    notifyListeners();
+    await playAt((index + 1) % queue.length, skipped: _skipped + 1);
+    return true;
+  }
+
+  /// 取音源并交给播放器。取不到任何音质的链接时抛出异常；
+  /// 拿到了却播不了的情况由 [_downgrade] 处理。
+  Future<void> _open(Song song, Quality q,
+      {required int token, required int urlToken, Duration? start, bool play = true}) async {
+    bool stale() => token != _token || urlToken != _urlToken;
+    final src = await _source(song, q, stale);
+    if (src == null || stale()) return;
+    actualQuality = src.quality;
+    _attempt = _Attempt(song, src, start, play, token, urlToken);
+    try {
+      await _player.open(
+        src.cached ? Media(src.url, start: start) : _media(src.url, start: start),
+        play: play,
+      );
+    } catch (e) {
+      _downgrade(e);
+    }
+  }
+
+  /// 先找本地缓存，没有再在线取链接（经 Rust 中转边播边存）；没网时用这首歌任一音质的缓存。
+  /// 过期时返回 null。
+  Future<_Source?> _source(Song song, Quality q, bool Function() stale) async {
+    final hit = api.getCachedAudio(mid: song.mid, quality: q);
+    if (hit != null) return (url: hit, quality: q, cached: true);
+    try {
+      final u = await api.getSongUrl(mid: song.mid, mediaMid: song.mediaMid, quality: q);
+      if (stale()) return null;
+      // 选的音质没有、降级拿到的那档之前缓存过
+      final local = api.getCachedAudio(mid: song.mid, quality: u.quality);
+      if (local != null) return (url: local, quality: u.quality, cached: true);
+      return (url: api.streamAudio(mid: song.mid, quality: u.quality, url: u.url), quality: u.quality, cached: false);
+    } catch (_) {
+      if (stale()) return null;
+      final any = api.getAnyCachedAudio(mid: song.mid);
+      if (any != null) return (url: any.path, quality: any.quality, cached: true);
+      rethrow;
+    }
+  }
+
+  /// 音源加载失败：缓存文件坏了就删掉重新在线取，在线的就降一档，降到底算这首歌播不了。
+  void _downgrade(Object cause) {
+    final a = _attempt;
+    _attempt = null;
+    if (a == null || a.token != _token || a.urlToken != _urlToken) return;
+    final src = a.source;
+    final Quality? next;
+    if (src.cached) {
+      api.removeCachedAudio(mid: a.song.mid, quality: src.quality);
+      next = src.quality;
+    } else {
+      next = api.lowerQuality(quality: src.quality);
+    }
+    unawaited(() async {
+      try {
+        if (next == null) throw cause;
+        final urlToken = ++_urlToken;
+        loading = true;
+        notifyListeners();
+        await _open(a.song, next, token: a.token, urlToken: urlToken, start: a.start, play: a.play);
+        if (a.token != _token || urlToken != _urlToken) return;
+      } catch (e) {
+        if (a.token != _token) return;
+        error = PlaybackFailed(a.song, e);
+        if (await _skipFailed()) return;
+      }
+      loading = false;
+      notifyListeners();
+    }());
   }
 
   Future<void> _loadLyric(Song song, int token) async {
@@ -242,6 +347,14 @@ class PlayerController extends ChangeNotifier {
 
   Future<void> seek(Duration d) => _player.seek(d);
 
+  /// 设置里改默认音质：保存下来，并从下一首开始使用。
+  void setDefaultQuality(Quality q) {
+    defaultQuality = q;
+    quality = q;
+    api.setPref(key: _defaultQualityKey, value: q.name);
+    notifyListeners();
+  }
+
   void cycleMode() => setMode(PlayMode.values[(mode.index + 1) % PlayMode.values.length]);
 
   void setMode(PlayMode m) {
@@ -274,10 +387,8 @@ class PlayerController extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      final u = await api.getSongUrl(mid: song.mid, mediaMid: song.mediaMid, quality: q);
+      await _open(song, q, token: token, urlToken: urlToken, start: position.value, play: playing);
       if (token != _token || urlToken != _urlToken) return;
-      actualQuality = u.quality;
-      await _player.open(_media(u.url, start: position.value), play: playing);
     } catch (e) {
       if (token != _token || urlToken != _urlToken) return;
       quality = previous;

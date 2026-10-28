@@ -49,7 +49,7 @@ pub fn init(data_dir: &Path) -> Result<()> {
     std::fs::create_dir_all(data_dir)?;
     let core = Core::new(Store::open(&data_dir.join("kanade.db"))?)?;
     let _ = CORE.set(core);
-    Ok(())
+    super::audio_cache::init(data_dir.join("audio_cache"))
 }
 
 pub fn core() -> &'static Core {

@@ -1,3 +1,4 @@
+pub mod audio_cache;
 pub mod client;
 pub mod detail;
 pub mod error;

@@ -871,6 +871,132 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'发行于 {date}'**
   String publishedOn(String date);
+
+  /// No description provided for @settings.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置'**
+  String get settings;
+
+  /// No description provided for @settingsGeneral.
+  ///
+  /// In zh, this message translates to:
+  /// **'通用'**
+  String get settingsGeneral;
+
+  /// No description provided for @settingsCache.
+  ///
+  /// In zh, this message translates to:
+  /// **'缓存'**
+  String get settingsCache;
+
+  /// No description provided for @settingsAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号'**
+  String get settingsAccount;
+
+  /// No description provided for @defaultQuality.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认音质'**
+  String get defaultQuality;
+
+  /// No description provided for @defaultQualityHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'选的音质没有或播不了时会自动降低'**
+  String get defaultQualityHint;
+
+  /// No description provided for @audioCacheLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌曲缓存上限'**
+  String get audioCacheLimit;
+
+  /// No description provided for @audioCacheLimitHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'边听边存，超出后删除最久没听的歌'**
+  String get audioCacheLimitHint;
+
+  /// No description provided for @audioCacheOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get audioCacheOff;
+
+  /// No description provided for @audioCacheCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义'**
+  String get audioCacheCustom;
+
+  /// No description provided for @audioCacheCustomTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义缓存上限'**
+  String get audioCacheCustomTitle;
+
+  /// No description provided for @audioCacheCustomUnit.
+  ///
+  /// In zh, this message translates to:
+  /// **'MB'**
+  String get audioCacheCustomUnit;
+
+  /// No description provided for @audioCacheSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌曲缓存'**
+  String get audioCacheSize;
+
+  /// No description provided for @apiCacheSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他缓存'**
+  String get apiCacheSize;
+
+  /// No description provided for @apiCacheSizeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单、搜索、歌词等数据'**
+  String get apiCacheSizeHint;
+
+  /// No description provided for @clear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除'**
+  String get clear;
+
+  /// No description provided for @clearAudioCacheConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除所有已缓存的歌曲？'**
+  String get clearAudioCacheConfirm;
+
+  /// No description provided for @clearApiCacheConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除歌单、搜索、歌词等缓存数据？'**
+  String get clearApiCacheConfirm;
+
+  /// No description provided for @cacheCleared.
+  ///
+  /// In zh, this message translates to:
+  /// **'已清除'**
+  String get cacheCleared;
+
+  /// No description provided for @logoutConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定退出登录？'**
+  String get logoutConfirm;
+
+  /// No description provided for @ok.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定'**
+  String get ok;
 }
 
 class _AppLocalizationsDelegate

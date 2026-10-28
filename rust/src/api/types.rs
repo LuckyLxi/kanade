@@ -85,6 +85,13 @@ pub struct SongUrl {
     pub quality: Quality,
 }
 
+/// 本地缓存的歌曲文件。
+#[derive(Debug, Clone)]
+pub struct CachedAudio {
+    pub path: String,
+    pub quality: Quality,
+}
+
 #[derive(Debug, Clone)]
 pub struct LyricLine {
     pub time_ms: u32,

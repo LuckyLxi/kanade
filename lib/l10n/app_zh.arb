@@ -352,5 +352,26 @@
         "type": "String"
       }
     }
-  }
+  },
+  "settings": "设置",
+  "settingsGeneral": "通用",
+  "settingsCache": "缓存",
+  "settingsAccount": "账号",
+  "defaultQuality": "默认音质",
+  "defaultQualityHint": "选的音质没有或播不了时会自动降低",
+  "audioCacheLimit": "歌曲缓存上限",
+  "audioCacheLimitHint": "边听边存，超出后删除最久没听的歌",
+  "audioCacheOff": "关闭",
+  "audioCacheCustom": "自定义",
+  "audioCacheCustomTitle": "自定义缓存上限",
+  "audioCacheCustomUnit": "MB",
+  "audioCacheSize": "歌曲缓存",
+  "apiCacheSize": "其他缓存",
+  "apiCacheSizeHint": "歌单、搜索、歌词等数据",
+  "clear": "清除",
+  "clearAudioCacheConfirm": "清除所有已缓存的歌曲？",
+  "clearApiCacheConfirm": "清除歌单、搜索、歌词等缓存数据？",
+  "cacheCleared": "已清除",
+  "logoutConfirm": "确定退出登录？",
+  "ok": "确定"
 }

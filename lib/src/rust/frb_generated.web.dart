@@ -41,12 +41,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  CachedAudio dco_decode_box_autoadd_cached_audio(dynamic raw);
+
+  @protected
+  Quality dco_decode_box_autoadd_quality(dynamic raw);
+
+  @protected
   QualityUnavailableReason dco_decode_box_autoadd_quality_unavailable_reason(
     dynamic raw,
   );
 
   @protected
   UserInfo dco_decode_box_autoadd_user_info(dynamic raw);
+
+  @protected
+  CachedAudio dco_decode_cached_audio(dynamic raw);
 
   @protected
   Comment dco_decode_comment(dynamic raw);
@@ -131,6 +140,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
+
+  @protected
+  CachedAudio? dco_decode_opt_box_autoadd_cached_audio(dynamic raw);
+
+  @protected
+  Quality? dco_decode_opt_box_autoadd_quality(dynamic raw);
 
   @protected
   QualityUnavailableReason?
@@ -227,12 +242,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
+  CachedAudio sse_decode_box_autoadd_cached_audio(SseDeserializer deserializer);
+
+  @protected
+  Quality sse_decode_box_autoadd_quality(SseDeserializer deserializer);
+
+  @protected
   QualityUnavailableReason sse_decode_box_autoadd_quality_unavailable_reason(
     SseDeserializer deserializer,
   );
 
   @protected
   UserInfo sse_decode_box_autoadd_user_info(SseDeserializer deserializer);
+
+  @protected
+  CachedAudio sse_decode_cached_audio(SseDeserializer deserializer);
 
   @protected
   Comment sse_decode_comment(SseDeserializer deserializer);
@@ -327,6 +351,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
+
+  @protected
+  CachedAudio? sse_decode_opt_box_autoadd_cached_audio(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Quality? sse_decode_opt_box_autoadd_quality(SseDeserializer deserializer);
 
   @protected
   QualityUnavailableReason?
@@ -427,6 +459,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_cached_audio(
+    CachedAudio self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_quality(Quality self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_quality_unavailable_reason(
     QualityUnavailableReason self,
     SseSerializer serializer,
@@ -437,6 +478,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     UserInfo self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_cached_audio(CachedAudio self, SseSerializer serializer);
 
   @protected
   void sse_encode_comment(Comment self, SseSerializer serializer);
@@ -554,6 +598,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_cached_audio(
+    CachedAudio? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_quality(
+    Quality? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_quality_unavailable_reason(

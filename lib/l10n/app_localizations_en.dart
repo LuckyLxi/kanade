@@ -480,4 +480,70 @@ class AppLocalizationsEn extends AppLocalizations {
   String publishedOn(String date) {
     return 'Released $date';
   }
+
+  @override
+  String get settings => 'Settings';
+
+  @override
+  String get settingsGeneral => 'General';
+
+  @override
+  String get settingsCache => 'Cache';
+
+  @override
+  String get settingsAccount => 'Account';
+
+  @override
+  String get defaultQuality => 'Default quality';
+
+  @override
+  String get defaultQualityHint =>
+      'Falls back to a lower quality when unavailable or unplayable';
+
+  @override
+  String get audioCacheLimit => 'Song cache limit';
+
+  @override
+  String get audioCacheLimitHint =>
+      'Songs are saved while playing; least recently played are removed first';
+
+  @override
+  String get audioCacheOff => 'Off';
+
+  @override
+  String get audioCacheCustom => 'Custom';
+
+  @override
+  String get audioCacheCustomTitle => 'Custom cache limit';
+
+  @override
+  String get audioCacheCustomUnit => 'MB';
+
+  @override
+  String get audioCacheSize => 'Song cache';
+
+  @override
+  String get apiCacheSize => 'Other cache';
+
+  @override
+  String get apiCacheSizeHint => 'Playlists, search results, lyrics and more';
+
+  @override
+  String get clear => 'Clear';
+
+  @override
+  String get clearAudioCacheConfirm => 'Clear all cached songs?';
+
+  @override
+  String get clearApiCacheConfirm =>
+      'Clear cached playlists, search results, lyrics and more?';
+
+  @override
+  String get cacheCleared => 'Cleared';
+
+  @override
+  String get logoutConfirm => 'Log out?';
+
+  @override
+  String get ok => 'OK';
 }

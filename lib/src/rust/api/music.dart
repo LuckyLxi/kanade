@@ -40,6 +40,57 @@ Future<SongUrl> getSongUrl({
   quality: quality,
 );
 
+/// 比 `quality` 低一档的音质；已是最低档时为 None。拿到链接却播不了时用来降级重试。
+Quality? lowerQuality({required Quality quality}) =>
+    RustLib.instance.api.crateApiMusicLowerQuality(quality: quality);
+
+/// 本地缓存的这首歌这个音质的文件路径。
+String? getCachedAudio({required String mid, required Quality quality}) =>
+    RustLib.instance.api.crateApiMusicGetCachedAudio(
+      mid: mid,
+      quality: quality,
+    );
+
+/// 这首歌任一音质的缓存（没网时用）。
+CachedAudio? getAnyCachedAudio({required String mid}) =>
+    RustLib.instance.api.crateApiMusicGetAnyCachedAudio(mid: mid);
+
+/// 缓存文件播不了时删掉。
+void removeCachedAudio({required String mid, required Quality quality}) =>
+    RustLib.instance.api.crateApiMusicRemoveCachedAudio(
+      mid: mid,
+      quality: quality,
+    );
+
+/// 把播放链接换成边播边存的本机地址；缓存关闭时原样返回。
+String streamAudio({
+  required String mid,
+  required Quality quality,
+  required String url,
+}) => RustLib.instance.api.crateApiMusicStreamAudio(
+  mid: mid,
+  quality: quality,
+  url: url,
+);
+
+/// 歌曲缓存上限（MB），0 表示关闭。
+PlatformInt64 getAudioCacheLimitMb() =>
+    RustLib.instance.api.crateApiMusicGetAudioCacheLimitMb();
+
+void setAudioCacheLimitMb({required PlatformInt64 mb}) =>
+    RustLib.instance.api.crateApiMusicSetAudioCacheLimitMb(mb: mb);
+
+/// 歌曲缓存占用的字节数。
+Future<PlatformInt64> getAudioCacheSize() =>
+    RustLib.instance.api.crateApiMusicGetAudioCacheSize();
+
+Future<void> clearAudioCache() =>
+    RustLib.instance.api.crateApiMusicClearAudioCache();
+
+/// 接口数据缓存占用的字节数。
+Future<PlatformInt64> getApiCacheSize() =>
+    RustLib.instance.api.crateApiMusicGetApiCacheSize();
+
 Future<List<QualityOption>> getSongQualities({required String mid}) =>
     RustLib.instance.api.crateApiMusicGetSongQualities(mid: mid);
 

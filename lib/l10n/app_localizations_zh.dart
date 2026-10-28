@@ -457,4 +457,67 @@ class AppLocalizationsZh extends AppLocalizations {
   String publishedOn(String date) {
     return '发行于 $date';
   }
+
+  @override
+  String get settings => '设置';
+
+  @override
+  String get settingsGeneral => '通用';
+
+  @override
+  String get settingsCache => '缓存';
+
+  @override
+  String get settingsAccount => '账号';
+
+  @override
+  String get defaultQuality => '默认音质';
+
+  @override
+  String get defaultQualityHint => '选的音质没有或播不了时会自动降低';
+
+  @override
+  String get audioCacheLimit => '歌曲缓存上限';
+
+  @override
+  String get audioCacheLimitHint => '边听边存，超出后删除最久没听的歌';
+
+  @override
+  String get audioCacheOff => '关闭';
+
+  @override
+  String get audioCacheCustom => '自定义';
+
+  @override
+  String get audioCacheCustomTitle => '自定义缓存上限';
+
+  @override
+  String get audioCacheCustomUnit => 'MB';
+
+  @override
+  String get audioCacheSize => '歌曲缓存';
+
+  @override
+  String get apiCacheSize => '其他缓存';
+
+  @override
+  String get apiCacheSizeHint => '歌单、搜索、歌词等数据';
+
+  @override
+  String get clear => '清除';
+
+  @override
+  String get clearAudioCacheConfirm => '清除所有已缓存的歌曲？';
+
+  @override
+  String get clearApiCacheConfirm => '清除歌单、搜索、歌词等缓存数据？';
+
+  @override
+  String get cacheCleared => '已清除';
+
+  @override
+  String get logoutConfirm => '确定退出登录？';
+
+  @override
+  String get ok => '确定';
 }

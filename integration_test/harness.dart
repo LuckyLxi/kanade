@@ -15,12 +15,14 @@ import 'package:provider/provider.dart';
 
 /// 启动完整应用，静音播放榜单第一首，等歌词和封面素材就绪。
 /// 返回播放器和根导航，用来打开播放页做测量。
-Future<(PlayerController, NavigatorState)> launchWithSong(WidgetTester tester) async {
+/// [setup] 在 Rust 层初始化后、开始播放前执行。
+Future<(PlayerController, NavigatorState)> launchWithSong(WidgetTester tester, {Future<void> Function()? setup}) async {
   MediaKit.ensureInitialized();
   await setupWindow();
   await RustLib.init();
   final dir = await getApplicationSupportDirectory();
   await api.initCore(dataDir: dir.path);
+  await setup?.call();
 
   late PlayerController player;
   await tester.pumpWidget(

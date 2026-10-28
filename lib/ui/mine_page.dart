@@ -11,9 +11,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../auth/auth_controller.dart';
 import '../l10n/l10n_ext.dart';
 import '../src/rust/api/music.dart' as api;
-import '../settings/locale_controller.dart';
 import '../src/rust/api/error.dart';
 import '../src/rust/api/types.dart';
+import 'settings_page.dart';
 import 'song_list_page.dart';
 import 'widgets.dart';
 
@@ -29,40 +29,14 @@ class MinePage extends StatelessWidget {
       appBar: AppBar(
         title: Text(l.tabMine),
         actions: [
-          const _LanguageMenu(),
-          if (user != null)
-            IconButton(tooltip: l.logout, icon: const Icon(Icons.logout), onPressed: auth.logout),
+          IconButton(
+            tooltip: l.settings,
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => Navigator.of(context).push(SettingsPage.route()),
+          ),
         ],
       ),
       body: user == null ? const _LoggedOut() : _LoggedIn(user, key: ValueKey(user.uin)),
-    );
-  }
-}
-
-/// 语言选择：跟随系统 / 各语言用自己的名字显示。
-class _LanguageMenu extends StatelessWidget {
-  const _LanguageMenu();
-
-  static const _names = {'zh': '简体中文', 'en': 'English'};
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final controller = context.watch<LocaleController>();
-    // PopupMenuButton 的 value 不能为 null，用空字符串表示跟随系统
-    return PopupMenuButton<String>(
-      tooltip: l.language,
-      icon: const Icon(Icons.translate),
-      initialValue: controller.locale?.languageCode ?? '',
-      onSelected: (v) => controller.setLocale(v.isEmpty ? null : Locale(v)),
-      itemBuilder: (_) => [
-        PopupMenuItem(value: '', child: Text(l.languageSystem)),
-        for (final locale in AppLocalizations.supportedLocales)
-          PopupMenuItem(
-            value: locale.languageCode,
-            child: Text(_names[locale.languageCode] ?? locale.languageCode),
-          ),
-      ],
     );
   }
 }
