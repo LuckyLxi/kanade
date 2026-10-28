@@ -79,10 +79,15 @@ class _LyricViewState extends State<LyricView> {
     if (lyric == null || (lyric.lines.isEmpty && lyric.plain.isEmpty)) {
       return Center(child: Text(l.noLyrics, style: big.copyWith(color: Colors.white54, fontSize: 20)));
     }
+    // 桌面端默认会给可滚动区域加滚动条，歌词不需要
+    final noScrollbar = ScrollConfiguration.of(context).copyWith(scrollbars: false);
     if (lyric.lines.isEmpty) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
-        child: Text(lyric.plain, style: big.copyWith(fontSize: widget.fontSize * 0.7, color: Colors.white70)),
+      return ScrollConfiguration(
+        behavior: noScrollbar,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
+          child: Text(lyric.plain, style: big.copyWith(fontSize: widget.fontSize * 0.7, color: Colors.white70)),
+        ),
       );
     }
 
@@ -101,26 +106,29 @@ class _LyricViewState extends State<LyricView> {
         ).createShader(r),
         blendMode: BlendMode.dstIn,
         child: LayoutBuilder(
-          builder: (context, c) => SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(12, c.maxHeight * 0.3, 12, c.maxHeight * 0.6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final (i, line) in lyric.lines.indexed)
-                  _Line(
-                    key: _keys[i],
-                    line: line,
-                    nextMs: i + 1 < lyric.lines.length ? lyric.lines[i + 1].timeMs : null,
-                    distance: _current < 0 ? i + 1 : (i - _current).abs(),
-                    active: i == _current,
-                    free: _userScrolling,
-                    style: big,
-                    onTap: () {
-                      _userScrolledAt = DateTime(0);
-                      _player.seek(Duration(milliseconds: line.timeMs));
-                    },
-                  ),
-              ],
+          builder: (context, c) => ScrollConfiguration(
+            behavior: noScrollbar,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(12, c.maxHeight * 0.3, 12, c.maxHeight * 0.6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (i, line) in lyric.lines.indexed)
+                    _Line(
+                      key: _keys[i],
+                      line: line,
+                      nextMs: i + 1 < lyric.lines.length ? lyric.lines[i + 1].timeMs : null,
+                      distance: _current < 0 ? i + 1 : (i - _current).abs(),
+                      active: i == _current,
+                      free: _userScrolling,
+                      style: big,
+                      onTap: () {
+                        _userScrolledAt = DateTime(0);
+                        _player.seek(Duration(milliseconds: line.timeMs));
+                      },
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -154,7 +162,11 @@ class _Line extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final opacity = active ? 1.0 : free ? 0.55 : (0.4 - distance * 0.05).clamp(0.12, 0.4);
+    final opacity = active
+        ? 1.0
+        : free
+        ? 0.55
+        : (0.4 - distance * 0.05).clamp(0.12, 0.4);
     final empty = line.text.trim().isEmpty;
     final transStyle = style.copyWith(fontSize: style.fontSize! * 0.6, fontWeight: FontWeight.w600);
 
@@ -178,11 +190,17 @@ class _Line extends StatelessWidget {
                     children: [
                       active
                           ? _Sweep(line: line, nextMs: nextMs, style: style)
-                          : Text(line.text, style: style.copyWith(color: Colors.white.withValues(alpha: o))),
+                          : Text(
+                              line.text,
+                              style: style.copyWith(color: Colors.white.withValues(alpha: o)),
+                            ),
                       if (line.trans.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Text(line.trans, style: transStyle.copyWith(color: Colors.white.withValues(alpha: o * 0.7))),
+                          child: Text(
+                            line.trans,
+                            style: transStyle.copyWith(color: Colors.white.withValues(alpha: o * 0.7)),
+                          ),
                         ),
                     ],
                   ),
@@ -209,8 +227,10 @@ class _Sweep extends StatelessWidget {
     final span = ((nextMs ?? line.timeMs + 5000) - line.timeMs).clamp(800, 6000);
     return LayoutBuilder(
       builder: (context, c) {
-        final tp = TextPainter(text: TextSpan(text: line.text, style: style), textDirection: TextDirection.ltr)
-          ..layout(maxWidth: c.maxWidth);
+        final tp = TextPainter(
+          text: TextSpan(text: line.text, style: style),
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: c.maxWidth);
         final width = tp.width;
         tp.dispose();
         return ValueListenableBuilder(

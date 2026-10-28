@@ -119,6 +119,10 @@ pub async fn add_song_to_playlist(dir_id: i64, song_id: i64) -> Result<(), ApiEr
     Ok(library::add_to_playlist(dir_id, song_id).await?)
 }
 
+pub async fn remove_song_from_playlist(dir_id: i64, song_id: i64) -> Result<(), ApiError> {
+    Ok(library::remove_from_playlist(dir_id, song_id).await?)
+}
+
 pub async fn create_login_qr(kind: LoginKind) -> Result<QrCode, ApiError> {
     Ok(match kind {
         LoginKind::Qq => login::create_qr().await?,

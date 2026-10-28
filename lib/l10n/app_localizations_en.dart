@@ -22,6 +22,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tabMine => 'Me';
 
   @override
+  String get windowMinimize => 'Minimize';
+
+  @override
+  String get windowMaximize => 'Maximize';
+
+  @override
+  String get windowRestore => 'Restore';
+
+  @override
+  String get windowClose => 'Close';
+
+  @override
   String get language => 'Language';
 
   @override
@@ -391,6 +403,14 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String addedToPlaylist(String name) {
     return 'Added to \"$name\"';
+  }
+
+  @override
+  String get removeFromPlaylist => 'Remove from playlist';
+
+  @override
+  String removedFromPlaylist(String name) {
+    return 'Removed from \"$name\"';
   }
 
   @override

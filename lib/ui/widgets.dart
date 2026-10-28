@@ -88,11 +88,14 @@ class _AsyncViewState<T> extends State<AsyncView<T>> {
 }
 
 class SongTile extends StatelessWidget {
-  const SongTile({super.key, required this.songs, required this.index, this.rank});
+  const SongTile({super.key, required this.songs, required this.index, this.rank, this.onRemove});
 
   final List<Song> songs;
   final int index;
   final int? rank;
+
+  /// 自己的歌单里才有，更多菜单里会出现“从歌单中删除”。
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -141,13 +144,13 @@ class SongTile extends StatelessWidget {
           IconButton(
             tooltip: AppLocalizations.of(context).more,
             icon: const Icon(Icons.more_vert),
-            onPressed: () => showSongActions(context, song),
+            onPressed: () => showSongActions(context, song, onRemove: onRemove),
           ),
         ],
       ),
       contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 4),
       onTap: () => player.playList(songs, index),
-      onLongPress: () => showSongActions(context, song),
+      onLongPress: () => showSongActions(context, song, onRemove: onRemove),
     );
   }
 }

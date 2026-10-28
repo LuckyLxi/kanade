@@ -11,11 +11,13 @@ import 'settings/locale_controller.dart';
 import 'src/rust/api/music.dart' as api;
 import 'src/rust/frb_generated.dart';
 import 'ui/home_shell.dart';
+import 'ui/title_bar.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   await RustLib.init();
+  await setupWindow();
   final dir = await getApplicationSupportDirectory();
   await api.initCore(dataDir: dir.path);
 
@@ -51,6 +53,7 @@ class KanadeApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: theme(Brightness.light),
       darkTheme: theme(Brightness.dark),
+      builder: (context, child) => WindowFrame(child: child!),
       home: const HomeShell(),
     );
   }

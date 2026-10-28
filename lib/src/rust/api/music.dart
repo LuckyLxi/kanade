@@ -155,6 +155,14 @@ Future<void> addSongToPlaylist({
   songId: songId,
 );
 
+Future<void> removeSongFromPlaylist({
+  required PlatformInt64 dirId,
+  required PlatformInt64 songId,
+}) => RustLib.instance.api.crateApiMusicRemoveSongFromPlaylist(
+  dirId: dirId,
+  songId: songId,
+);
+
 Future<QrCode> createLoginQr({required LoginKind kind}) =>
     RustLib.instance.api.crateApiMusicCreateLoginQr(kind: kind);
 

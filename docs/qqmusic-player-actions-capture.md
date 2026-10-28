@@ -84,6 +84,28 @@ REA 的严格 HAR 校验因序号 260 的 `request.queryString[0].name` 类型�
 另外，写响应必须明确包含数字型 `retCode=0` 才报告成功；缺失结果码不再被当作 0。
 只读传输回归测试通过。收藏和添加歌单的真实写入仍需在新版 Android App 中由用户触发复测。
 
+## Windows 红心仍报 80105 的后续修正
+
+用户后续在 Windows 上确认普通歌单添加成功，但系统「我喜欢」添加返回业务码 80105。
+这证明不能把普通歌单的成功直接推广到系统收藏目录。
+
+参考 [simple-music 的实测记录](https://github.com/Yyyangshenghao/simple-music/blob/master/docs/qq-music-api.md#28-2026-10-16-红心签名加密协议修复)，
+仅将 dirId=201 的 AddSonglist / DelSonglist 分流到 `zzc` 签名、`ag-1` 加密的 musics 通道。
+采用网页公参 ct=24、cv=4747474、platform=yqq.json，以及当前登录态的 Cookie、authst 和 g_tk。
+201 的请求参数只带 dirId 与 v_songInfo；普通歌单继续使用已经成功的 PC musicu 路径与完整歌单参数。
+每次请求随机生成 12 字节 IV，AES-128-GCM 加密与签名使用同一份 JSON；响应先按协议解码，
+再检查全局 code、业务 code、retCode。单次提交，不自动重发或回退明文。
+
+本次已通过跨语言加密测试向量、业务失败不能被 retCode=0 掩盖的回归测试，
+并分别用只读接口验证普通 PC 和签名加密通道。尚待用户在新版 Windows 程序中验证真实红心操作。
+
+后续用户在该 Windows 测试版对《赴每一程未知 (I.R.I.S cover)》复测，红心仍返回 80105；
+不能将此处的签名通道修正记为已解决。官方 `get_song_detail_yqq` 返回该曲 ID=634598738、
+MID=004Ytrah01J9gS、type=0；当前微信登录态与原抓包属于同一账号，但 musickey 已变化。
+用当前通道查询该账号 3 首已收藏歌曲，均正确返回已收藏；加入 tmeLoginType 后查询结果不变。
+因此只读身份识别和加密解码通过，仍不能据此证明写入权限或完整写请求正确。
+正在补抓同一首歌在官方 Windows 客户端中的成功红心请求；未自动重放收藏写请求。
+
 ## Kanade 接入情况（2026-10-29）
 
 - 歌手页、专辑页、评论（热门 + 最新 + 回复）：`rust/src/qq/detail.rs`，用内嵌页公参 `ct=20`。

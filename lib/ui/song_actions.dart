@@ -66,6 +66,20 @@ Future<void> addToPlaylist(BuildContext context, Song song) async {
   }
 }
 
+/// 从自己的歌单删歌，成功返回 true。
+Future<bool> removeFromPlaylist(BuildContext context, MyPlaylist playlist, Song song) async {
+  if (!_requireLogin(context)) return false;
+  final l = AppLocalizations.of(context);
+  try {
+    await context.read<LibraryController>().removeFromPlaylist(playlist, song);
+    if (context.mounted) _toast(context, l.removedFromPlaylist(playlist.name));
+    return true;
+  } catch (e) {
+    if (context.mounted) _toast(context, l.actionFailed(errorText(l, e)));
+    return false;
+  }
+}
+
 void openSinger(BuildContext context, Song song) {
   final singers = song.singers.where((s) => s.mid.isNotEmpty).toList();
   if (singers.length == 1) {
@@ -94,7 +108,8 @@ void openSinger(BuildContext context, Song song) {
 }
 
 /// 歌曲的更多操作：红心、加入歌单、评论、歌手、专辑。
-Future<void> showSongActions(BuildContext context, Song song) {
+/// 在自己的歌单里打开时传入 [onRemove]，多出“从歌单中删除”。
+Future<void> showSongActions(BuildContext context, Song song, {VoidCallback? onRemove}) {
   final l = AppLocalizations.of(context);
   return showModalBottomSheet<void>(
     context: context,
@@ -126,6 +141,12 @@ Future<void> showSongActions(BuildContext context, Song song) {
               title: Text(l.addToPlaylist),
               onTap: () => run(() => addToPlaylist(context, song)),
             ),
+            if (onRemove != null)
+              ListTile(
+                leading: const Icon(Icons.playlist_remove),
+                title: Text(l.removeFromPlaylist),
+                onTap: () => run(onRemove),
+              ),
             ListTile(
               leading: const Icon(Icons.comment_outlined),
               title: Text(l.comments),

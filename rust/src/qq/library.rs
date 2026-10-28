@@ -93,11 +93,19 @@ pub async fn set_song_liked(song_id: i64, liked: bool) -> Result<()> {
 }
 
 /// `dir_id` 来自 `my_playlists`，不能写死：每个账号的普通歌单编号不同。
+async fn own_dir(dir_id: i64) -> Result<MyPlaylist> {
+    match my_playlists().await?.into_iter().find(|p| p.dir_id == dir_id) {
+        Some(p) => Ok(p),
+        None => bail!(ApiError::bad_response(format!("playlist dirid {dir_id} not found"))),
+    }
+}
+
 pub async fn add_to_playlist(dir_id: i64, song_id: i64) -> Result<()> {
-    let Some(dir) = my_playlists().await?.into_iter().find(|p| p.dir_id == dir_id) else {
-        bail!(ApiError::bad_response(format!("playlist dirid {dir_id} not found")))
-    };
-    write(&dir, song_id, true).await
+    write(&own_dir(dir_id).await?, song_id, true).await
+}
+
+pub async fn remove_from_playlist(dir_id: i64, song_id: i64) -> Result<()> {
+    write(&own_dir(dir_id).await?, song_id, false).await
 }
 
 #[cfg(test)]

@@ -71,7 +71,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 2096332093;
+  int get rustContentHash => 2108312174;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -185,6 +185,11 @@ abstract class RustLibApi extends BaseApi {
   Future<QrStatus> crateApiMusicPollLoginQr({
     required LoginKind kind,
     required String qrsig,
+  });
+
+  Future<void> crateApiMusicRemoveSongFromPlaylist({
+    required PlatformInt64 dirId,
+    required PlatformInt64 songId,
   });
 
   Future<SearchResult> crateApiMusicSearchSongs({
@@ -1165,6 +1170,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<void> crateApiMusicRemoveSongFromPlaylist({
+    required PlatformInt64 dirId,
+    required PlatformInt64 songId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_i_64(dirId, serializer);
+          sse_encode_i_64(songId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 33,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_api_error,
+        ),
+        constMeta: kCrateApiMusicRemoveSongFromPlaylistConstMeta,
+        argValues: [dirId, songId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMusicRemoveSongFromPlaylistConstMeta =>
+      const TaskConstMeta(
+        debugName: "remove_song_from_playlist",
+        argNames: ["dirId", "songId"],
+      );
+
+  @override
   Future<SearchResult> crateApiMusicSearchSongs({
     required String keyword,
     required int page,
@@ -1180,7 +1220,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 33,
+            funcId: 34,
             port: port_,
           );
         },
@@ -1208,7 +1248,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(key, serializer);
           sse_encode_String(value, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 34)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 35)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -1238,7 +1278,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 35,
+            funcId: 36,
             port: port_,
           );
         },

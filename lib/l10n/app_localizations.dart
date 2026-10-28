@@ -122,6 +122,30 @@ abstract class AppLocalizations {
   /// **'我的'**
   String get tabMine;
 
+  /// No description provided for @windowMinimize.
+  ///
+  /// In zh, this message translates to:
+  /// **'最小化'**
+  String get windowMinimize;
+
+  /// No description provided for @windowMaximize.
+  ///
+  /// In zh, this message translates to:
+  /// **'最大化'**
+  String get windowMaximize;
+
+  /// No description provided for @windowRestore.
+  ///
+  /// In zh, this message translates to:
+  /// **'向下还原'**
+  String get windowRestore;
+
+  /// No description provided for @windowClose.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get windowClose;
+
   /// No description provided for @language.
   ///
   /// In zh, this message translates to:
@@ -727,6 +751,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已加入「{name}」'**
   String addedToPlaylist(String name);
+
+  /// No description provided for @removeFromPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'从歌单中删除'**
+  String get removeFromPlaylist;
+
+  /// No description provided for @removedFromPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'已从「{name}」删除'**
+  String removedFromPlaylist(String name);
 
   /// No description provided for @actionFailed.
   ///

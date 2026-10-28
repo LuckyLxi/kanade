@@ -3,22 +3,21 @@ import 'dart:typed_data';
 import 'dart:math';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart' show SynchronousFuture, visibleForTesting;
+import 'package:flutter/foundation.dart' show SynchronousFuture;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 const fallbackPalette = [Color(0xFF3A2A4A), Color(0xFF5B3FA8), Color(0xFFB0476A), Color(0xFF2A3F6B)];
 
-/// 背景用的封面素材：4 个主色、一张预先模糊好的小图、4 张主色光斑小图。
-/// 模糊和渐变都只在取图时画一次，之后每帧只是把这些小图放大、移动、旋转着画出来。
-/// 不能每帧新建渐变 shader：Impeller 会给每个新渐变分配纹理，
+/// 背景用的封面素材：4 个主色、一张预先模糊好的小图。
+/// 模糊只在取图时做一次，之后每帧由 shader 把这张小图放大、旋转、扭曲着画出来。
+/// 不能每帧新建渐变或模糊：Impeller 会给每个新渐变分配纹理，
 /// 实测打开播放页时内存从 200MB 冲到 5GB 以上。
 class CoverArt {
-  CoverArt(this.palette, this.blurred) : blobs = _renderBlobs(palette);
+  CoverArt(this.palette, this.blurred);
 
   final List<Color> palette;
   final ui.Image blurred;
-  final List<ui.Image> blobs;
 
   /// 按主色生成的深色主题（弹出菜单、底部面板用）。fromSeed 要算色调，生成一次就留着。
   late final ThemeData theme = ThemeData(
@@ -38,26 +37,24 @@ final _artCache = <String, CoverArt>{};
 /// 正在生成的素材，同一张封面同时被预取和播放页请求时只算一次。
 final _artLoading = <String, Future<CoverArt>>{};
 
-const _blobSize = 128;
+/// 还没取到封面时用的默认图：默认主色画几团光斑，第一次用到时才生成。
+final _fallbackImage = () {
+  final rec = ui.PictureRecorder();
+  final canvas = Canvas(rec)..drawColor(fallbackPalette.first, BlendMode.src);
+  const s = _artSize + 0.0;
+  for (final (i, c) in fallbackPalette.indexed) {
+    final center = Offset(s * (0.25 + 0.5 * (i % 2)), s * (0.25 + 0.5 * (i ~/ 2)));
+    canvas.drawCircle(center, s * 0.5, Paint()..shader = ui.Gradient.radial(center, s * 0.5, [c, c.withValues(alpha: 0)]));
+  }
+  return rec.endRecording().toImageSync(_artSize, _artSize);
+}();
 
-/// 每个主色画一张径向渐变光斑：中心半透明，边缘全透明。
-List<ui.Image> _renderBlobs(List<Color> palette) => [
-      for (final c in palette)
-        () {
-          final rec = ui.PictureRecorder();
-          const center = Offset(_blobSize / 2, _blobSize / 2);
-          Canvas(rec).drawCircle(
-            center,
-            _blobSize / 2,
-            Paint()
-              ..shader = ui.Gradient.radial(center, _blobSize / 2, [c.withValues(alpha: 0.5), c.withValues(alpha: 0)]),
-          );
-          return rec.endRecording().toImageSync(_blobSize, _blobSize);
-        }(),
-    ];
+ui.FragmentProgram? _program;
+Future<void>? _programLoading;
 
-/// 还没取到封面时用的默认光斑，第一次用到时才生成。
-final _fallbackBlobs = _renderBlobs(fallbackPalette);
+/// 加载背景 shader。迷你播放器预取封面时就会调用，打开播放页时一般已经好了。
+Future<void> _loadProgram() => _programLoading ??=
+    ui.FragmentProgram.fromAsset('shaders/player_background.frag').then((p) => _program = p);
 
 /// 已经生成好的素材，播放页第一帧就能直接用，不用等异步。
 CoverArt? cachedCoverArt(String url) => _artCache[_normalize(url)];
@@ -65,10 +62,15 @@ CoverArt? cachedCoverArt(String url) => _artCache[_normalize(url)];
 String _normalize(String url) => url.replaceFirst('http://', 'https://');
 
 Future<CoverArt> loadCoverArt(String url) {
+  unawaited(_loadProgram());
   url = _normalize(url);
   final cached = _artCache.remove(url);
   if (cached != null) return SynchronousFuture(_artCache[url] = cached);
-  return _artLoading[url] ??= _build(url).whenComplete(() => _artLoading.remove(url));
+  // 回调不能写成 `=> _artLoading.remove(url)`：remove 返回的就是这个 Future 本身，
+  // whenComplete 会等它完成，自己等自己，永远不结束（播放页里切歌背景不变就是这个原因）
+  return _artLoading[url] ??= _build(url).whenComplete(() {
+    _artLoading.remove(url);
+  });
 }
 
 Future<CoverArt> _build(String url) async {
@@ -83,7 +85,7 @@ Future<CoverArt> _build(String url) async {
       const Rect.fromLTWH(0, 0, _artSize + 0.0, _artSize + 0.0),
       Paint()
         ..filterQuality = FilterQuality.high
-        ..imageFilter = ui.ImageFilter.blur(sigmaX: 26, sigmaY: 26, tileMode: TileMode.mirror),
+        ..imageFilter = ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6, tileMode: TileMode.mirror),
     );
     final blurred = await rec.endRecording().toImage(_artSize, _artSize);
     final art = CoverArt(palette, blurred);
@@ -159,8 +161,8 @@ List<Color> _pick(ByteData data) {
   ];
 }
 
-/// Apple Music 式的流动背景：模糊封面两层反向缓慢旋转，再叠几团漂移的主色光斑。
-/// 全部在一个 CustomPainter 里画，30fps 刷新；暂停播放时停止流动。
+/// Apple Music 式的流动背景：模糊封面三层不同速度旋转、整体轻微扭曲流动，再叠几团漂移的主色光斑，
+/// 由 shaders/player_background.frag 一次画完整屏，30fps 刷新；暂停播放时停止流动。
 class PlayerBackground extends StatefulWidget {
   const PlayerBackground({super.key, required this.art, required this.animate});
 
@@ -182,10 +184,14 @@ class _PlayerBackgroundState extends State<PlayerBackground> with TickerProvider
   late CoverArt? _from = widget.art;
   late CoverArt? _to = widget.art;
 
+  /// 每个背景一个 shader 对象，只建一次，每帧只改参数，不产生新的纹理。
+  ui.FragmentShader? _shader;
+
   @override
   void initState() {
     super.initState();
     if (widget.animate) _ticker.start();
+    if (_program == null) _loadProgram().then((_) => mounted ? setState(() {}) : null, onError: (_) {});
   }
 
   void _onTick(Duration elapsed) {
@@ -216,8 +222,10 @@ class _PlayerBackgroundState extends State<PlayerBackground> with TickerProvider
     _ticker.dispose();
     _fade.dispose();
     _phase.dispose();
+    _shader?.dispose();
     super.dispose();
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -232,93 +240,46 @@ class _PlayerBackgroundState extends State<PlayerBackground> with TickerProvider
   }
 }
 
-/// 性能测试用：按位开关背景各层（1 封面、2 光斑、4 压暗）。
-@visibleForTesting
-var debugBackgroundParts = 7;
-
 class _BackgroundPainter extends CustomPainter {
   _BackgroundPainter(this.s) : super(repaint: Listenable.merge([s._phase, s._fade]));
 
   final _PlayerBackgroundState s;
 
-  // 放大绘制用双三次插值，比双线性平滑得多，不会出现网格状颗粒
-  static final _imagePaint = Paint()..filterQuality = FilterQuality.high;
-
-  /// 压暗层只依赖高度，窗口大小不变就复用同一个渐变。
-  static Paint? _scrim;
-  static double _scrimHeight = -1;
+  static final _paint = Paint();
 
   @override
   void paint(Canvas canvas, Size size) {
     final t = Curves.easeInOut.transform(s._fade.value);
+    final full = Offset.zero & size;
+    final program = _program;
+    if (program == null) {
+      // shader 还没加载好（通常只有冷启动后第一次打开播放页的头几帧），先铺主色
+      final c = HSLColor.fromColor(Color.lerp(s._from?.palette.first, s._to?.palette.first, t) ?? fallbackPalette.first);
+      canvas.drawRect(full, _paint..color = c.withLightness(c.lightness * 0.6).toColor());
+      return;
+    }
+    final shader = s._shader ??= program.fragmentShader();
+    shader
+      ..setFloat(0, size.width)
+      ..setFloat(1, size.height)
+      ..setFloat(2, _artSize + 0.0)
+      ..setFloat(3, s._phase.value * 2 * pi)
+      ..setFloat(4, t);
     final from = s._from?.palette ?? fallbackPalette;
     final to = s._to?.palette ?? fallbackPalette;
-    final a = s._phase.value * 2 * pi;
-    final full = Offset.zero & size;
-
-    final base = HSLColor.fromColor(Color.lerp(from.first, to.first, t)!);
-    canvas.drawRect(full, Paint()..color = base.withLightness(base.lightness * 0.45).toColor());
-
-    // 封面：旧图淡出、新图淡入
-    if (debugBackgroundParts & 1 != 0) {
-      if (t < 1 && s._from != null) _cover(canvas, size, s._from!.blurred, a, 1 - t);
-      if (s._to != null) _cover(canvas, size, s._to!.blurred, a, t);
-    }
-
-    // 主色光斑沿不同频率的李萨如曲线漂移，同样旧的淡出、新的淡入
-    if (debugBackgroundParts & 2 != 0) {
-      if (t < 1) _blobs(canvas, size, s._from?.blobs ?? _fallbackBlobs, a, 1 - t);
-      _blobs(canvas, size, s._to?.blobs ?? _fallbackBlobs, a, t);
-    }
-
-    // 压暗一层，保证白字可读
-    if (debugBackgroundParts & 4 == 0) return;
-    if (_scrimHeight != size.height) {
-      _scrimHeight = size.height;
-      _scrim = Paint()
-        ..shader = ui.Gradient.linear(
-          Offset.zero,
-          Offset(0, size.height),
-          const [Color(0x33000000), Color(0x22000000), Color(0x77000000)],
-          const [0, 0.5, 1],
-        );
-    }
-    canvas.drawRect(full, _scrim!);
-  }
-
-  void _blobs(Canvas canvas, Size size, List<ui.Image> blobs, double a, double opacity) {
-    if (opacity <= 0.01) return;
-    final r = max(size.width, size.height) * 0.7;
-    final centers = [
-      Offset(0.25 + 0.2 * sin(a * 3), 0.2 + 0.15 * cos(a * 2)),
-      Offset(0.8 + 0.15 * cos(a * 2), 0.35 + 0.2 * sin(a * 3)),
-      Offset(0.3 + 0.2 * cos(a * 4), 0.85 + 0.1 * sin(a * 2)),
-      Offset(0.7 + 0.2 * sin(a * 2), 0.7 + 0.2 * cos(a * 5)),
-    ];
-    const src = Rect.fromLTWH(0, 0, _blobSize + 0.0, _blobSize + 0.0);
-    _imagePaint.color = Color.fromRGBO(0, 0, 0, opacity);
     for (var i = 0; i < 4; i++) {
-      final c = Offset(centers[i].dx * size.width, centers[i].dy * size.height);
-      canvas.drawImageRect(blobs[i], src, Rect.fromCircle(center: c, radius: r), _imagePaint);
+      final c = Color.lerp(from[i], to[i], t)!;
+      shader
+        ..setFloat(5 + i * 3, c.r)
+        ..setFloat(6 + i * 3, c.g)
+        ..setFloat(7 + i * 3, c.b);
     }
-  }
-
-  /// 两层反向旋转的模糊封面。
-  void _cover(Canvas canvas, Size size, ui.Image img, double a, double opacity) {
-    if (opacity <= 0.01) return;
-    final side = max(size.width, size.height) * 1.6;
-    final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
-    final dst = Rect.fromCenter(center: Offset.zero, width: side, height: side);
-    for (final (speed, dx, dy, alpha) in [(1.0, 0.15, 0.1, 0.9), (-2.0, 0.2, 0.15, 0.5)]) {
-      canvas
-        ..save()
-        ..translate(size.width / 2 + cos(a * speed) * size.width * dx, size.height / 2 + sin(a * speed) * size.height * dy)
-        ..rotate(a * speed);
-      _imagePaint.color = Color.fromRGBO(0, 0, 0, alpha * opacity);
-      canvas
-        ..drawImageRect(img, src, dst, _imagePaint)
-        ..restore();
-    }
+    shader
+      // 硬件只做双线性，shader 里再拼成双三次
+      ..setImageSampler(0, s._from?.blurred ?? _fallbackImage, filterQuality: FilterQuality.low)
+      ..setImageSampler(1, s._to?.blurred ?? _fallbackImage, filterQuality: FilterQuality.low);
+    canvas.drawRect(full, _paint..shader = shader);
+    _paint.shader = null;
   }
 
   @override

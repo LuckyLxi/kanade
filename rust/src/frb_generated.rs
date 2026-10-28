@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 2096332093;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 2108312174;
 
 // Section: executor
 
@@ -1202,6 +1202,45 @@ fn wire__crate__api__music__poll_login_qr_impl(
         },
     )
 }
+fn wire__crate__api__music__remove_song_from_playlist_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "remove_song_from_playlist",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_dir_id = <i64>::sse_decode(&mut deserializer);
+            let api_song_id = <i64>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::api::error::ApiError>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::music::remove_song_from_playlist(api_dir_id, api_song_id)
+                                .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__music__search_songs_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2228,8 +2267,14 @@ fn pde_ffi_dispatcher_primary_impl(
         30 => wire__crate__api__music__login_with_cookie_impl(port, ptr, rust_vec_len, data_len),
         31 => wire__crate__api__music__logout_impl(port, ptr, rust_vec_len, data_len),
         32 => wire__crate__api__music__poll_login_qr_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__music__search_songs_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__music__set_song_liked_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__music__remove_song_from_playlist_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        34 => wire__crate__api__music__search_songs_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__music__set_song_liked_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2244,7 +2289,7 @@ fn pde_ffi_dispatcher_sync_impl(
     match func_id {
         5 => wire__crate__api__music__current_user_impl(ptr, rust_vec_len, data_len),
         16 => wire__crate__api__music__get_pref_impl(ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__music__set_pref_impl(ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__music__set_pref_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

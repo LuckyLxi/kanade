@@ -64,6 +64,22 @@ class LibraryController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> removeFromPlaylist(MyPlaylist p, Song s) async {
+    await api.removeSongFromPlaylist(dirId: p.dirId, songId: s.id);
+    if (p.dirId == 201) _liked.remove(s.id.toInt());
+    notifyListeners();
+  }
+
+  /// 歌单 id（tid）属于自己时返回对应歌单，用来决定能不能删歌；没登录或不是自己的返回 null。
+  Future<MyPlaylist?> ownPlaylist(String id) async {
+    if (!_auth.loggedIn) return null;
+    try {
+      return (await api.getMyPlaylists()).where((p) => p.tid.toString() == id).firstOrNull;
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   void dispose() {
     _auth.removeListener(_onAuthChanged);

@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import 'discover_page.dart';
 import 'mine_page.dart';
 import 'search_page.dart';
+import 'title_bar.dart';
 import 'widgets.dart';
 
 /// 底部（窄屏）或侧边（宽屏）导航。每个标签页有自己的 Navigator，
@@ -70,10 +71,13 @@ class _HomeShellState extends State<HomeShell> {
                     selectedIndex: _tab,
                     onDestinationSelected: _select,
                     labelType: NavigationRailLabelType.all,
-                    leading: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Text('Kanade', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
+                    // 桌面端自绘标题栏里已经有应用名了
+                    leading: hasCustomTitleBar
+                        ? null
+                        : const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Text('Kanade', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
                     destinations: [
                       for (final d in destinations)
                         NavigationRailDestination(icon: Icon(d.$1), selectedIcon: Icon(d.$2), label: Text(d.$3)),

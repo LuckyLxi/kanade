@@ -4,6 +4,10 @@
   "tabDiscover": "发现",
   "tabSearch": "搜索",
   "tabMine": "我的",
+  "windowMinimize": "最小化",
+  "windowMaximize": "最大化",
+  "windowRestore": "向下还原",
+  "windowClose": "关闭",
   "language": "语言",
   "languageSystem": "跟随系统",
   "retry": "重试",
@@ -267,6 +271,15 @@
   "addToPlaylist": "加入歌单",
   "addedToPlaylist": "已加入「{name}」",
   "@addedToPlaylist": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "removeFromPlaylist": "从歌单中删除",
+  "removedFromPlaylist": "已从「{name}」删除",
+  "@removedFromPlaylist": {
     "placeholders": {
       "name": {
         "type": "String"

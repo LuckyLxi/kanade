@@ -13,6 +13,7 @@ import 'comments_page.dart';
 import 'player_background.dart';
 import 'player_lyrics.dart';
 import 'song_actions.dart';
+import 'title_bar.dart';
 import 'widgets.dart';
 
 enum _Panel { none, lyrics, queue }
@@ -52,7 +53,8 @@ class PlayerPage extends StatefulWidget {
         opaque: false,
         transitionDuration: const Duration(milliseconds: 500),
         reverseTransitionDuration: const Duration(milliseconds: 380),
-        pageBuilder: (_, _, _) => const PlayerPage(),
+        // 全屏沉浸：窗口按钮平时隐藏，鼠标移到顶部才出现
+        pageBuilder: (_, _, _) => const ImmersiveTitleBar(child: PlayerPage()),
         transitionsBuilder: (_, a, _, child) => SlideTransition(
           position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
             CurvedAnimation(parent: a, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic),

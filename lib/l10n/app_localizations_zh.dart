@@ -22,6 +22,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tabMine => '我的';
 
   @override
+  String get windowMinimize => '最小化';
+
+  @override
+  String get windowMaximize => '最大化';
+
+  @override
+  String get windowRestore => '向下还原';
+
+  @override
+  String get windowClose => '关闭';
+
+  @override
   String get language => '语言';
 
   @override
@@ -368,6 +380,14 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String addedToPlaylist(String name) {
     return '已加入「$name」';
+  }
+
+  @override
+  String get removeFromPlaylist => '从歌单中删除';
+
+  @override
+  String removedFromPlaylist(String name) {
+    return '已从「$name」删除';
   }
 
   @override
