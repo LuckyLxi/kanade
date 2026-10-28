@@ -1,0 +1,12 @@
+pub mod client;
+pub mod detail;
+pub mod error;
+pub mod library;
+pub mod login;
+pub mod lyric;
+pub mod mqtt;
+pub mod music;
+pub mod parse;
+pub mod quality;
+pub mod sign;
+pub mod store;

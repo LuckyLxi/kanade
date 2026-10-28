@@ -1,0 +1,343 @@
+{
+  "@@locale": "zh",
+  "appTitle": "Kanade",
+  "tabDiscover": "发现",
+  "tabSearch": "搜索",
+  "tabMine": "我的",
+  "language": "语言",
+  "languageSystem": "跟随系统",
+  "retry": "重试",
+  "cancel": "取消",
+  "loadFailed": "加载失败：{error}",
+  "@loadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "recommendedPlaylists": "推荐歌单",
+  "recommendedSongs": "为你推荐",
+  "radioGuessYouLike": "猜你喜欢",
+  "radioRadar": "刷歌模式",
+  "radioFailed": "电台没取到歌：{error}",
+  "@radioFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "newSongs": "新歌首发",
+  "viewAllSongs": "查看全部 {count} 首",
+  "@viewAllSongs": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "updatedAt": "更新于 {period}",
+  "@updatedAt": {
+    "description": "榜单期数",
+    "placeholders": {
+      "period": {
+        "type": "String"
+      }
+    }
+  },
+  "playAll": "播放全部 ({count})",
+  "@playAll": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "songCount": "{count} 首",
+  "@songCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchHint": "搜索歌曲、歌手",
+  "searchPrompt": "输入关键词后回车搜索",
+  "searchHot": "热搜榜",
+  "searchRecommended": "猜你想搜",
+  "searchNoResults": "没有找到相关歌曲",
+  "searchFailed": "搜索失败：{error}",
+  "@searchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "searchTotal": "共 {count} 首",
+  "@searchTotal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "quality": "音质",
+  "qualityLoading": "正在获取音质",
+  "qualityFailed": "音质获取失败：{error}",
+  "@qualityFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "qualityFailedRetry": "音质获取失败，点击重试",
+  "qualityNoneForSong": "歌曲暂无可用音质",
+  "qualityNone": "暂无可用音质",
+  "qualityWithReason": "{quality}（{reason}）",
+  "@qualityWithReason": {
+    "placeholders": {
+      "quality": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "qualityDowngraded": "{actual}（无权获取{requested}）",
+  "@qualityDowngraded": {
+    "description": "请求的音质没有权限，自动降级",
+    "placeholders": {
+      "actual": {
+        "type": "String"
+      },
+      "requested": {
+        "type": "String"
+      }
+    }
+  },
+  "qualityLow": "流畅 96k",
+  "qualityStandard": "标准 128k",
+  "qualityHigh": "高品质 320k",
+  "qualityLossless": "无损 FLAC",
+  "qualityMaster": "臻品母带",
+  "qualityAtmos": "臻品音质",
+  "qualityAtmos51": "臻品全景声 5.1",
+  "qualityAtmos71": "臻品全景声 7.1",
+  "qualityDolby": "杜比全景声",
+  "qualityOgg320": "高品质 OGG 320k",
+  "qualityAiCodec": "AI 音质",
+  "qualityVinyl": "黑胶",
+  "reasonUnsupported": "播放器暂不支持此格式",
+  "reasonUnverified": "暂未通过播放验证",
+  "reasonNoPermission": "当前账号无权限",
+  "reasonDeviceRestricted": "播放设备受限",
+  "reasonNoLink": "暂无可用链接",
+  "reasonVerifyFailed": "音质验证失败，请稍后重试",
+  "reasonFileUnavailable": "音频文件暂不可用",
+  "logout": "退出登录",
+  "loginPrompt": "登录后可以同步你的歌单，并播放账号有权限的歌曲",
+  "loginQq": "QQ 扫码登录",
+  "loginWechat": "微信扫码登录",
+  "loginQqMusic": "QQ 音乐授权登录",
+  "loginCookie": "使用 Cookie 登录",
+  "noPlaylists": "还没有歌单",
+  "qrLoading": "正在获取二维码…",
+  "qrScanHintQq": "请使用手机 QQ 扫码",
+  "qrScanHintWechat": "请使用手机微信扫码",
+  "qrScanHintQqMusic": "请使用 QQ 音乐 App 扫码，将登录 App 当前的账号",
+  "qrScanned": "已扫码，请在手机上确认",
+  "qrExpired": "二维码已过期",
+  "qrRefused": "已在手机上取消登录",
+  "qrRefresh": "刷新二维码",
+  "qrOpenQq": "跳转 QQ 登录",
+  "qrQqNotInstalled": "无法打开 QQ，请确认已安装手机 QQ",
+  "qrSaveImage": "保存二维码",
+  "qrSavedQq": "已保存到相册，在 QQ「扫一扫」右上角选择相册图片即可",
+  "qrOpenQqMusic": "跳转 QQ 音乐授权",
+  "qrQqMusicNotInstalled": "无法打开 QQ 音乐，请确认已安装 QQ 音乐 App",
+  "qrWechatSameDeviceTip": "微信不支持本机登录。如果 QQ 音乐 App 登的是微信号，可以改用「QQ 音乐授权登录」",
+  "qrSaveFailed": "保存失败：{error}",
+  "@qrSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "qrFailed": "获取二维码失败：{error}",
+  "@qrFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "cookieLoginTitle": "Cookie 登录",
+  "cookieLoginHint": "在浏览器登录 y.qq.com 后，从开发者工具复制 Cookie 粘贴到这里（需要包含 uin 和 qm_keyst）。",
+  "login": "登录",
+  "swipeForLyrics": "← 左滑查看歌词",
+  "noLyrics": "暂无歌词",
+  "modeSequence": "列表循环",
+  "modeRepeatOne": "单曲循环",
+  "modeShuffle": "随机播放",
+  "lyrics": "歌词",
+  "upNext": "接下来播放",
+  "volume": "音量",
+  "queue": "播放队列",
+  "playbackError": "播放出错：{error}",
+  "@playbackError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "songUnplayable": "《{song}》无法播放：{error}",
+  "@songUnplayable": {
+    "placeholders": {
+      "song": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "errorNotLoggedIn": "尚未登录",
+  "errorNoPlayableUrl": "没有可用的播放链接（可能需要登录或会员）",
+  "errorLoginFailed": "登录失败：{detail}",
+  "@errorLoginFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "errorInvalidCookie": "Cookie 里没有 {field}",
+  "@errorInvalidCookie": {
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "errorServer": "服务器返回错误码 {code}（{api}）",
+  "@errorServer": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "api": {
+        "type": "String"
+      }
+    }
+  },
+  "errorBadResponse": "服务器响应异常：{detail}",
+  "@errorBadResponse": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "errorNetwork": "网络错误：{detail}",
+  "@errorNetwork": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "errorInternal": "内部错误：{detail}",
+  "@errorInternal": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "like": "收藏到我喜欢",
+  "unlike": "取消喜欢",
+  "liked": "已添加到我喜欢",
+  "unliked": "已取消喜欢",
+  "addToPlaylist": "加入歌单",
+  "addedToPlaylist": "已加入「{name}」",
+  "@addedToPlaylist": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "actionFailed": "操作失败：{error}",
+  "@actionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loginRequired": "请先在「我的」页登录",
+  "noMyPlaylists": "没有可加入的歌单",
+  "more": "更多",
+  "singerNamed": "歌手：{name}",
+  "@singerNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "albumNamed": "专辑：{name}",
+  "@albumNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "comments": "评论",
+  "hotComments": "热门评论",
+  "latestComments": "最新评论",
+  "commentTotal": "共 {count} 条评论",
+  "@commentTotal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noComments": "还没有评论",
+  "replies": "回复",
+  "viewReplies": "查看 {count} 条回复",
+  "@viewReplies": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "replyTo": "回复 {name}：",
+  "@replyTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "loadMore": "加载更多",
+  "tabSongs": "歌曲",
+  "tabAlbums": "专辑",
+  "publishedOn": "发行于 {date}",
+  "@publishedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  }
+}

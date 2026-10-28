@@ -1,0 +1,32 @@
+[package]
+name = "rust_lib_kanade"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+flutter_rust_bridge = "=2.12.0"
+anyhow = "1"
+base64 = "0.22"
+rand = "0.8"
+ring = "0.17"
+reqwest = { version = "0.12", default-features = false, features = ["json", "gzip", "cookies", "rustls-tls"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha1 = "0.10"
+tokio = { version = "1", features = ["sync", "time", "rt", "macros"] }
+url = "2"
+uuid = { version = "1", features = ["v4"] }
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+# WebSocket TLS 的 rustls 0.23 需要显式启用加密后端。
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+futures-util = { version = "0.3.34", default-features = false, features = ["sink"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
