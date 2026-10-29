@@ -21,6 +21,9 @@ class LibraryController extends ChangeNotifier {
 
   bool isLiked(Song s) => _liked.contains(s.id.toInt());
 
+  /// 没登录时收藏不了。登录状态变化时本对象也会通知。
+  bool get canLike => _auth.loggedIn;
+
   bool isPending(Song s) => _pending.contains(s.id.toInt());
 
   void _onAuthChanged() {

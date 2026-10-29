@@ -3,53 +3,92 @@ import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:smtc_windows/smtc_windows.dart';
 
+import '../l10n/app_localizations.dart';
+import '../library/library_controller.dart';
+import '../settings/locale_controller.dart';
 import '../src/rust/api/types.dart';
 import 'player_controller.dart';
+
+/// 卡片上的红心按钮：是否已收藏，以及读屏用的说明。没登录或没在放歌时为 null，不显示按钮。
+typedef _Like = ({bool liked, String label});
 
 /// 系统媒体控件的一种实现。
 abstract class _Sink {
   void song(Song? s, Duration duration);
-  void state({required bool playing, required bool loading, required Duration position, required Duration duration});
+  void state(
+      {required bool playing, required bool loading, required Duration position, required Duration duration, _Like? like});
 }
 
 /// 把播放状态同步给系统的媒体卡片：Android 是通知栏和锁屏（audio_service），
 /// Windows 是音量浮窗里的媒体控件（SMTC）。卡片上点的按钮再转回 [PlayerController]。
+/// Android 卡片上另有红心按钮；Windows 的卡片按钮是系统固定的，加不了。
 ///
 /// 进度不逐帧推：系统拿到「某时刻在某位置、是否在播」后会自己往前走，
 /// 只在播放状态变化或进度跳变（拖动、切歌）时重新告诉它。
 class MediaSession {
-  MediaSession._(this._p, this._sink) {
+  MediaSession._(this._p, this._library, this._locale, this._sink) {
     _p.addListener(_sync);
+    _library.addListener(_sync);
+    _locale.addListener(_sync);
     _p.position.addListener(_onPosition);
     _sync();
   }
 
   final PlayerController _p;
+  final LibraryController _library;
+  final LocaleController _locale;
   final _Sink _sink;
 
   String? _songKey;
   bool? _playing;
   bool? _loading;
+  _Like? _like;
   Duration _anchor = Duration.zero;
   final _clock = Stopwatch();
 
   /// 在支持的平台上接入系统媒体控件，其他平台什么都不做。失败只影响系统卡片，不影响播放。
-  static Future<void> attach(PlayerController p) async {
+  static Future<void> attach(PlayerController p, LibraryController library, LocaleController locale) async {
     try {
       final _Sink? sink;
       if (Platform.isAndroid) {
-        sink = await _AndroidSink.create(p);
+        sink = await _AndroidSink.create(p, () => _toggleLike(p, library));
       } else if (Platform.isWindows) {
         sink = await _WindowsSink.create(p);
       } else {
         sink = null;
       }
-      if (sink != null) MediaSession._(p, sink);
+      if (sink != null) MediaSession._(p, library, locale, sink);
     } catch (e) {
       debugPrint('media session unavailable: $e');
     }
+  }
+
+  static Future<void> _toggleLike(PlayerController p, LibraryController library) async {
+    final song = p.current;
+    if (song == null || !library.canLike) return;
+    try {
+      await library.toggleLike(song);
+    } catch (e) {
+      // 失败时红心状态不变，卡片上的图标也就不变
+      debugPrint('like from media card failed: $e');
+    }
+  }
+
+  _Like? _currentLike() {
+    final song = _p.current;
+    if (song == null || !_library.canLike) return null;
+    final liked = _library.isLiked(song);
+    final l = _strings();
+    return (liked: liked, label: liked ? l.unlike : l.like);
+  }
+
+  AppLocalizations _strings() {
+    final l = _locale.locale ?? PlatformDispatcher.instance.locale;
+    final supported = AppLocalizations.supportedLocales.any((s) => s.languageCode == l.languageCode);
+    return lookupAppLocalizations(supported ? Locale(l.languageCode) : AppLocalizations.supportedLocales.first);
   }
 
   void _sync() {
@@ -62,7 +101,7 @@ class MediaSession {
       return;
     }
     final loading = _p.loading || _p.buffering;
-    if (_p.playing != _playing || loading != _loading) _pushState();
+    if (_p.playing != _playing || loading != _loading || _currentLike() != _like) _pushState();
   }
 
   void _onPosition() {
@@ -73,11 +112,12 @@ class MediaSession {
   void _pushState() {
     _playing = _p.playing;
     _loading = _p.loading || _p.buffering;
+    _like = _currentLike();
     _anchor = _p.position.value;
     _clock
       ..reset()
       ..start();
-    _sink.state(playing: _playing!, loading: _loading!, position: _anchor, duration: _p.duration);
+    _sink.state(playing: _playing!, loading: _loading!, position: _anchor, duration: _p.duration, like: _like);
   }
 }
 
@@ -87,12 +127,15 @@ String _artist(Song s) => s.singers.map((e) => e.name).join(' / ');
 Uri _cover(Song s) => Uri.parse(s.coverUrl.replaceFirst('http://', 'https://').replaceFirst('300x300', '500x500'));
 
 class _AndroidSink extends BaseAudioHandler with SeekHandler implements _Sink {
-  _AndroidSink(this._p);
+  _AndroidSink(this._p, this._onLike);
 
   final PlayerController _p;
+  final Future<void> Function() _onLike;
 
-  static Future<_AndroidSink> create(PlayerController p) => AudioService.init(
-        builder: () => _AndroidSink(p),
+  static const _likeAction = 'like';
+
+  static Future<_AndroidSink> create(PlayerController p, Future<void> Function() onLike) => AudioService.init(
+        builder: () => _AndroidSink(p, onLike),
         config: const AudioServiceConfig(
           androidNotificationChannelId: 'com.kanade.kanade.playback',
           androidNotificationChannelName: 'Playback',
@@ -113,12 +156,20 @@ class _AndroidSink extends BaseAudioHandler with SeekHandler implements _Sink {
         ));
 
   @override
-  void state({required bool playing, required bool loading, required Duration position, required Duration duration}) {
+  void state(
+      {required bool playing, required bool loading, required Duration position, required Duration duration, _Like? like}) {
     playbackState.add(PlaybackState(
       controls: [
         MediaControl.skipToPrevious,
         playing ? MediaControl.pause : MediaControl.play,
         MediaControl.skipToNext,
+        // 图标在 android/app/src/main/res/drawable，收起的卡片只放前三个，红心在展开后和锁屏上显示
+        if (like != null)
+          MediaControl.custom(
+            androidIcon: like.liked ? 'drawable/ic_liked' : 'drawable/ic_like',
+            label: like.label,
+            name: _likeAction,
+          ),
       ],
       systemActions: const {MediaAction.seek},
       androidCompactActionIndices: const [0, 1, 2],
@@ -149,6 +200,11 @@ class _AndroidSink extends BaseAudioHandler with SeekHandler implements _Sink {
 
   @override
   Future<void> seek(Duration position) => _p.seek(position);
+
+  @override
+  Future<dynamic> customAction(String name, [Map<String, dynamic>? extras]) async {
+    if (name == _likeAction) await _onLike();
+  }
 }
 
 class _WindowsSink implements _Sink {
@@ -205,7 +261,8 @@ class _WindowsSink implements _Sink {
   }
 
   @override
-  void state({required bool playing, required bool loading, required Duration position, required Duration duration}) {
+  void state(
+      {required bool playing, required bool loading, required Duration position, required Duration duration, _Like? like}) {
     if (!_smtc.enabled) return;
     _smtc.setPlaybackStatus(playing ? PlaybackStatus.playing : PlaybackStatus.paused);
     _smtc.updateTimeline(PlaybackTimeline(

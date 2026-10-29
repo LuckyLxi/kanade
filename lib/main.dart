@@ -29,12 +29,16 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => LocaleController()),
         ChangeNotifierProvider(create: (_) => AuthController()),
-        ChangeNotifierProvider(create: (context) {
-          final player = PlayerController(context.read<AuthController>());
-          unawaited(MediaSession.attach(player));
-          return player;
-        }),
-        ChangeNotifierProvider(create: (context) => LibraryController(context.read<AuthController>()), lazy: false),
+        ChangeNotifierProvider(create: (context) => PlayerController(context.read<AuthController>())),
+        ChangeNotifierProvider(
+          create: (context) {
+            final library = LibraryController(context.read<AuthController>());
+            // 系统媒体卡片要同时看播放状态和红心状态，在这里一起接上
+            unawaited(MediaSession.attach(context.read<PlayerController>(), library, context.read<LocaleController>()));
+            return library;
+          },
+          lazy: false,
+        ),
       ],
       child: const KanadeApp(),
     ),
