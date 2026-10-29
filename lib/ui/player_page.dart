@@ -276,6 +276,14 @@ class _Grabber extends StatelessWidget {
   }
 }
 
+/// 大封面的投影：播放时浮起来、阴影更深。飞行中的封面也用它，落地时阴影不会突然冒出来。
+BoxShadow albumArtShadow({required bool lifted}) => BoxShadow(
+  color: Colors.black.withValues(alpha: lifted ? 0.5 : 0.28),
+  blurRadius: lifted ? 60 : 18,
+  spreadRadius: lifted ? 2 : 0,
+  offset: Offset(0, lifted ? 28 : 8),
+);
+
 /// 封面：暂停时缩小、播放时弹回并加深投影；大图状态下左右滑动切歌。
 class _AlbumArt extends StatelessWidget {
   const _AlbumArt({required this.url, required this.playing, required this.expanded});
@@ -307,14 +315,7 @@ class _AlbumArt extends StatelessWidget {
           curve: Curves.easeOutCubic,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(radius),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: lifted ? 0.5 : 0.28),
-                blurRadius: lifted ? 60 : 18,
-                spreadRadius: lifted ? 2 : 0,
-                offset: Offset(0, lifted ? 28 : 8),
-              ),
-            ],
+            boxShadow: [albumArtShadow(lifted: lifted)],
           ),
           // 打开播放页时封面从播放条飞过来，落点量的就是这里
           child: KeyedSubtree(

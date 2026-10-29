@@ -382,7 +382,7 @@ class _BarMorphState extends State<_BarMorph> {
                       Positioned.fromRect(
                         rect: Rect.lerp(from, art ?? from, t)!.translate(0, -rect.top),
                         child: IgnorePointer(
-                          child: _FlyingCover(radius: lerpDouble(anchor!.coverRadius, 14, t)!),
+                          child: _FlyingCover(radius: lerpDouble(anchor!.coverRadius, 14, t)!, t: t),
                         ),
                       ),
                   ],
@@ -408,23 +408,39 @@ class _BarMorphState extends State<_BarMorph> {
 }
 
 /// 飞行中的封面：小图一定已经缓存，大图到了就盖上去。
+/// 投影随进度 [t] 从无长到大封面那样，落地换成真封面时不会突然冒出阴影。
 class _FlyingCover extends StatelessWidget {
-  const _FlyingCover({required this.radius});
+  const _FlyingCover({required this.radius, required this.t});
 
   final double radius;
+  final double t;
 
   @override
   Widget build(BuildContext context) {
     final song = context.read<PlayerController>().current;
     if (song == null) return const SizedBox.shrink();
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Cover(song.coverUrl, radius: 0),
-          Cover(bigCoverUrl(song), radius: 0),
+    final shadow = albumArtShadow(lifted: context.select<PlayerController, bool>((p) => p.playing));
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: [
+          BoxShadow(
+            color: shadow.color.withValues(alpha: shadow.color.a * t),
+            offset: shadow.offset * t,
+            blurRadius: shadow.blurRadius * t,
+            spreadRadius: shadow.spreadRadius * t,
+          ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Cover(song.coverUrl, radius: 0),
+            Cover(bigCoverUrl(song), radius: 0),
+          ],
+        ),
       ),
     );
   }

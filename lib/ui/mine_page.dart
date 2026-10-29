@@ -218,9 +218,9 @@ class _LoggedInState extends State<_LoggedIn> {
               Expanded(
                 child: Text(l.myPlaylists, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
               ),
-              _Pill(label: l.playlistsCreated, selected: !_collected, onTap: () => setState(() => _collected = false)),
+              Pill(label: l.playlistsCreated, selected: !_collected, onTap: () => setState(() => _collected = false)),
               const SizedBox(width: 6),
-              _Pill(label: l.playlistsCollected, selected: _collected, onTap: () => setState(() => _collected = true)),
+              Pill(label: l.playlistsCollected, selected: _collected, onTap: () => setState(() => _collected = true)),
             ],
           ),
         ),
@@ -320,39 +320,6 @@ class _QuickTile extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 选中是白底黑字，没选中是描边。
-class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.selected, required this.onTap});
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: selected ? scheme.secondaryContainer : Colors.transparent,
-      shape: StadiumBorder(side: selected ? BorderSide.none : BorderSide(color: scheme.outlineVariant)),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-              color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
             ),
           ),
         ),

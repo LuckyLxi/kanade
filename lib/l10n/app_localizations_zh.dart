@@ -57,6 +57,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get recommendedSongs => '为你推荐';
 
   @override
+  String get discoverRecommend => '推荐';
+
+  @override
+  String get discoverToplists => '排行榜';
+
+  @override
   String get radioGuessYouLike => '猜你喜欢';
 
   @override

@@ -81,6 +81,9 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
   static final _spring = SpringDescription.withDampingRatio(mass: 1, stiffness: 420, ratio: 0.72);
   static final _springBack = SpringDescription.withDampingRatio(mass: 1, stiffness: 520, ratio: 0.95);
 
+  /// 收成圆球慢一点，展开回胶囊还是用快的。
+  static final _springCollapse = SpringDescription.withDampingRatio(mass: 1, stiffness: 190, ratio: 0.8);
+
   @override
   void dispose() {
     _shape.dispose();
@@ -106,7 +109,7 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
     final shape = _collapsed ? 1.0 : 0.0;
     if (shape != _shapeTarget) {
       _shapeTarget = shape;
-      _springTo(_shape, shape, _spring);
+      _springTo(_shape, shape, shape == 1 ? _springCollapse : _spring);
     }
     if (_nested != _nestedShown) {
       _nestedShown = _nested;
@@ -312,7 +315,9 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
           );
           // 从圆球融进去时封面先待在右端，导航栏淡掉后快速挪到左端
           final coverShift = round * (1 - const Interval(0.5, 0.85, curve: Curves.easeInOut).transform(f));
-          final navOpacity = 1 - const Interval(0.3, 0.7).transform(f);
+          // 有播放条时导航栏淡掉、被它吸进去；没有播放条就像原来一样整条往下滑走
+          final navOpacity = hasSong ? 1 - const Interval(0.3, 0.7).transform(f) : 1.0;
+          final navSlide = hasSong ? 0.0 : f * navHeight * 1.6;
           var opacity = 1.0;
           if (a < 1) {
             // 第一次出现：一颗小圆从导航栏胶囊的右端分裂出来，长大挪到位（二级页面里从胶囊右端长出来）
@@ -346,7 +351,7 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
               // 融合时导航栏盖在播放条上面淡掉，看起来是被吸进去
               Positioned(
                 left: navLeft,
-                top: navTop,
+                top: navTop + navSlide,
                 width: navWidth,
                 height: navHeight,
                 child: IgnorePointer(

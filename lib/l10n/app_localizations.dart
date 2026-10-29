@@ -188,6 +188,18 @@ abstract class AppLocalizations {
   /// **'为你推荐'**
   String get recommendedSongs;
 
+  /// No description provided for @discoverRecommend.
+  ///
+  /// In zh, this message translates to:
+  /// **'推荐'**
+  String get discoverRecommend;
+
+  /// No description provided for @discoverToplists.
+  ///
+  /// In zh, this message translates to:
+  /// **'排行榜'**
+  String get discoverToplists;
+
   /// No description provided for @radioGuessYouLike.
   ///
   /// In zh, this message translates to:

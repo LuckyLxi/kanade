@@ -169,7 +169,8 @@ class _BodyState extends State<_Body> {
           songs: _songs,
           index: i - 1,
           rank: widget.ranked ? i : null,
-          onRemove: _owned == null ? null : () => _remove(song),
+          // “我喜欢”里不给删，取消喜欢就行
+          onRemove: canEditPlaylist(_owned) ? () => _remove(song) : null,
         );
       },
     );

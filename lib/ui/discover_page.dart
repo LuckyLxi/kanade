@@ -9,8 +9,88 @@ import '../src/rust/api/types.dart';
 import 'song_list_page.dart';
 import 'widgets.dart';
 
-class DiscoverPage extends StatelessWidget {
+/// 发现页：顶上固定两颗胶囊切换“推荐”和“排行榜”，也可以左右滑。
+class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
+
+  @override
+  State<DiscoverPage> createState() => _DiscoverPageState();
+}
+
+class _DiscoverPageState extends State<DiscoverPage> {
+  final _pages = PageController();
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    // 不要大标题：底部导航已经说明了在哪一页
+    return Scaffold(
+      body: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, MediaQuery.paddingOf(context).top + 8, 16, 4),
+            child: ListenableBuilder(
+              listenable: _pages,
+              builder: (context, _) {
+                final at = _pages.hasClients ? (_pages.page ?? 0).round() : 0;
+                void go(int i) =>
+                    _pages.animateToPage(i, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+                return Row(
+                  children: [
+                    Pill(label: l.discoverRecommend, selected: at == 0, large: true, onTap: () => go(0)),
+                    const SizedBox(width: 8),
+                    Pill(label: l.discoverToplists, selected: at == 1, large: true, onTap: () => go(1)),
+                  ],
+                );
+              },
+            ),
+          ),
+          Expanded(
+            // 胶囊那排已经让开了状态栏
+            child: MediaQuery.removePadding(
+              context: context,
+              removeTop: true,
+              child: PageView(
+                controller: _pages,
+                children: const [_KeepAlive(_RecommendTab()), _KeepAlive(_ToplistTab())],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 滑到另一页时不销毁，回来还在原来的滚动位置，也不用重新加载。
+class _KeepAlive extends StatefulWidget {
+  const _KeepAlive(this.child);
+
+  final Widget child;
+
+  @override
+  State<_KeepAlive> createState() => _KeepAliveState();
+}
+
+class _KeepAliveState extends State<_KeepAlive> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+}
+
+class _RecommendTab extends StatelessWidget {
+  const _RecommendTab();
 
   /// 每个歌曲区块在首页只露出几首，其余点“查看全部”。
   static const _previewSongs = 6;
@@ -18,45 +98,38 @@ class DiscoverPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    // 不要大标题：底部导航已经说明了在哪一页
-    return Scaffold(
-      body: AsyncView<(RecommendFeed, List<Song>, List<TopListGroup>)>(
-        load: () async {
-          // 三个请求并行发出
-          final feed = api.getRecommendFeed();
-          final newSongs = api.getNewSongs();
-          final toplists = api.getToplists();
-          return (await feed, await newSongs, await toplists);
-        },
-        builder: (context, data) {
-          final (feed, newSongs, groups) = data;
-          return CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).top + 4)),
-              _RadioRow(feed),
-              for (final section in feed.sections) ...[
-                if (section.playlists.isNotEmpty) ...[
-                  _Header(section.title.isEmpty ? l.recommendedPlaylists : section.title),
-                  _PlaylistRow(section.playlists),
-                ],
-                if (section.songs.isNotEmpty)
-                  ..._songSection(context, section.title.isEmpty ? l.recommendedSongs : section.title, section.songs),
+    return AsyncView<(RecommendFeed, List<Song>)>(
+      load: () async {
+        // 两个请求并行发出
+        final feed = api.getRecommendFeed();
+        final newSongs = api.getNewSongs();
+        return (await feed, await newSongs);
+      },
+      builder: (context, data) {
+        final (feed, newSongs) = data;
+        // 电台卡排在第一排歌单（每日30首那排）的最前面；没有歌单时单独一排
+        final radioAt = feed.sections.indexWhere((s) => s.playlists.isNotEmpty);
+        final radio = _RadioCards(feed);
+        return CustomScrollView(
+          slivers: [
+            if (radioAt < 0) _PlaylistRow(const [], leading: radio),
+            for (final (i, section) in feed.sections.indexed) ...[
+              if (section.playlists.isNotEmpty) ...[
+                _Header(section.title.isEmpty ? l.recommendedPlaylists : section.title),
+                _PlaylistRow(section.playlists, leading: i == radioAt ? radio : null),
               ],
-              if (newSongs.isNotEmpty) ..._songSection(context, l.newSongs, newSongs),
-              for (final g in groups) ...[
-                _Header(g.name),
-                SliverList.builder(itemCount: g.lists.length, itemBuilder: (_, i) => _TopListTile(g.lists[i])),
-              ],
-              const SliverToBoxAdapter(child: BottomSpacer()),
+              if (section.songs.isNotEmpty)
+                ..._songSection(context, section.title.isEmpty ? l.recommendedSongs : section.title, section.songs),
             ],
-          );
-        },
-      ),
+            if (newSongs.isNotEmpty) ..._songSection(context, l.newSongs, newSongs),
+            const SliverToBoxAdapter(child: BottomSpacer()),
+          ],
+        );
+      },
     );
   }
 
   List<Widget> _songSection(BuildContext context, String title, List<Song> songs) {
-    final l = AppLocalizations.of(context);
     final shown = songs.length > _previewSongs ? _previewSongs : songs.length;
     void viewAll() => Navigator.of(context).push(SongListPage.songs(title, songs));
     return [
@@ -66,39 +139,38 @@ class DiscoverPage extends StatelessWidget {
         itemCount: shown,
         itemBuilder: (_, i) => SongTile(songs: songs, index: i),
       ),
-      if (songs.length > shown)
-        SliverToBoxAdapter(
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: TextButton(onPressed: viewAll, child: Text(l.viewAllSongs(songs.length))),
-            ),
-          ),
-        ),
     ];
   }
 }
 
-/// 横向滚动的一排歌单卡片（含“每日30首”等入口）。
+/// 歌单卡宽度，电台卡跟它对齐。
+const _cardWidth = 124.0;
+
+/// 横向滚动的一排歌单卡片（含“每日30首”等入口），[leading] 排在最前面。
 class _PlaylistRow extends StatelessWidget {
-  const _PlaylistRow(this.playlists);
+  const _PlaylistRow(this.playlists, {this.leading});
 
   final List<PlaylistBrief> playlists;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) => SliverToBoxAdapter(
     child: SizedBox(
       height: 186,
-      child: ListView.separated(
+      child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: playlists.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemCount: playlists.length + (leading == null ? 0 : 1),
         itemBuilder: (context, i) {
+          if (leading != null) {
+            if (i == 0) return leading!;
+            i--;
+          }
           final p = playlists[i];
-          return SizedBox(
-            width: 124,
+          return Container(
+            width: _cardWidth,
+            // leading 自己带右边距
+            margin: EdgeInsets.only(left: i == 0 ? 0 : 12),
             child: PlaylistCard(
               title: p.title,
               coverUrl: p.coverUrl,
@@ -124,40 +196,164 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) => SliverToBoxAdapter(child: SectionHeader(text, onMore: onMore));
 }
 
-class _TopListTile extends StatelessWidget {
-  const _TopListTile(this.t);
+/// 排行榜页：第一组（巅峰榜）做成横滑的大卡，露出前三名；其余各组排成封面网格。
+class _ToplistTab extends StatelessWidget {
+  const _ToplistTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return AsyncView<List<TopListGroup>>(
+      load: api.getToplists,
+      builder: (context, groups) => CustomScrollView(
+        slivers: [
+          for (final (i, g) in groups.indexed)
+            if (g.lists.isNotEmpty) ...[
+              _Header(g.name),
+              if (i == 0) _FeaturedToplists(g.lists) else _ToplistGrid(g.lists),
+            ],
+          const SliverToBoxAdapter(child: BottomSpacer()),
+        ],
+      ),
+    );
+  }
+}
+
+void _openToplist(BuildContext context, TopList t) =>
+    Navigator.of(context).push(SongListPage.toplist(t.topId, t.period, t.title));
+
+class _FeaturedToplists extends StatelessWidget {
+  const _FeaturedToplists(this.lists);
+
+  final List<TopList> lists;
+
+  @override
+  Widget build(BuildContext context) => SliverToBoxAdapter(
+    child: SizedBox(
+      height: 178,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: lists.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (context, i) => _FeaturedToplistCard(lists[i]),
+      ),
+    ),
+  );
+}
+
+/// 上面封面 + 榜名，下面前三名。
+class _FeaturedToplistCard extends StatelessWidget {
+  const _FeaturedToplistCard(this.t);
 
   final TopList t;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Cover(t.coverUrl, size: 64, radius: 12),
-      title: Text(t.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final (i, s) in t.preview.indexed) Text('${i + 1}. $s', maxLines: 1, overflow: TextOverflow.ellipsis),
-        ],
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 272,
+      child: Material(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _openToplist(context, t),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Cover(t.coverUrl, size: 64, radius: 12),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        t.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                for (final (i, s) in t.preview.take(3).indexed)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          child: Text(
+                            '${i + 1}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: i == 0 ? scheme.primary : scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(s, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
-      onTap: () => Navigator.of(context).push(SongListPage.toplist(t.topId, t.period, t.title)),
     );
   }
 }
 
-/// 猜你喜欢（需要登录）和刷歌模式（需要推荐页给出起始歌曲）两个电台入口。
-/// 猜你喜欢先预取一批，用第一首的专辑图当封面，点开就从这批放起；刷歌用入口卡给的封面。
-class _RadioRow extends StatefulWidget {
-  const _RadioRow(this.feed);
+/// 一行三个（宽屏多几个）方形封面，下面写榜名。
+class _ToplistGrid extends StatelessWidget {
+  const _ToplistGrid(this.lists);
+
+  final List<TopList> lists;
+
+  @override
+  Widget build(BuildContext context) => SliverPadding(
+    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+    sliver: SliverLayoutBuilder(
+      builder: (context, c) {
+        const gap = 12.0;
+        final cols = ((c.crossAxisExtent + gap) / (140 + gap)).ceil().clamp(3, 8);
+        final w = (c.crossAxisExtent - gap * (cols - 1)) / cols;
+        return SliverGrid.builder(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: cols,
+            crossAxisSpacing: gap,
+            mainAxisSpacing: 14,
+            // 封面 + 间距 + 两行标题
+            mainAxisExtent: w + 8 + 36,
+          ),
+          itemCount: lists.length,
+          itemBuilder: (context, i) {
+            final t = lists[i];
+            return PlaylistCard(title: t.title, coverUrl: t.coverUrl, onTap: () => _openToplist(context, t));
+          },
+        );
+      },
+    ),
+  );
+}
+
+/// 猜你喜欢（需要登录）和刷歌模式（需要推荐页给出起始歌曲）两个电台入口，放在歌单那排最前面。
+/// 猜你喜欢先预取一批，长条卡上显示第一首的封面、歌名和歌手，点开就从这批放起；刷歌用入口卡给的封面。
+class _RadioCards extends StatefulWidget {
+  const _RadioCards(this.feed);
 
   final RecommendFeed feed;
 
   @override
-  State<_RadioRow> createState() => _RadioRowState();
+  State<_RadioCards> createState() => _RadioCardsState();
 }
 
-class _RadioRowState extends State<_RadioRow> {
+class _RadioCardsState extends State<_RadioCards> {
   /// 预取的猜你喜欢下一批；没登录或已经用掉时为 null。
   Future<List<Song>>? _guess;
   List<Song> _guessShown = const [];
@@ -202,123 +398,105 @@ class _RadioRowState extends State<_RadioRow> {
       _guess = null;
       _guessShown = const [];
     }
-    if (!loggedIn && feed.radarSeed.isEmpty) return const SliverToBoxAdapter();
+    if (!loggedIn && feed.radarSeed.isEmpty) return const SizedBox.shrink();
     var page = 0;
     final next = _guessShown.firstOrNull;
-    return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      sliver: SliverToBoxAdapter(
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Row(
-              children: [
-                if (loggedIn)
-                  Expanded(
-                    child: _RadioCard(
-                      icon: Icons.favorite,
-                      title: l.radioGuessYouLike,
-                      subtitle: next?.name,
-                      coverUrl: next?.coverUrl ?? '',
-                      onTap: _startGuess,
-                    ),
-                  ),
-                if (loggedIn && feed.radarSeed.isNotEmpty) const SizedBox(width: 10),
-                if (feed.radarSeed.isNotEmpty)
-                  Expanded(
-                    child: _RadioCard(
-                      icon: Icons.radar,
-                      title: l.radioRadar,
-                      coverUrl: feed.radarCover,
-                      // 每次点击从第 1 批开始，之后续取依次往后翻
-                      onTap: () {
-                        page = 0;
-                        _start(() => api.getRadarSongs(seed: feed.radarSeed, page: ++page));
-                      },
-                    ),
-                  ),
-                // 只有一张时也保持半宽
-                if (!loggedIn || feed.radarSeed.isEmpty) ...[const SizedBox(width: 10), const Spacer()],
-              ],
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (loggedIn) ...[
+          _GuessCard(title: l.radioGuessYouLike, song: next, onTap: _startGuess),
+          const SizedBox(width: 12),
+        ],
+        if (feed.radarSeed.isNotEmpty) ...[
+          SizedBox(
+            width: _cardWidth,
+            child: PlaylistCard(
+              title: l.radioRadar,
+              coverUrl: feed.radarCover,
+              // 每次点击从第 1 批开始，之后续取依次往后翻
+              onTap: () {
+                page = 0;
+                _start(() => api.getRadarSongs(seed: feed.radarSeed, page: ++page));
+              },
             ),
           ),
-        ),
-      ),
+          const SizedBox(width: 12),
+        ],
+      ],
     );
   }
 }
 
-/// 电台入口：左边专辑封面（右下角压一个抗色图标），右边标题和接下来那首歌。
-class _RadioCard extends StatelessWidget {
-  const _RadioCard({required this.icon, required this.title, this.subtitle, required this.coverUrl, required this.onTap});
+/// 猜你喜欢：比歌单卡宽一倍的长条，左边封面、右边歌名和歌手，下面跟歌单卡一样写入口名。
+class _GuessCard extends StatelessWidget {
+  const _GuessCard({required this.title, required this.song, required this.onTap});
 
-  final IconData icon;
   final String title;
-  final String? subtitle;
-  final String coverUrl;
+
+  /// 点开会先放的那首；还没取到时为 null。
+  final Song? song;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
+    final s = song;
+    return SizedBox(
+      width: _cardWidth * 2 + 12,
       child: InkWell(
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            children: [
-              SizedBox.square(
-                dimension: 56,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Cover(coverUrl, size: 56, radius: 12),
-                    Positioned(
-                      right: -4,
-                      bottom: -4,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: scheme.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: scheme.surfaceContainerHigh, width: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: _cardWidth,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(color: scheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(14)),
+              child: Row(
+                children: [
+                  Cover(s?.coverUrl ?? '', size: _cardWidth, radius: 0),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          s?.name ?? '',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, height: 1.3),
                         ),
-                        child: Icon(icon, size: 13, color: scheme.onPrimary),
-                      ),
+                        if (s != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            singerNames(s),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Icon(Icons.play_circle_fill, size: 32, color: scheme.primary),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.35),
+            ),
+          ],
         ),
       ),
     );

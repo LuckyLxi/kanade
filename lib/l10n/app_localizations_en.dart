@@ -57,6 +57,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recommendedSongs => 'Picked for you';
 
   @override
+  String get discoverRecommend => 'For you';
+
+  @override
+  String get discoverToplists => 'Charts';
+
+  @override
   String get radioGuessYouLike => 'Guess you like';
 
   @override

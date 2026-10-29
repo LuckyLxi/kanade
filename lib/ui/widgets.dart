@@ -236,6 +236,44 @@ class BottomSpacer extends StatelessWidget {
   Widget build(BuildContext context) => SizedBox(height: MediaQuery.paddingOf(context).bottom + 16);
 }
 
+/// 切换用的小胶囊：选中是白底黑字，没选中是描边。
+class Pill extends StatelessWidget {
+  const Pill({super.key, required this.label, required this.selected, required this.onTap, this.large = false});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  /// 页面顶上那种大一号的。
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: selected ? scheme.secondaryContainer : Colors.transparent,
+      shape: StadiumBorder(side: selected ? BorderSide.none : BorderSide(color: scheme.outlineVariant)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: large
+              ? const EdgeInsets.symmetric(horizontal: 18, vertical: 8)
+              : const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: large ? 15 : 13,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+              color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 方形封面 + 标题的歌单卡片，播放量放在左上角的小胶囊里。
 class PlaylistCard extends StatelessWidget {
   const PlaylistCard({super.key, required this.title, required this.coverUrl, this.badge, required this.onTap});

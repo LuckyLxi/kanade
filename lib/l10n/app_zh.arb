@@ -22,6 +22,8 @@
   },
   "recommendedPlaylists": "推荐歌单",
   "recommendedSongs": "为你推荐",
+  "discoverRecommend": "推荐",
+  "discoverToplists": "排行榜",
   "radioGuessYouLike": "猜你喜欢",
   "radioRadar": "刷歌模式",
   "radioFailed": "电台没取到歌：{error}",
