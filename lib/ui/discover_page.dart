@@ -18,8 +18,8 @@ class DiscoverPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    // 不要大标题：底部导航已经说明了在哪一页
     return Scaffold(
-      appBar: AppBar(title: Text(l.tabDiscover)),
       body: AsyncView<(RecommendFeed, List<Song>, List<TopListGroup>)>(
         load: () async {
           // 三个请求并行发出
@@ -32,6 +32,7 @@ class DiscoverPage extends StatelessWidget {
           final (feed, newSongs, groups) = data;
           return CustomScrollView(
             slivers: [
+              SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).top + 4)),
               _RadioRow(feed),
               for (final section in feed.sections) ...[
                 if (section.playlists.isNotEmpty) ...[
@@ -44,12 +45,9 @@ class DiscoverPage extends StatelessWidget {
               if (newSongs.isNotEmpty) ..._songSection(context, l.newSongs, newSongs),
               for (final g in groups) ...[
                 _Header(g.name),
-                SliverList.builder(
-                  itemCount: g.lists.length,
-                  itemBuilder: (_, i) => _TopListTile(g.lists[i]),
-                ),
+                SliverList.builder(itemCount: g.lists.length, itemBuilder: (_, i) => _TopListTile(g.lists[i])),
               ],
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              const SliverToBoxAdapter(child: BottomSpacer()),
             ],
           );
         },
@@ -60,20 +58,21 @@ class DiscoverPage extends StatelessWidget {
   List<Widget> _songSection(BuildContext context, String title, List<Song> songs) {
     final l = AppLocalizations.of(context);
     final shown = songs.length > _previewSongs ? _previewSongs : songs.length;
+    void viewAll() => Navigator.of(context).push(SongListPage.songs(title, songs));
     return [
-      _Header(title),
+      _Header(title, onMore: songs.length > shown ? viewAll : null),
       // 点某一首时把整个区块作为播放列表
-      SliverList.builder(itemCount: shown, itemBuilder: (_, i) => SongTile(songs: songs, index: i)),
+      SliverList.builder(
+        itemCount: shown,
+        itemBuilder: (_, i) => SongTile(songs: songs, index: i),
+      ),
       if (songs.length > shown)
         SliverToBoxAdapter(
           child: Align(
             alignment: Alignment.centerLeft,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: TextButton(
-                onPressed: () => Navigator.of(context).push(SongListPage.songs(title, songs)),
-                child: Text(l.viewAllSongs(songs.length)),
-              ),
+              child: TextButton(onPressed: viewAll, child: Text(l.viewAllSongs(songs.length))),
             ),
           ),
         ),
@@ -89,70 +88,40 @@ class _PlaylistRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SliverToBoxAdapter(
-        child: SizedBox(
-          height: 196,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: playlists.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (_, i) => SizedBox(width: 130, child: _PlaylistCard(playlists[i])),
-          ),
-        ),
-      );
+    child: SizedBox(
+      height: 186,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: playlists.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (context, i) {
+          final p = playlists[i];
+          return SizedBox(
+            width: 124,
+            child: PlaylistCard(
+              title: p.title,
+              coverUrl: p.coverUrl,
+              badge: p.playCount > BigInt.zero
+                  ? '▶ ${formatCount(AppLocalizations.of(context), p.playCount.toInt())}'
+                  : null,
+              onTap: () => Navigator.of(context).push(SongListPage.playlist(p.id, p.title)),
+            ),
+          );
+        },
+      ),
+    ),
+  );
 }
 
 class _Header extends StatelessWidget {
-  const _Header(this.text);
+  const _Header(this.text, {this.onMore});
 
   final String text;
+  final VoidCallback? onMore;
 
   @override
-  Widget build(BuildContext context) => SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
-          child: Text(text, style: Theme.of(context).textTheme.titleLarge),
-        ),
-      );
-}
-
-class _PlaylistCard extends StatelessWidget {
-  const _PlaylistCard(this.p);
-
-  final PlaylistBrief p;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () => Navigator.of(context).push(SongListPage.playlist(p.id, p.title)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AspectRatio(
-            aspectRatio: 1,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Cover(p.coverUrl),
-                if (p.playCount > BigInt.zero)
-                  Positioned(
-                    right: 6,
-                    top: 4,
-                    child: Text(
-                      '▶ ${formatCount(AppLocalizations.of(context), p.playCount.toInt())}',
-                      style: const TextStyle(color: Colors.white, fontSize: 11, shadows: [Shadow(blurRadius: 4)]),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(p.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => SliverToBoxAdapter(child: SectionHeader(text, onMore: onMore));
 }
 
 class _TopListTile extends StatelessWidget {
@@ -164,13 +133,12 @@ class _TopListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Cover(t.coverUrl, size: 64),
-      title: Text(t.title),
+      leading: Cover(t.coverUrl, size: 64, radius: 12),
+      title: Text(t.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final (i, s) in t.preview.indexed)
-            Text('${i + 1}. $s', maxLines: 1, overflow: TextOverflow.ellipsis),
+          for (final (i, s) in t.preview.indexed) Text('${i + 1}. $s', maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
       ),
       onTap: () => Navigator.of(context).push(SongListPage.toplist(t.topId, t.period, t.title)),
@@ -200,21 +168,31 @@ class _RadioRow extends StatelessWidget {
     final loggedIn = context.watch<AuthController>().loggedIn;
     if (!loggedIn && feed.radarSeed.isEmpty) return const SliverToBoxAdapter();
     var page = 0;
+    final scheme = Theme.of(context).colorScheme;
+    // 深灰实心胶囊，抗色只给图标
+    final style = FilledButton.styleFrom(
+      backgroundColor: scheme.surfaceContainerHigh,
+      foregroundColor: scheme.onSurface,
+      iconColor: scheme.primary,
+      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+    );
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       sliver: SliverToBoxAdapter(
         child: Wrap(
-          spacing: 12,
+          spacing: 10,
           runSpacing: 8,
           children: [
             if (loggedIn)
-              FilledButton.tonalIcon(
+              FilledButton.icon(
+                style: style,
                 icon: const Icon(Icons.favorite_outline),
                 label: Text(l.radioGuessYouLike),
                 onPressed: () => _start(context, api.getGuessYouLike),
               ),
             if (feed.radarSeed.isNotEmpty)
-              FilledButton.tonalIcon(
+              FilledButton.icon(
+                style: style,
                 icon: const Icon(Icons.radar),
                 label: Text(l.radioRadar),
                 // 每次点击从第 1 批开始，之后续取依次往后翻

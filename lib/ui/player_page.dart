@@ -47,14 +47,17 @@ final _fallbackTheme = ThemeData(
 /// Apple Music 风格的全屏播放页：封面取色流动背景、下拉关闭，
 /// 窄屏下封面会收进左上角，给歌词 / 播放队列腾地方。
 class PlayerPage extends StatefulWidget {
-  const PlayerPage({super.key});
+  const PlayerPage({super.key, this.showQueue = false});
 
-  static Route<void> route() => PageRouteBuilder(
+  /// 打开时直接显示播放队列（桌面底栏的队列按钮用）。
+  final bool showQueue;
+
+  static Route<void> route({bool showQueue = false}) => PageRouteBuilder(
         opaque: false,
         transitionDuration: const Duration(milliseconds: 500),
         reverseTransitionDuration: const Duration(milliseconds: 380),
         // 全屏沉浸：窗口按钮平时隐藏，鼠标移到顶部才出现
-        pageBuilder: (_, _, _) => const ImmersiveTitleBar(child: PlayerPage()),
+        pageBuilder: (_, _, _) => ImmersiveTitleBar(child: PlayerPage(showQueue: showQueue)),
         transitionsBuilder: (_, a, _, child) => SlideTransition(
           position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
             CurvedAnimation(parent: a, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic),
@@ -68,7 +71,7 @@ class PlayerPage extends StatefulWidget {
 }
 
 class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateMixin {
-  _Panel _panel = _Panel.none;
+  late _Panel _panel = widget.showQueue ? _Panel.queue : _Panel.none;
   CoverArt? _art;
   String? _artUrl;
 

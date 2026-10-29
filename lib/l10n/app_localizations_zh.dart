@@ -520,4 +520,25 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get ok => '确定';
+
+  @override
+  String get likedSongs => '我喜欢';
+
+  @override
+  String get recentPlays => '最近播放';
+
+  @override
+  String get myPlaylists => '我的歌单';
+
+  @override
+  String get playlistsCreated => '创建的';
+
+  @override
+  String get playlistsCollected => '收藏的';
+
+  @override
+  String get shufflePlay => '随机播放';
+
+  @override
+  String get seeAll => '全部';
 }

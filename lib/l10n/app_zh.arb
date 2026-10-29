@@ -373,5 +373,12 @@
   "clearApiCacheConfirm": "清除歌单、搜索、歌词等缓存数据？",
   "cacheCleared": "已清除",
   "logoutConfirm": "确定退出登录？",
-  "ok": "确定"
+  "ok": "确定",
+  "likedSongs": "我喜欢",
+  "recentPlays": "最近播放",
+  "myPlaylists": "我的歌单",
+  "playlistsCreated": "创建的",
+  "playlistsCollected": "收藏的",
+  "shufflePlay": "随机播放",
+  "seeAll": "全部"
 }

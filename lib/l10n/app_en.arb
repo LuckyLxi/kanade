@@ -149,5 +149,12 @@
   "clearApiCacheConfirm": "Clear cached playlists, search results, lyrics and more?",
   "cacheCleared": "Cleared",
   "logoutConfirm": "Log out?",
-  "ok": "OK"
+  "ok": "OK",
+  "likedSongs": "Liked songs",
+  "recentPlays": "Recently played",
+  "myPlaylists": "My playlists",
+  "playlistsCreated": "Created",
+  "playlistsCollected": "Saved",
+  "shufflePlay": "Shuffle",
+  "seeAll": "See all"
 }

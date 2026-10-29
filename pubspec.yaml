@@ -50,6 +50,9 @@ dependencies:
   window_manager: ^0.5.2
   audio_service: ^0.18.19
   smtc_windows: ^1.1.0
+  # Hazuki 打过补丁的 1.13.0：圆弧透镜 + Windows 背景折射
+  liquid_glass_widgets:
+    path: third_party/liquid_glass_widgets
 
 dev_dependencies:
   flutter_test:

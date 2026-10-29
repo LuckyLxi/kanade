@@ -546,4 +546,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ok => 'OK';
+
+  @override
+  String get likedSongs => 'Liked songs';
+
+  @override
+  String get recentPlays => 'Recently played';
+
+  @override
+  String get myPlaylists => 'My playlists';
+
+  @override
+  String get playlistsCreated => 'Created';
+
+  @override
+  String get playlistsCollected => 'Saved';
+
+  @override
+  String get shufflePlay => 'Shuffle';
+
+  @override
+  String get seeAll => 'See all';
 }

@@ -210,7 +210,8 @@ class _SearchPageState extends State<SearchPage> {
     }
     final theme = Theme.of(context);
     return ListView(
-      padding: const EdgeInsets.only(bottom: 16),
+      // 自己指定 padding 会盖掉 ListView 自动加的底部留白，要把玻璃条的高度算进去
+      padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 16),
       children: [
         if (hot.recommended.isNotEmpty) ...[
           _sectionTitle(l.searchRecommended),

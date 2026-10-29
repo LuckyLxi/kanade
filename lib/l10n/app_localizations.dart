@@ -997,6 +997,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'确定'**
   String get ok;
+
+  /// No description provided for @likedSongs.
+  ///
+  /// In zh, this message translates to:
+  /// **'我喜欢'**
+  String get likedSongs;
+
+  /// No description provided for @recentPlays.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近播放'**
+  String get recentPlays;
+
+  /// No description provided for @myPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'我的歌单'**
+  String get myPlaylists;
+
+  /// No description provided for @playlistsCreated.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建的'**
+  String get playlistsCreated;
+
+  /// No description provided for @playlistsCollected.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏的'**
+  String get playlistsCollected;
+
+  /// No description provided for @shufflePlay.
+  ///
+  /// In zh, this message translates to:
+  /// **'随机播放'**
+  String get shufflePlay;
+
+  /// No description provided for @seeAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get seeAll;
 }
 
 class _AppLocalizationsDelegate

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -10,7 +12,14 @@ import 'song_actions.dart';
 import 'widgets.dart';
 
 /// period 只有榜单有，用来显示“更新于 …”。owned 是自己的歌单时才有，可以删歌。
-typedef ListData = ({String title, String cover, String period, String description, List<Song> songs, MyPlaylist? owned});
+typedef ListData = ({
+  String title,
+  String cover,
+  String period,
+  String description,
+  List<Song> songs,
+  MyPlaylist? owned,
+});
 
 /// 歌单详情 / 榜单详情共用的页面。
 class SongListPage extends StatelessWidget {
@@ -21,47 +30,61 @@ class SongListPage extends StatelessWidget {
   final bool ranked;
 
   static Route<void> playlist(String id, String title) => MaterialPageRoute(
-        builder: (context) => SongListPage(
-          title: title,
-          load: () async {
-            final owned = context.read<LibraryController>().ownPlaylist(id);
-            final d = await api.getPlaylistDetail(id: id);
-            return (
-              title: d.title,
-              cover: d.coverUrl,
-              period: '',
-              description: d.description,
-              songs: d.songs,
-              owned: await owned,
-            );
-          },
-        ),
-      );
+    builder: (context) => SongListPage(
+      title: title,
+      load: () async {
+        final owned = context.read<LibraryController>().ownPlaylist(id);
+        final d = await api.getPlaylistDetail(id: id);
+        return (
+          title: d.title,
+          cover: d.coverUrl,
+          period: '',
+          description: d.description,
+          songs: d.songs,
+          owned: await owned,
+        );
+      },
+    ),
+  );
 
   /// 已经拿到的歌曲列表，比如推荐页某个区块的“查看全部”。
   static Route<void> songs(String title, List<Song> songs) => MaterialPageRoute(
-        builder: (_) => SongListPage(
-          title: title,
-          load: () async =>
-              (title: title, cover: songs.isEmpty ? '' : songs.first.coverUrl, period: '', description: '', songs: songs, owned: null),
-        ),
-      );
+    builder: (_) => SongListPage(
+      title: title,
+      load: () async => (
+        title: title,
+        cover: songs.isEmpty ? '' : songs.first.coverUrl,
+        period: '',
+        description: '',
+        songs: songs,
+        owned: null,
+      ),
+    ),
+  );
 
   static Route<void> toplist(int topId, String period, String title) => MaterialPageRoute(
-        builder: (_) => SongListPage(
-          title: title,
-          ranked: true,
-          load: () async {
-            final d = await api.getToplistDetail(topId: topId, period: period);
-            return (title: d.title, cover: d.coverUrl, period: d.period, description: d.description, songs: d.songs, owned: null);
-          },
-        ),
-      );
+    builder: (_) => SongListPage(
+      title: title,
+      ranked: true,
+      load: () async {
+        final d = await api.getToplistDetail(topId: topId, period: period);
+        return (
+          title: d.title,
+          cover: d.coverUrl,
+          period: d.period,
+          description: d.description,
+          songs: d.songs,
+          owned: null,
+        );
+      },
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
+    // 标题放在下面的大封面头部里，顶栏只留返回
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(),
       body: AsyncView<ListData>(
         load: load,
         builder: (context, d) => _Body(d, ranked: ranked),
@@ -115,38 +138,72 @@ class _Head extends StatelessWidget {
   final ListData d;
   final List<Song> songs;
 
+  void _shuffle(BuildContext context) {
+    final p = context.read<PlayerController>();
+    p.setMode(PlayMode.shuffle);
+    p.playList(songs, Random().nextInt(songs.length));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final l = AppLocalizations.of(context);
-    final description = [if (d.period.isNotEmpty) l.updatedAt(d.period), d.description].join('\n');
+    final scheme = Theme.of(context).colorScheme;
+    final meta = [l.songCount(songs.length), if (d.period.isNotEmpty) l.updatedAt(d.period)].join(' · ');
+    final description = d.description.replaceAll(RegExp(r'<[^>]+>'), '').trim();
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+      child: Column(
         children: [
-          Cover(d.cover, size: 120),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(d.title, style: text.titleLarge),
-                const SizedBox(height: 6),
-                Text(
-                  description.replaceAll(RegExp(r'<[^>]+>'), ''),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: text.bodySmall,
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
+          DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 40, offset: Offset(0, 20))],
+            ),
+            child: Cover(d.cover, size: 196, radius: 20),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            d.title,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 6),
+          Text(meta, style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant)),
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              description,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, height: 1.5, color: scheme.onSurfaceVariant),
+            ),
+          ],
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 46)),
                   onPressed: songs.isEmpty ? null : () => context.read<PlayerController>().playList(songs, 0),
-                  icon: const Icon(Icons.play_arrow),
+                  icon: const Icon(Icons.play_arrow_rounded),
                   label: Text(l.playAll(songs.length)),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 10),
+              IconButton(
+                tooltip: l.shufflePlay,
+                style: IconButton.styleFrom(
+                  fixedSize: const Size(46, 46),
+                  backgroundColor: scheme.surfaceContainerHigh,
+                  side: BorderSide(color: scheme.outlineVariant),
+                ),
+                onPressed: songs.isEmpty ? null : () => _shuffle(context),
+                icon: const Icon(Icons.shuffle_rounded),
+              ),
+            ],
           ),
         ],
       ),
