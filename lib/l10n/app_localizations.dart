@@ -272,6 +272,12 @@ abstract class AppLocalizations {
   /// **'猜你想搜'**
   String get searchRecommended;
 
+  /// No description provided for @filterSongsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索歌名、歌手'**
+  String get filterSongsHint;
+
   /// No description provided for @searchNoResults.
   ///
   /// In zh, this message translates to:

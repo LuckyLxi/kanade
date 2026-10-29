@@ -157,22 +157,86 @@ class _BodyState extends State<_Body> {
     }
   }
 
+  final _query = TextEditingController();
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  /// 按歌名或歌手筛选，不区分大小写。点歌时只播筛出来的这些。
+  List<Song> get _shown {
+    final q = _query.text.trim().toLowerCase();
+    if (q.isEmpty) return _songs;
+    return [
+      for (final s in _songs)
+        if (s.name.toLowerCase().contains(q) || s.singers.any((e) => e.name.toLowerCase().contains(q))) s,
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = widget.d;
+    // 榜单不需要搜索
+    final searchable = !widget.ranked;
+    final shown = searchable ? _shown : _songs;
+    // 列表前面固定的行：头部，可搜索时再加搜索框
+    final lead = searchable ? 2 : 1;
     return ListView.builder(
-      itemCount: _songs.length + 1,
+      // 拖动列表时收起键盘
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      itemCount: lead + (shown.isEmpty && searchable ? 1 : shown.length),
       itemBuilder: (context, i) {
         if (i == 0) return _Head(d, _songs, title: _title, onEdit: canEditPlaylist(_owned) ? _edit : null);
-        final song = _songs[i - 1];
+        if (searchable && i == 1) return _FilterField(_query, onChanged: () => setState(() {}));
+        if (shown.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(32),
+            child: Center(child: Text(AppLocalizations.of(context).searchNoResults)),
+          );
+        }
+        final song = shown[i - lead];
         return SongTile(
-          songs: _songs,
-          index: i - 1,
+          songs: shown,
+          index: i - lead,
           rank: widget.ranked ? i : null,
           // “我喜欢”里不给删，取消喜欢就行
           onRemove: canEditPlaylist(_owned) ? () => _remove(song) : null,
         );
       },
+    );
+  }
+}
+
+class _FilterField extends StatelessWidget {
+  const _FilterField(this.controller, {required this.onChanged});
+
+  final TextEditingController controller;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: SearchBar(
+        controller: controller,
+        hintText: AppLocalizations.of(context).filterSongsHint,
+        leading: const Icon(Icons.search),
+        elevation: const WidgetStatePropertyAll(0),
+        constraints: const BoxConstraints(minHeight: 44),
+        onChanged: (_) => onChanged(),
+        trailing: [
+          if (controller.text.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear),
+              onPressed: () {
+                controller.clear();
+                onChanged();
+              },
+            ),
+        ],
+      ),
     );
   }
 }

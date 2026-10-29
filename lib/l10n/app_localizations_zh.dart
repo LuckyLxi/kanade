@@ -109,6 +109,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchRecommended => '猜你想搜';
 
   @override
+  String get filterSongsHint => '搜索歌名、歌手';
+
+  @override
   String get searchNoResults => '没有找到相关歌曲';
 
   @override

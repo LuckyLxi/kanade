@@ -72,7 +72,8 @@
   "searchPrompt": "输入关键词后回车搜索",
   "searchHot": "热搜榜",
   "searchRecommended": "猜你想搜",
-  "searchNoResults": "没有找到相关歌曲",
+  "filterSongsHint": "搜索歌名、歌手",
+  "searchNoResults":"没有找到相关歌曲",
   "searchFailed": "搜索失败：{error}",
   "@searchFailed": {
     "placeholders": {

@@ -121,6 +121,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchRecommended => 'You might like';
 
   @override
+  String get filterSongsHint => 'Search title or artist';
+
+  @override
   String get searchNoResults => 'No songs found';
 
   @override
