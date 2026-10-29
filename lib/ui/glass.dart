@@ -102,3 +102,41 @@ abstract final class KanadeGlass {
     child: child,
   );
 }
+
+/// 详情页（歌单、专辑）：不要顶栏，左上角浮一颗玻璃返回钮，内容从它下面滚过。
+/// 内容的第一项要自己在顶部留出按钮的高度（[topInset]）。
+class GlassBackScaffold extends StatelessWidget {
+  const GlassBackScaffold({super.key, required this.body});
+
+  static const topInset = 60.0;
+
+  final Widget body;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      body: KanadeGlass.backdropScope(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: KanadeGlass.backdropSource(child: ColoredBox(color: scheme.surface, child: body)),
+            ),
+            Positioned(
+              left: 16,
+              top: MediaQuery.paddingOf(context).top + 8,
+              child: GlassIconButton(
+                useOwnLayer: true,
+                settings: KanadeGlass.navigationSettings(context),
+                quality: KanadeGlass.navigationQuality,
+                semanticLabel: MaterialLocalizations.of(context).backButtonTooltip,
+                onPressed: () => Navigator.maybePop(context),
+                icon: Icon(Icons.arrow_back_rounded, color: scheme.onSurface),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

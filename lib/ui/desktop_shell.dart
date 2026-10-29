@@ -200,7 +200,8 @@ class DesktopPlayerBar extends StatelessWidget {
     final liked = context.select<LibraryController, bool>((c) => c.isLiked(song));
     final muted = scheme.onSurfaceVariant;
     void openPlayer({bool queue = false}) =>
-        Navigator.of(context, rootNavigator: true).push(PlayerPage.route(showQueue: queue));
+        Navigator.of(context, rootNavigator: true)
+            .push(PlayerPage.route(from: globalRectOf(context), fromRadius: 24, showQueue: queue));
 
     return GlassContainer(
       useOwnLayer: true,

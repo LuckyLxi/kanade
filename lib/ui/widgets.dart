@@ -19,6 +19,13 @@ String formatDuration(Duration d) {
 
 String singerNames(Song s) => s.singers.map((e) => e.name).join(' / ');
 
+/// 这个组件在屏幕上的位置，播放页从这里展开。还没布局时返回 null。
+Rect? globalRectOf(BuildContext context) {
+  final box = context.findRenderObject();
+  if (box is! RenderBox || !box.hasSize) return null;
+  return box.localToGlobal(Offset.zero) & box.size;
+}
+
 class Cover extends StatelessWidget {
   const Cover(this.url, {super.key, this.size, this.radius = 8});
 
@@ -393,7 +400,7 @@ class MiniPlayer extends StatelessWidget {
       child: Material(
         color: KanadeGlass.playerBarScrim(context),
         child: InkWell(
-          onTap: () => Navigator.of(context, rootNavigator: true).push(PlayerPage.route()),
+          onTap: () => Navigator.of(context, rootNavigator: true).push(PlayerPage.route(from: globalRectOf(context))),
           child: Stack(
             children: [
               Padding(

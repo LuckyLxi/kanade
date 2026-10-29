@@ -8,6 +8,7 @@ import '../library/library_controller.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'glass.dart';
 import 'song_actions.dart';
 import 'widgets.dart';
 
@@ -82,9 +83,8 @@ class SongListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 标题放在下面的大封面头部里，顶栏只留返回
-    return Scaffold(
-      appBar: AppBar(),
+    // 标题放在下面的大封面头部里，左上角只浮一颗返回钮
+    return GlassBackScaffold(
       body: AsyncView<ListData>(
         load: load,
         builder: (context, d) => _Body(d, ranked: ranked),
@@ -151,7 +151,7 @@ class _Head extends StatelessWidget {
     final meta = [l.songCount(songs.length), if (d.period.isNotEmpty) l.updatedAt(d.period)].join(' · ');
     final description = d.description.replaceAll(RegExp(r'<[^>]+>'), '').trim();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+      padding: const EdgeInsets.fromLTRB(24, GlassBackScaffold.topInset, 24, 12),
       child: Column(
         children: [
           DecoratedBox(

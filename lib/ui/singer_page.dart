@@ -61,28 +61,43 @@ class _Head extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    // 和歌单 / 专辑同一种居中头部，头像是圆的
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+      child: Column(
         children: [
-          ClipOval(child: Cover(d.avatarUrl, size: 96, radius: 0)),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(d.name, style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 6),
-                if (d.description.isNotEmpty)
-                  Text(d.description, maxLines: 3, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: d.songs.isEmpty ? null : () => context.read<PlayerController>().playList(d.songs, 0),
-                  icon: const Icon(Icons.play_arrow),
-                  label: Text(l.playAll(d.songs.length)),
-                ),
-              ],
+          DecoratedBox(
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: Colors.black54, blurRadius: 40, offset: Offset(0, 20))],
+            ),
+            child: ClipOval(child: Cover(d.avatarUrl, size: 140, radius: 0)),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            d.name,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+          ),
+          if (d.description.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              d.description,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, height: 1.5, color: scheme.onSurfaceVariant),
+            ),
+          ],
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 46)),
+              onPressed: d.songs.isEmpty ? null : () => context.read<PlayerController>().playList(d.songs, 0),
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: Text(l.playAll(d.songs.length)),
             ),
           ),
         ],
@@ -99,8 +114,13 @@ class AlbumTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Cover(album.coverUrl, size: 48),
-      title: Text(album.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      leading: Cover(album.coverUrl, size: 52, radius: 12),
+      title: Text(
+        album.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
       subtitle: Text([album.singerName, album.publishDate].where((s) => s.isNotEmpty).join(' · ')),
       onTap: () => Navigator.of(context).push(AlbumPage.route(album.mid, album.name)),
     );

@@ -6,6 +6,7 @@ import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'comments_page.dart';
+import 'glass.dart';
 import 'singer_page.dart';
 import 'widgets.dart';
 
@@ -19,8 +20,7 @@ class AlbumPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(),
+    return GlassBackScaffold(
       body: AsyncView<AlbumDetail>(
         load: () => api.getAlbumDetail(mid: mid),
         builder: (context, d) => ListView.builder(
@@ -44,7 +44,7 @@ class _Head extends StatelessWidget {
     final grey = TextStyle(fontSize: 13, color: scheme.onSurfaceVariant);
     // 和歌单详情同一种头部：居中大封面 + 标题 + 一排按钮
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+      padding: const EdgeInsets.fromLTRB(24, GlassBackScaffold.topInset, 24, 12),
       child: Column(
         children: [
           DecoratedBox(

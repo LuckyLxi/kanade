@@ -39,6 +39,66 @@ void prefetchPlayerArt(BuildContext context, Song song) {
   });
 }
 
+/// 播放栏展开成播放页：裁剪区域从播放栏的圆角矩形插值到全屏。只裁剪不缩放，
+/// 页面每帧不用重新排版；开头叠一层播放栏的底色再淡掉，看起来是播放栏本身在长大。
+class _ExpandFromBar extends StatelessWidget {
+  const _ExpandFromBar({
+    required this.animation,
+    required this.from,
+    required this.fromRadius,
+    required this.barColor,
+    required this.child,
+  });
+
+  final Animation<double> animation;
+  final Rect? from;
+  final double fromRadius;
+  final Color barColor;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (context, child) {
+        final size = MediaQuery.sizeOf(context);
+        final full = Offset.zero & size;
+        final start = from ?? Rect.fromLTWH(0, size.height, size.width, 0);
+        final t = animation.value;
+        final rect = Rect.lerp(start, full, t)!;
+        final radius = fromRadius * (1 - t);
+        // 底色在前 35% 里淡掉，之后就是播放页本身
+        final cover = (1 - t / 0.35).clamp(0.0, 1.0);
+        // 结构保持不变（只改参数），否则播放页会被重建，背景和歌词的状态会归零
+        return ClipRRect(
+          clipper: _RRectClipper(RRect.fromRectAndRadius(rect, Radius.circular(radius))),
+          clipBehavior: t >= 1 ? Clip.none : Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              child!,
+              IgnorePointer(child: ColoredBox(color: barColor.withValues(alpha: cover))),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RRectClipper extends CustomClipper<RRect> {
+  const _RRectClipper(this.rrect);
+
+  final RRect rrect;
+
+  @override
+  RRect getClip(Size size) => rrect;
+
+  @override
+  bool shouldReclip(_RRectClipper old) => old.rrect != rrect;
+}
+
 final _fallbackTheme = ThemeData(
   useMaterial3: true,
   colorScheme: ColorScheme.fromSeed(seedColor: fallbackPalette[1], brightness: Brightness.dark),
@@ -52,16 +112,19 @@ class PlayerPage extends StatefulWidget {
   /// 打开时直接显示播放队列（桌面底栏的队列按钮用）。
   final bool showQueue;
 
-  static Route<void> route({bool showQueue = false}) => PageRouteBuilder(
+  /// [from] 是点开它的播放栏在屏幕上的位置：播放页从那个圆角矩形展开到全屏，关闭时收回去。
+  /// 不给的话从屏幕底边往上展开。
+  static Route<void> route({Rect? from, double fromRadius = 22, bool showQueue = false}) => PageRouteBuilder(
         opaque: false,
-        transitionDuration: const Duration(milliseconds: 500),
-        reverseTransitionDuration: const Duration(milliseconds: 380),
+        transitionDuration: const Duration(milliseconds: 520),
+        reverseTransitionDuration: const Duration(milliseconds: 420),
         // 全屏沉浸：窗口按钮平时隐藏，鼠标移到顶部才出现
         pageBuilder: (_, _, _) => ImmersiveTitleBar(child: PlayerPage(showQueue: showQueue)),
-        transitionsBuilder: (_, a, _, child) => SlideTransition(
-          position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
-            CurvedAnimation(parent: a, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic),
-          ),
+        transitionsBuilder: (context, a, _, child) => _ExpandFromBar(
+          animation: CurvedAnimation(parent: a, curve: _curve, reverseCurve: Curves.easeInOutCubic),
+          from: from,
+          fromRadius: fromRadius,
+          barColor: Theme.of(context).colorScheme.surfaceContainer,
           child: child,
         ),
       );
