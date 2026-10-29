@@ -24,6 +24,15 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   final _keys = List.generate(3, (_) => GlobalKey<NavigatorState>());
+  late final _depths = List.generate(3, (_) => _DepthObserver(_onDepthChanged));
+
+  /// 当前标签页进了二级页面（歌单、设置……）时收起底部导航。
+  bool get _nested => _depths[_tab].depth > 1;
+
+  // 观察者的回调可能发生在构建期间，推到这一帧结束后再刷新
+  void _onDepthChanged() => WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (mounted) setState(() {});
+  });
 
   static List<(IconData, IconData, String)> _destinations(AppLocalizations l) => [
     (Icons.explore_outlined, Icons.explore, l.tabDiscover),
@@ -33,6 +42,7 @@ class _HomeShellState extends State<HomeShell> {
 
   Widget _tabNavigator(int i, Widget root) => Navigator(
     key: _keys[i],
+    observers: [_depths[i]],
     onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => root),
   );
 
@@ -166,7 +176,11 @@ class _HomeShellState extends State<HomeShell> {
           indicatorBorderRadius: GlassDefaults.capsuleRadius,
         ),
       );
-      final inset = navHeight + (hasSong ? MiniPlayer.height + miniGap : 0) + 8;
+      // 二级页面里导航往下滑走，迷你播放条落到底部
+      final showNav = !_nested;
+      final navSpace = showNav ? navHeight : 8.0;
+      final inset = navSpace + (hasSong ? MiniPlayer.height + miniGap : 0) + 8;
+      const motion = Duration(milliseconds: 280);
       content = Material(
         color: scheme.surface,
         child: KanadeGlass.backdropScope(
@@ -178,13 +192,28 @@ class _HomeShellState extends State<HomeShell> {
                 ),
               ),
               if (hasSong)
-                Positioned(left: 16, right: 16, bottom: safeBottom + navHeight + miniGap, child: const MiniPlayer()),
+                AnimatedPositioned(
+                  duration: motion,
+                  curve: Curves.easeOutCubic,
+                  left: 16,
+                  right: 16,
+                  bottom: safeBottom + navSpace + miniGap,
+                  child: const MiniPlayer(),
+                ),
               Positioned(
                 left: (screenWidth - navWidth) / 2,
                 width: navWidth,
                 bottom: safeBottom,
                 height: navHeight,
-                child: tabBar,
+                child: IgnorePointer(
+                  ignoring: !showNav,
+                  child: AnimatedSlide(
+                    duration: motion,
+                    curve: Curves.easeOutCubic,
+                    offset: showNav ? Offset.zero : const Offset(0, 1.6),
+                    child: tabBar,
+                  ),
+                ),
               ),
             ],
           ),
@@ -205,5 +234,31 @@ class _HomeShellState extends State<HomeShell> {
       },
       child: content,
     );
+  }
+}
+
+/// 记录一个标签页 Navigator 里有几层页面。
+class _DepthObserver extends NavigatorObserver {
+  _DepthObserver(this.onChanged);
+
+  final VoidCallback onChanged;
+  int depth = 0;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    depth++;
+    onChanged();
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    depth--;
+    onChanged();
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    depth--;
+    onChanged();
   }
 }
