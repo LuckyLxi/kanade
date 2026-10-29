@@ -3,13 +3,14 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
+import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'glass.dart';
-import 'player_page.dart';
+import 'player_background.dart';
 import 'player_route.dart';
 import 'playlist_actions.dart';
 import 'song_actions.dart';

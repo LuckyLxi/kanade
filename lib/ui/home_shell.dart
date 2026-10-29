@@ -12,6 +12,7 @@ import 'desktop_shell.dart';
 import 'discover_page.dart';
 import 'glass.dart';
 import 'mine_page.dart';
+import 'mini_player.dart';
 import 'search_page.dart';
 import 'song_list_page.dart';
 import 'widgets.dart';

@@ -7,37 +7,17 @@ import 'package:media_kit/media_kit.dart';
 import '../auth/auth_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'audio_source.dart';
+import 'player_error.dart';
 
 enum PlayMode { sequence, repeatOne, shuffle }
-
-/// 播放错误。文案在界面层按当前语言生成。
-sealed class PlayerError {
-  const PlayerError();
-}
-
-class PlaybackFailed extends PlayerError {
-  const PlaybackFailed(this.song, this.cause);
-
-  final Song song;
-  final Object cause;
-}
-
-/// media_kit 播放过程中报告的错误原文。
-class StreamFailed extends PlayerError {
-  const StreamFailed(this.message);
-
-  final String message;
-}
-
-/// 已解析好的音源：本地缓存文件，或（经过边播边存中转的）在线地址。
-typedef _Source = ({String url, Quality quality, bool cached});
 
 /// 刚打开、还没加载成功的音源。这时出错就降一档重试。
 class _Attempt {
   _Attempt(this.song, this.source, this.start, this.play, this.token, this.urlToken);
 
   final Song song;
-  final _Source source;
+  final AudioSource source;
   final Duration? start;
   final bool play;
   final int token;
@@ -239,37 +219,14 @@ class PlayerController extends ChangeNotifier {
   Future<void> _open(Song song, Quality q,
       {required int token, required int urlToken, Duration? start, bool play = true}) async {
     bool stale() => token != _token || urlToken != _urlToken;
-    final src = await _source(song, q, stale);
+    final src = await AudioSource.resolve(song, q, stale: stale);
     if (src == null || stale()) return;
     actualQuality = src.quality;
     _attempt = _Attempt(song, src, start, play, token, urlToken);
     try {
-      await _player.open(
-        src.cached ? Media(src.url, start: start) : _media(src.url, start: start),
-        play: play,
-      );
+      await _player.open(src.media(start: start), play: play);
     } catch (e) {
       _downgrade(e);
-    }
-  }
-
-  /// 先找本地缓存，没有再在线取链接（经 Rust 中转边播边存）；没网时用这首歌任一音质的缓存。
-  /// 过期时返回 null。
-  Future<_Source?> _source(Song song, Quality q, bool Function() stale) async {
-    final hit = api.getCachedAudio(mid: song.mid, quality: q);
-    if (hit != null) return (url: hit, quality: q, cached: true);
-    try {
-      final u = await api.getSongUrl(mid: song.mid, mediaMid: song.mediaMid, quality: q);
-      if (stale()) return null;
-      // 选的音质没有、降级拿到的那档之前缓存过
-      final local = api.getCachedAudio(mid: song.mid, quality: u.quality);
-      if (local != null) return (url: local, quality: u.quality, cached: true);
-      return (url: api.streamAudio(mid: song.mid, quality: u.quality, url: u.url), quality: u.quality, cached: false);
-    } catch (_) {
-      if (stale()) return null;
-      final any = api.getAnyCachedAudio(mid: song.mid);
-      if (any != null) return (url: any.path, quality: any.quality, cached: true);
-      rethrow;
     }
   }
 
@@ -278,14 +235,7 @@ class PlayerController extends ChangeNotifier {
     final a = _attempt;
     _attempt = null;
     if (a == null || a.token != _token || a.urlToken != _urlToken) return;
-    final src = a.source;
-    final Quality? next;
-    if (src.cached) {
-      api.removeCachedAudio(mid: a.song.mid, quality: src.quality);
-      next = src.quality;
-    } else {
-      next = api.lowerQuality(quality: src.quality);
-    }
+    final next = a.source.fallback();
     unawaited(() async {
       try {
         if (next == null) throw cause;
@@ -438,9 +388,6 @@ class PlayerController extends ChangeNotifier {
     loading = false;
     notifyListeners();
   }
-
-  static Media _media(String url, {Duration? start}) =>
-      Media(url, httpHeaders: const {'Referer': 'https://y.qq.com/'}, start: start);
 
   /// 当前应高亮的歌词行。
   int lyricIndexAt(Duration pos) {

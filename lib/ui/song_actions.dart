@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
+import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
 import '../src/rust/api/types.dart';
@@ -10,12 +11,9 @@ import 'comments_page.dart';
 import 'singer_page.dart';
 import 'widgets.dart';
 
-void _toast(BuildContext context, String text) =>
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(text)));
-
 bool _requireLogin(BuildContext context) {
   if (context.read<AuthController>().loggedIn) return true;
-  _toast(context, AppLocalizations.of(context).loginRequired);
+  showToast(context, AppLocalizations.of(context).loginRequired);
   return false;
 }
 
@@ -24,9 +22,9 @@ Future<void> toggleLike(BuildContext context, Song song) async {
   final l = AppLocalizations.of(context);
   try {
     final liked = await context.read<LibraryController>().toggleLike(song);
-    if (context.mounted) _toast(context, liked ? l.liked : l.unliked);
+    if (context.mounted) showToast(context, liked ? l.liked : l.unliked);
   } catch (e) {
-    if (context.mounted) _toast(context, l.actionFailed(errorText(l, e)));
+    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)));
   }
 }
 
@@ -60,9 +58,9 @@ Future<void> addToPlaylist(BuildContext context, Song song) async {
   if (picked == null || !context.mounted) return;
   try {
     await library.addToPlaylist(picked, song);
-    if (context.mounted) _toast(context, l.addedToPlaylist(picked.name));
+    if (context.mounted) showToast(context, l.addedToPlaylist(picked.name));
   } catch (e) {
-    if (context.mounted) _toast(context, l.actionFailed(errorText(l, e)));
+    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)));
   }
 }
 
@@ -72,10 +70,10 @@ Future<bool> removeFromPlaylist(BuildContext context, MyPlaylist playlist, Song 
   final l = AppLocalizations.of(context);
   try {
     await context.read<LibraryController>().removeFromPlaylist(playlist, song);
-    if (context.mounted) _toast(context, l.removedFromPlaylist(playlist.name));
+    if (context.mounted) showToast(context, l.removedFromPlaylist(playlist.name));
     return true;
   } catch (e) {
-    if (context.mounted) _toast(context, l.actionFailed(errorText(l, e)));
+    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)));
     return false;
   }
 }
@@ -169,23 +167,4 @@ Future<void> showSongActions(BuildContext context, Song song, {VoidCallback? onR
       );
     },
   );
-}
-
-/// 红心按钮，播放页用。
-class LikeButton extends StatelessWidget {
-  const LikeButton(this.song, {super.key});
-
-  final Song song;
-
-  @override
-  Widget build(BuildContext context) {
-    final library = context.watch<LibraryController>();
-    final liked = library.isLiked(song);
-    final l = AppLocalizations.of(context);
-    return IconButton(
-      tooltip: liked ? l.unlike : l.like,
-      icon: Icon(liked ? Icons.favorite : Icons.favorite_border, color: liked ? Colors.red : null),
-      onPressed: library.isPending(song) ? null : () => toggleLike(context, song),
-    );
-  }
 }

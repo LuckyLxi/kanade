@@ -3,10 +3,9 @@ import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart' show Locale;
 import 'package:smtc_windows/smtc_windows.dart';
 
-import '../l10n/app_localizations.dart';
+import '../data/data_ext.dart';
 import '../library/library_controller.dart';
 import '../settings/locale_controller.dart';
 import '../src/rust/api/types.dart';
@@ -81,14 +80,8 @@ class MediaSession {
     final song = _p.current;
     if (song == null || !_library.canLike) return null;
     final liked = _library.isLiked(song);
-    final l = _strings();
+    final l = _locale.strings;
     return (liked: liked, label: liked ? l.unlike : l.like);
-  }
-
-  AppLocalizations _strings() {
-    final l = _locale.locale ?? PlatformDispatcher.instance.locale;
-    final supported = AppLocalizations.supportedLocales.any((s) => s.languageCode == l.languageCode);
-    return lookupAppLocalizations(supported ? Locale(l.languageCode) : AppLocalizations.supportedLocales.first);
   }
 
   void _sync() {
@@ -121,11 +114,6 @@ class MediaSession {
   }
 }
 
-String _artist(Song s) => s.singers.map((e) => e.name).join(' / ');
-
-/// 封面有些是 http 链接，Android 默认不允许明文请求，Windows 也更稳妥用 https。
-Uri _cover(Song s) => Uri.parse(s.coverUrl.replaceFirst('http://', 'https://').replaceFirst('300x300', '500x500'));
-
 class _AndroidSink extends BaseAudioHandler with SeekHandler implements _Sink {
   _AndroidSink(this._p, this._onLike);
 
@@ -149,10 +137,10 @@ class _AndroidSink extends BaseAudioHandler with SeekHandler implements _Sink {
       : MediaItem(
           id: s.mid,
           title: s.name,
-          artist: _artist(s),
+          artist: singerNames(s),
           album: s.albumName,
           duration: duration,
-          artUri: _cover(s),
+          artUri: Uri.parse(bigCoverUrl(s)),
         ));
 
   @override
@@ -254,9 +242,9 @@ class _WindowsSink implements _Sink {
     if (!_smtc.enabled) _smtc.enableSmtc();
     _smtc.updateMetadata(MusicMetadata(
       title: s.name,
-      artist: _artist(s),
+      artist: singerNames(s),
       album: s.albumName,
-      thumbnail: _cover(s).toString(),
+      thumbnail: bigCoverUrl(s),
     ));
   }
 

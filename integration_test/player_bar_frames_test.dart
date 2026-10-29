@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:kanade/ui/desktop_shell.dart';
 import 'package:kanade/ui/discover_page.dart';
-import 'package:kanade/ui/widgets.dart';
+import 'package:kanade/ui/mini_player.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'harness.dart';

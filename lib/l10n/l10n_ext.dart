@@ -1,6 +1,6 @@
 import 'package:intl/intl.dart';
 
-import '../player/player_controller.dart';
+import '../player/player_error.dart';
 import '../src/rust/api/error.dart';
 import '../src/rust/api/types.dart';
 import 'app_localizations.dart';

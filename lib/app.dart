@@ -1,0 +1,94 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+
+import 'auth/auth_controller.dart';
+import 'l10n/app_localizations.dart';
+import 'library/library_controller.dart';
+import 'player/media_session.dart';
+import 'player/player_controller.dart';
+import 'settings/locale_controller.dart';
+import 'src/rust/api/music.dart' as api;
+import 'src/rust/frb_generated.dart';
+import 'ui/glass.dart';
+import 'ui/home_shell.dart';
+import 'ui/theme.dart';
+import 'ui/title_bar.dart';
+
+/// 启动前的初始化：播放器、Rust 层和它的数据目录、窗口、玻璃着色器。main 和集成测试共用。
+Future<void> initApp() async {
+  MediaKit.ensureInitialized();
+  await RustLib.init();
+  await setupWindow();
+  final dir = await getApplicationSupportDirectory();
+  await api.initCore(dataDir: dir.path);
+  // 预热玻璃着色器，避免第一次出现玻璃时闪白
+  await KanadeGlass.initialize();
+}
+
+/// 全部状态对象。[mediaSession] 为 false 时不接系统媒体卡片（集成测试用）。
+class AppProviders extends StatelessWidget {
+  const AppProviders({super.key, required this.child, this.mediaSession = true});
+
+  final Widget child;
+  final bool mediaSession;
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => LocaleController()),
+        ChangeNotifierProvider(create: (_) => AuthController()),
+        ChangeNotifierProvider(create: (context) => PlayerController(context.read<AuthController>())),
+        // 启动时就去取红心列表
+        ChangeNotifierProvider(create: (context) => LibraryController(context.read<AuthController>()), lazy: false),
+      ],
+      child: mediaSession ? _MediaSessionHost(child: child) : child,
+    );
+  }
+}
+
+/// 系统媒体卡片要同时看播放状态、红心状态和语言，几个状态对象都建好后在这里接上一次。
+class _MediaSessionHost extends StatefulWidget {
+  const _MediaSessionHost({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_MediaSessionHost> createState() => _MediaSessionHostState();
+}
+
+class _MediaSessionHostState extends State<_MediaSessionHost> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      MediaSession.attach(context.read<PlayerController>(), context.read<LibraryController>(), context.read<LocaleController>()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+class KanadeApp extends StatelessWidget {
+  const KanadeApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+      locale: context.watch<LocaleController>().locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      debugShowCheckedModeBanner: false,
+      theme: buildTheme(Brightness.light),
+      darkTheme: buildTheme(Brightness.dark),
+      builder: (context, child) => WindowFrame(child: child!),
+      home: const HomeShell(),
+    );
+  }
+}

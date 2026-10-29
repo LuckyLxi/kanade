@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
 import '../player/player_controller.dart';
@@ -21,24 +22,6 @@ enum _Panel { none, lyrics, queue }
 
 const _motion = Duration(milliseconds: 550);
 const _curve = Curves.easeInOutCubicEmphasized;
-
-/// 播放页用的大封面地址。
-String bigCoverUrl(Song s) => s.coverUrl.replaceFirst('300x300', '500x500');
-
-String? _prefetched;
-
-/// 切歌时就把播放页要用的大封面和背景素材准备好，
-/// 打开播放页时不用在转场动画期间临时下载、取色、模糊。
-void prefetchPlayerArt(BuildContext context, Song song) {
-  final url = bigCoverUrl(song);
-  if (url.isEmpty || url == _prefetched) return;
-  _prefetched = url;
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!context.mounted) return;
-    unawaited(precacheImage(NetworkImage(url.replaceFirst('http://', 'https://')), context));
-    unawaited(loadCoverArt(url).then<void>((_) {}, onError: (_) {}));
-  });
-}
 
 final _fallbackTheme = ThemeData(
   useMaterial3: true,
@@ -1162,7 +1145,7 @@ class _QueueTile extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(6),
                       child: Image.network(
-                        song.coverUrl.replaceFirst('http://', 'https://'),
+                        httpsUrl(song.coverUrl),
                         cacheWidth: (46 * MediaQuery.devicePixelRatioOf(context)).round(),
                         fit: BoxFit.cover,
                         color: played ? const Color(0x73FFFFFF) : null,

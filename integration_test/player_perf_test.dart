@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:kanade/data/data_ext.dart';
 import 'package:kanade/ui/desktop_shell.dart';
 import 'package:kanade/ui/player_background.dart';
 import 'package:kanade/ui/player_lyrics.dart';
@@ -30,7 +31,7 @@ void main() {
             child: c,
           ),
         );
-    final art = await tester.runAsync(() => loadCoverArt(player.current!.coverUrl.replaceFirst('300x300', '500x500')));
+    final art = await tester.runAsync(() => loadCoverArt(bigCoverUrl(player.current!)));
 
     final cases = <String, Route<void> Function()>{
       'black': () => slide(const ColoredBox(color: Colors.black)),

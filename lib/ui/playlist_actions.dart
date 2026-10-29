@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
 import '../src/rust/api/types.dart';
+import 'widgets.dart';
 
 /// 歌单菜单做了什么，详情页据此改标题或退出。
 sealed class PlaylistEdit {}
@@ -17,10 +19,7 @@ class PlaylistRenamed extends PlaylistEdit {
 class PlaylistDeleted extends PlaylistEdit {}
 
 /// “我喜欢”不能改名也不能删。
-bool canEditPlaylist(MyPlaylist? p) => p != null && p.dirId != 201;
-
-void _toast(BuildContext context, String text) =>
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(text)));
+bool canEditPlaylist(MyPlaylist? p) => p != null && !isLikedPlaylist(p);
 
 /// 自建歌单的更多操作：重命名、删除。没有改动时返回 null。
 Future<PlaylistEdit?> showPlaylistActions(BuildContext context, MyPlaylist playlist) async {
@@ -94,10 +93,10 @@ Future<PlaylistEdit?> _rename(BuildContext context, MyPlaylist playlist) async {
   if (name == null || name == playlist.name || !context.mounted) return null;
   try {
     await library.renamePlaylist(playlist, name);
-    if (context.mounted) _toast(context, l.playlistRenamed);
+    if (context.mounted) showToast(context, l.playlistRenamed);
     return PlaylistRenamed(name);
   } catch (e) {
-    if (context.mounted) _toast(context, l.actionFailed(errorText(l, e)));
+    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)));
     return null;
   }
 }
@@ -122,10 +121,10 @@ Future<PlaylistEdit?> _delete(BuildContext context, MyPlaylist playlist) async {
   if (ok != true || !context.mounted) return null;
   try {
     await library.deletePlaylist(playlist);
-    if (context.mounted) _toast(context, l.playlistDeleted);
+    if (context.mounted) showToast(context, l.playlistDeleted);
     return PlaylistDeleted();
   } catch (e) {
-    if (context.mounted) _toast(context, l.actionFailed(errorText(l, e)));
+    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)));
     return null;
   }
 }

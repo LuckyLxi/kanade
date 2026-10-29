@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../auth/auth_controller.dart';
+import '../data/data_ext.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 
@@ -69,14 +70,14 @@ class LibraryController extends ChangeNotifier {
 
   Future<void> addToPlaylist(MyPlaylist p, Song s) async {
     await api.addSongToPlaylist(dirId: p.dirId, songId: s.id);
-    if (p.dirId == 201) _liked.add(s.id.toInt());
+    if (isLikedPlaylist(p)) _liked.add(s.id.toInt());
     _playlistsVersion++;
     notifyListeners();
   }
 
   Future<void> removeFromPlaylist(MyPlaylist p, Song s) async {
     await api.removeSongFromPlaylist(dirId: p.dirId, songId: s.id);
-    if (p.dirId == 201) _liked.remove(s.id.toInt());
+    if (isLikedPlaylist(p)) _liked.remove(s.id.toInt());
     _playlistsVersion++;
     notifyListeners();
   }

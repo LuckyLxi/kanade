@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/auth_controller.dart';
+import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
 import '../src/rust/api/music.dart' as api;
@@ -136,7 +137,7 @@ class _LoggedInState extends State<_LoggedIn> {
     final nav = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final liked = (await context.read<LibraryController>().myPlaylists()).where((p) => p.dirId == 201).firstOrNull;
+      final liked = (await context.read<LibraryController>().myPlaylists()).where(isLikedPlaylist).firstOrNull;
       if (liked != null) nav.push(SongListPage.playlist(liked.tid.toString(), liked.name));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(l.loadFailed(errorText(l, e)))));
@@ -165,7 +166,7 @@ class _LoggedInState extends State<_LoggedIn> {
                 child: CircleAvatar(
                   radius: 27,
                   backgroundColor: scheme.surfaceContainerHigh,
-                  backgroundImage: user.avatarUrl.isEmpty ? null : NetworkImage(user.avatarUrl),
+                  backgroundImage: user.avatarUrl.isEmpty ? null : NetworkImage(httpsUrl(user.avatarUrl)),
                   child: user.avatarUrl.isEmpty ? const Icon(Icons.person) : null,
                 ),
               ),
@@ -447,8 +448,6 @@ class _QrLoginDialogState extends State<QrLoginDialog> {
     };
   }
 
-  void _toast(String text) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-
   /// 申请一张跳转专用票据交给手机 QQ（等同于用 QQ 扫了码），确认后 QQ 通过 schemacallback 切回本 App，
   /// 登录结果仍由现有的 ptqrlogin 轮询拿到。
   Future<void> _openQq() async {
@@ -458,7 +457,7 @@ class _QrLoginDialogState extends State<QrLoginDialog> {
     try {
       ticket = await api.createQqAppLogin();
     } catch (e) {
-      if (mounted) _toast(AppLocalizations.of(context).qrFailed(errorText(AppLocalizations.of(context), e)));
+      if (mounted) showToast(context, AppLocalizations.of(context).qrFailed(errorText(AppLocalizations.of(context), e)));
       return;
     }
     if (!mounted) return;
@@ -469,7 +468,7 @@ class _QrLoginDialogState extends State<QrLoginDialog> {
       '&schemacallback=${Uri.encodeComponent('kanade-auth://authorize/qq')}',
     );
     if (!await _launch(target, 'com.tencent.mobileqq') && mounted) {
-      _toast(AppLocalizations.of(context).qrQqNotInstalled);
+      showToast(context, AppLocalizations.of(context).qrQqNotInstalled);
     }
   }
 
@@ -479,7 +478,7 @@ class _QrLoginDialogState extends State<QrLoginDialog> {
     if (url.isEmpty) return;
     final target = Uri.parse('qqmusic://qq.com/ui/openUrl?p=${Uri.encodeComponent(jsonEncode({'url': url}))}');
     if (!await _launch(target, 'com.tencent.qqmusic') && mounted) {
-      _toast(AppLocalizations.of(context).qrQqMusicNotInstalled);
+      showToast(context, AppLocalizations.of(context).qrQqMusicNotInstalled);
     }
   }
 
@@ -500,9 +499,9 @@ class _QrLoginDialogState extends State<QrLoginDialog> {
     final l = AppLocalizations.of(context);
     try {
       await Gal.putImageBytes(qr.image, name: 'kanade_login_${DateTime.now().millisecondsSinceEpoch}');
-      if (mounted) _toast(l.qrSavedQq);
+      if (mounted) showToast(context, l.qrSavedQq);
     } catch (e) {
-      if (mounted) _toast(l.qrSaveFailed('$e'));
+      if (mounted) showToast(context, l.qrSaveFailed('$e'));
     }
   }
 

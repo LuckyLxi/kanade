@@ -7,6 +7,9 @@ import 'package:flutter/foundation.dart' show SynchronousFuture;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../data/data_ext.dart';
+import '../src/rust/api/types.dart';
+
 const fallbackPalette = [Color(0xFF3A2A4A), Color(0xFF5B3FA8), Color(0xFFB0476A), Color(0xFF2A3F6B)];
 
 /// 背景用的封面素材：4 个主色、一张预先模糊好的小图。
@@ -57,19 +60,32 @@ Future<void> _loadProgram() => _programLoading ??=
     ui.FragmentProgram.fromAsset('shaders/player_background.frag').then((p) => _program = p);
 
 /// 已经生成好的素材，播放页第一帧就能直接用，不用等异步。
-CoverArt? cachedCoverArt(String url) => _artCache[_normalize(url)];
-
-String _normalize(String url) => url.replaceFirst('http://', 'https://');
+CoverArt? cachedCoverArt(String url) => _artCache[httpsUrl(url)];
 
 Future<CoverArt> loadCoverArt(String url) {
   unawaited(_loadProgram());
-  url = _normalize(url);
+  url = httpsUrl(url);
   final cached = _artCache.remove(url);
   if (cached != null) return SynchronousFuture(_artCache[url] = cached);
   // 回调不能写成 `=> _artLoading.remove(url)`：remove 返回的就是这个 Future 本身，
   // whenComplete 会等它完成，自己等自己，永远不结束（播放页里切歌背景不变就是这个原因）
   return _artLoading[url] ??= _build(url).whenComplete(() {
     _artLoading.remove(url);
+  });
+}
+
+String? _prefetched;
+
+/// 切歌时就把播放页要用的大封面和背景素材准备好，
+/// 打开播放页时不用在转场动画期间临时下载、取色、模糊。
+void prefetchPlayerArt(BuildContext context, Song song) {
+  final url = bigCoverUrl(song);
+  if (url.isEmpty || url == _prefetched) return;
+  _prefetched = url;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!context.mounted) return;
+    unawaited(precacheImage(NetworkImage(url), context));
+    unawaited(loadCoverArt(url).then<void>((_) {}, onError: (_) {}));
   });
 }
 

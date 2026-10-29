@@ -1,17 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kanade/auth/auth_controller.dart';
-import 'package:kanade/library/library_controller.dart';
-import 'package:kanade/main.dart';
+import 'package:kanade/app.dart';
 import 'package:kanade/player/player_controller.dart';
-import 'package:kanade/settings/locale_controller.dart';
 import 'package:kanade/src/rust/api/music.dart' as api;
-import 'package:kanade/src/rust/frb_generated.dart';
 import 'package:kanade/ui/glass.dart';
 import 'package:kanade/ui/home_shell.dart';
-import 'package:kanade/ui/title_bar.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 /// 启动完整应用，静音播放榜单第一首，等歌词和封面素材就绪。
@@ -22,28 +15,12 @@ Future<(PlayerController, NavigatorState)> launchWithSong(
   Future<void> Function()? setup,
   Future<void> Function()? onPlay,
 }) async {
-  MediaKit.ensureInitialized();
-  await setupWindow();
-  await RustLib.init();
-  final dir = await getApplicationSupportDirectory();
-  await api.initCore(dataDir: dir.path);
-  await KanadeGlass.initialize();
+  await initApp();
   await setup?.call();
 
-  late PlayerController player;
-  await tester.pumpWidget(
-    KanadeGlass.wrap(
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => LocaleController()),
-          ChangeNotifierProvider(create: (_) => AuthController()),
-          ChangeNotifierProvider(create: (context) => player = PlayerController(context.read<AuthController>())),
-          ChangeNotifierProvider(create: (context) => LibraryController(context.read<AuthController>()), lazy: false),
-        ],
-        child: const KanadeApp(),
-      ),
-    ),
-  );
+  // 测试里不接系统媒体卡片
+  await tester.pumpWidget(KanadeGlass.wrap(child: const AppProviders(mediaSession: false, child: KanadeApp())));
+  final player = tester.element(find.byType(HomeShell)).read<PlayerController>();
 
   final songs = await tester.runAsync(() async {
     final groups = await api.getToplists();

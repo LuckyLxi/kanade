@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:provider/provider.dart';
 
+import '../data/data_ext.dart';
 import '../player/player_controller.dart';
 import 'glass.dart';
 import 'player_page.dart';
@@ -32,9 +33,11 @@ class PlayerBarAnchor {
   Rect? get rect => _globalRect(barKey);
   Rect? get coverRect => _globalRect(coverKey);
 
+  /// 挂着 [key] 的组件在屏幕上的位置。还没布局时返回 null。
   static Rect? _globalRect(GlobalKey key) {
-    final context = key.currentContext;
-    return context == null ? null : globalRectOf(context);
+    final box = key.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
   }
 }
 

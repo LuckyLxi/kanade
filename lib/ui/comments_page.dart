@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
@@ -157,7 +158,7 @@ class CommentTile extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundImage: c.avatarUrl.isEmpty ? null : NetworkImage(c.avatarUrl.replaceFirst('http://', 'https://')),
+            backgroundImage: c.avatarUrl.isEmpty ? null : NetworkImage(httpsUrl(c.avatarUrl)),
             child: c.avatarUrl.isEmpty ? const Icon(Icons.person, size: 18) : null,
           ),
           const SizedBox(width: 12),

@@ -8,6 +8,7 @@ import '../player/player_controller.dart';
 import '../settings/locale_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'widgets.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -78,8 +79,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     return ok ?? false;
   }
-
-  void _toast(String text) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
   Future<T?> _choose<T>(String title, List<T> values, T current, String Function(T) label) {
     return showDialog<T>(
@@ -169,7 +168,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!await _confirm(l.clearAudioCacheConfirm, l.clear)) return;
     await api.clearAudioCache();
     await _loadSizes();
-    if (mounted) _toast(l.cacheCleared);
+    if (mounted) showToast(context, l.cacheCleared);
   }
 
   Future<void> _clearApi() async {
@@ -177,7 +176,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!await _confirm(l.clearApiCacheConfirm, l.clear)) return;
     await api.clearCache();
     await _loadSizes();
-    if (mounted) _toast(l.cacheCleared);
+    if (mounted) showToast(context, l.cacheCleared);
   }
 
   Future<void> _logout() async {
