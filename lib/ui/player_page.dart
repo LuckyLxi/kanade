@@ -161,12 +161,15 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
           child: ValueListenableBuilder(
             valueListenable: _drag,
             child: page,
-            builder: (_, drag, page) => drag == 0
-                ? page!
-                : Transform.translate(
-                    offset: Offset(0, drag),
-                    child: ClipRRect(borderRadius: BorderRadius.circular(min(drag / 4, 28)), child: page),
-                  ),
+            // 外层结构不能随 drag 变：换结构会让整页（背景的旋转相位、歌词滚动位置）重建归零
+            builder: (_, drag, page) => Transform.translate(
+              offset: Offset(0, drag),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(min(drag / 4, 28)),
+                clipBehavior: drag == 0 ? Clip.none : Clip.antiAlias,
+                child: page,
+              ),
+            ),
           ),
         ),
       ),

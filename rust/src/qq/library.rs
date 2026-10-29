@@ -1,4 +1,4 @@
-//! 红心使用签名加密通道，普通歌单使用 PC 通道；只在用户点了按钮后提交。
+//! 红心使用与登录态匹配的 Android 客户端通道，普通歌单保留现有 PC 通道。
 
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
@@ -60,7 +60,7 @@ async fn write(dir: &MyPlaylist, song_id: i64, add: bool) -> Result<()> {
     let method = if add { "AddSonglist" } else { "DelSonglist" };
     let param = write_param(dir, song_id);
     let data = if dir.dir_id == LIKED_DIR_ID {
-        c.signed_web_musicu(module, method, param).await?
+        c.mobile_write(module, method, param).await?
     } else {
         c.desktop_write(module, method, param).await?
     };
@@ -71,13 +71,8 @@ async fn write(dir: &MyPlaylist, song_id: i64, add: bool) -> Result<()> {
 }
 
 fn write_param(dir: &MyPlaylist, song_id: i64) -> Value {
-    let mut param = json!({"dirId": dir.dir_id, "v_songInfo": [{"songId": song_id, "songType": 0}]});
-    if dir.dir_id != LIKED_DIR_ID {
-        param["bFmtUtf8"] = json!(true);
-        param["dirName"] = json!(dir.name);
-        param["tid"] = json!(dir.tid);
-    }
-    param
+    json!({"dirId": dir.dir_id, "bFmtUtf8": true, "dirName": dir.name, "tid": dir.tid,
+        "v_songInfo": [{"songId": song_id, "songType": 0}]})
 }
 
 fn check_write_result(data: &Value) -> Result<()> {
@@ -113,9 +108,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn liked_params_use_web_shape_while_normal_playlist_keeps_pc_shape() {
+    fn liked_and_normal_params_use_captured_pc_shape() {
         let mut dir = MyPlaylist { dir_id: LIKED_DIR_ID, tid: 123456, name: "test".into(), cover_url: String::new(), song_count: 0 };
-        assert_eq!(write_param(&dir, 42), json!({"dirId": 201, "v_songInfo": [{"songId": 42, "songType": 0}]}));
+        assert_eq!(write_param(&dir, 42), json!({"dirId": 201, "tid": 123456, "dirName": "test", "bFmtUtf8": true,
+            "v_songInfo": [{"songId": 42, "songType": 0}]}));
         dir.dir_id = 1;
         assert_eq!(write_param(&dir, 42), json!({"dirId": 1, "tid": 123456, "dirName": "test", "bFmtUtf8": true,
             "v_songInfo": [{"songId": 42, "songType": 0}]}));

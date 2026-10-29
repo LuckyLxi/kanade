@@ -104,7 +104,39 @@ REA 的严格 HAR 校验因序号 260 的 `request.queryString[0].name` 类型�
 MID=004Ytrah01J9gS、type=0；当前微信登录态与原抓包属于同一账号，但 musickey 已变化。
 用当前通道查询该账号 3 首已收藏歌曲，均正确返回已收藏；加入 tmeLoginType 后查询结果不变。
 因此只读身份识别和加密解码通过，仍不能据此证明写入权限或完整写请求正确。
-正在补抓同一首歌在官方 Windows 客户端中的成功红心请求；未自动重放收藏写请求。
+补抓的 `qqmusic-like-iris.har` 共 4 条记录，其中序号 0/1 是同一首歌的 AddSonglist / DelSonglist，
+全局 code、业务 code 和 retCode 均为 0；歌曲 ID、songType、dirId、tid、dirName 与应用目标一致。
+
+## 80105 的受控对照与最终修复（2026-10-29）
+
+用户明确同意只对上述歌曲验证收藏并恢复。各轮先读回确认未收藏，结束后再读回确认恢复未收藏，
+没有操作其他歌曲，也没有把捕获的账号凭证保存进应用。
+
+本地静态分析定位到 QQMusic_Protocol.dll 调用 CommonFunction.dll 的原生 Sign/Mask 计算。
+诊断原型与两份 HAR 中的 16 条 PC 请求完全匹配，并通过只读 musics 网关验证。
+这是普通本地工具的分析记录，不是 REA Evidence；未配置原生反编译引擎。
+即便使用正确的动态 PC Sign/Mask，应用当前凭证的红心写入仍返回 80105，故未把签名原型接入最终实现。
+
+| 凭证与上下文 | 收藏响应 | 写入后读回 | 恢复后读回 |
+| --- | --- | --- | --- |
+| 官方 PC 凭证，完整 PC 上下文 | 0 / 0 / 0 | 已收藏 | 未收藏 |
+| 官方 PC 凭证，精简 PC 公参及 Cookie | 0 / 0 / 0 | 已收藏 | 未收藏 |
+| 应用当前凭证，补齐官方 PC 公参及 Cookie | 0 / 80105 / 0 | 未收藏 | 未收藏 |
+| 应用当前凭证，Android 客户端上下文 | 0 / 0 / 0 | 已收藏 | 未收藏 |
+| 官方 PC 凭证，Android 客户端上下文 | 0 / 0 / 0 | 已收藏 | 未收藏 |
+
+响应列依次为全局 code / 业务 code / retCode。这组结果证明当前凭证并非只能读取数据，
+也不需要复制官方 Cookie 的附加字段；本次拒绝与凭证使用的客户端上下文有关。
+不能由此推断所有账号或所有 80105 都有相同原因。
+
+最终仅将 dirId=201 的 AddSonglist / DelSonglist 改走 Android 客户端 `musicu.fcg`：
+ct=11、cv/v=14090008、chid=10003505、qq=当前 musicid、authst=当前 musickey、tmeLoginType=当前登录类型。
+版本常量与现有 QQ 音乐授权登录共享，账号数字编号以字符串传递。每次只发送一次，严格检查三层结果码，
+不调用通用 musicu 封装的签名失败重发逻辑。普通歌单继续使用原来的 PC musicu 路径。
+
+最终应用代码的 `desktop_like_iris_and_restore` 真实接口测试已通过：读取当前登录数据库但使用独立内存 Store，
+经 `library::set_song_liked` 收藏成功、读回已收藏，取消成功、读回未收藏。此测试默认忽略，
+需显式提供数据库路径及 `QQMUSIC_TEST_ALLOW_LIKE_IRIS=1`，并且只允许上述固定歌曲。
 
 ## Kanade 接入情况（2026-10-29）
 
@@ -112,7 +144,7 @@ MID=004Ytrah01J9gS、type=0；当前微信登录态与原抓包属于同一账�
   联网核对：歌手 002mYUgi0lXd76 返回 160 首歌、10 张专辑；歌曲 1401475 的最新评论第 0、1 页
   各 25 条且无重复；一条 68 条回复的评论，回复第 0、1 页各 10 条且无重复。
   主评论后续页按 `PageNum` 递增并传上一页最后一条的 `SeqNo` 作为 `LastCommentSeqNo`。
-- 红心与加入歌单：`rust/src/qq/library.rs`，用原生公参 `ct="19"`，按抓包发往
-  `musics.fcg?pcachetime=`，请求键为 `module.method`。目标歌单的 `dirId`/`tid`/名称从
+- 红心与加入歌单：`rust/src/qq/library.rs`，系统红心用与应用登录匹配的 Android musicu 上下文；
+  普通歌单继续使用 `ct="19"` 的 PC musicu 路径。目标歌单的 `dirId`/`tid`/名称从
   `fcg_user_created_diss` 的 `dirid`、`tid`、`diss_name` 读取（已只读核对能找到 dirid=201），不写死。
-- 写请求只在用户点击按钮后发送；开发时未实际发出过写请求。
+- 应用只在用户点击按钮后发送写请求；开发时另有用户明确同意的单首歌曲验证，结果及恢复状态见上。

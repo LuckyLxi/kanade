@@ -345,6 +345,10 @@ class PlayerController extends ChangeNotifier {
 
   Future<void> toggle() => _player.playOrPause();
 
+  Future<void> play() => _player.play();
+
+  Future<void> pause() => _player.pause();
+
   Future<void> seek(Duration d) => _player.seek(d);
 
   /// 设置里改默认音质：保存下来，并从下一首开始使用。

@@ -18,6 +18,7 @@ const MUSICU: &str = "https://u.y.qq.com/cgi-bin/musicu.fcg";
 const MUSICS: &str = "https://u.y.qq.com/cgi-bin/musics.fcg";
 const DESKTOP_MUSICU: &str = "https://u6.y.qq.com/cgi-bin/musicu.fcg";
 const DESKTOP_UA: &str = "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)";
+pub(super) const ANDROID_VERSION: i64 = 14090008;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Session {
@@ -166,7 +167,22 @@ impl Core {
         self.desktop_request(DESKTOP_MUSICU, &format!("{module}.{method}"), module, method, param, true).await
     }
 
-    /// “我喜欢”的写操作需要网页签名加密通道；每次只提交一次，不回退明文。
+    /// 与应用登录时的 Android 凭证上下文一致；写操作只发一次，不走通用接口的回退重发。
+    pub async fn mobile_write(&self, module: &str, method: &str, param: Value) -> Result<Value> {
+        let session = self.session().context(ApiError::NotLoggedIn)?;
+        let body = json!({
+            "comm": mobile_write_comm(&session),
+            "req_0": {"module": module, "method": method, "param": param},
+        });
+        let response = self.http.post(MUSICU)
+            .header("User-Agent", format!("QQMusic {ANDROID_VERSION}(android 10)"))
+            .header("Cookie", self.cookie_header().context(ApiError::NotLoggedIn)?)
+            .json(&body).send().await?.error_for_status()?.json().await
+            .context(ApiError::bad_response("failed to parse Android write response"))?;
+        musicu_result(response, module, method)
+    }
+
+    /// 网页签名加密通道；当前红心使用与登录凭证匹配的 Android 客户端通道。
     pub async fn signed_web_musicu(&self, module: &str, method: &str, param: Value) -> Result<Value> {
         let session = self.session().context(ApiError::NotLoggedIn)?;
         let token = hash33(&session.musickey, 5381);
@@ -192,7 +208,7 @@ impl Core {
             .body(encrypt_ag1(&body)?)
             .send().await?.error_for_status()?.bytes().await?;
         let response = decode_ag1(&bytes)?;
-        signed_web_result(response, module, method)
+        musicu_result(response, module, method)
     }
 
     async fn desktop_request(&self, url: &str, key: &str, module: &str, method: &str, param: Value, cookie: bool) -> Result<Value> {
@@ -305,8 +321,16 @@ impl Core {
     }
 }
 
-fn signed_web_result(response: Value, module: &str, method: &str) -> Result<Value> {
-    for (api, code) in [("musics".to_owned(), &response["code"]), (format!("{module}.{method}"), &response["req_0"]["code"])] {
+fn mobile_write_comm(session: &Session) -> Value {
+    json!({
+        "ct": 11, "cv": ANDROID_VERSION, "v": ANDROID_VERSION, "chid": "10003505",
+        "tmeAppID": "qqmusic", "tmeLoginType": session.login_type.to_string(),
+        "qq": session.uin, "authst": session.musickey, "format": "json",
+    })
+}
+
+fn musicu_result(response: Value, module: &str, method: &str) -> Result<Value> {
+    for (api, code) in [("musicu".to_owned(), &response["code"]), (format!("{module}.{method}"), &response["req_0"]["code"])] {
         let code = code.as_i64().context(ApiError::bad_response(format!("{api} returned no result code")))?;
         if code != 0 {
             bail!(ApiError::ServerError { api, code: code.to_string() });
@@ -335,10 +359,24 @@ mod tests {
     #[test]
     fn signed_reply_rejects_business_failure_even_when_retcode_is_zero() {
         let response = json!({"code": 0, "req_0": {"code": 80105, "data": {"retCode": 0}}});
-        let error = signed_web_result(response, "music.musicasset.PlaylistDetailWrite", "AddSonglist").unwrap_err();
+        let error = musicu_result(response, "music.musicasset.PlaylistDetailWrite", "AddSonglist").unwrap_err();
         assert!(matches!(ApiError::from(error), ApiError::ServerError { code, .. } if code == "80105"));
-        assert!(signed_web_result(json!({"code": 0}), "m", "x").is_err());
-        assert_eq!(signed_web_result(json!({"code": 0, "req_0": {"code": 0, "data": {"retCode": 0}}}), "m", "x").unwrap()["retCode"], 0);
+        assert!(musicu_result(json!({"code": 0}), "m", "x").is_err());
+        assert_eq!(musicu_result(json!({"code": 0, "req_0": {"code": 0, "data": {"retCode": 0}}}), "m", "x").unwrap()["retCode"], 0);
+    }
+
+    #[test]
+    fn mobile_write_preserves_login_context_and_large_musicid() {
+        let session = Session { uin: "1152921504606846976".into(), musickey: "test-key".into(), login_type: 1,
+            nickname: String::new(), avatar_url: String::new() };
+        let comm = mobile_write_comm(&session);
+        assert_eq!(comm["ct"], 11);
+        assert_eq!(comm["cv"], ANDROID_VERSION);
+        assert_eq!(comm["v"], ANDROID_VERSION);
+        assert_eq!(comm["qq"], session.uin);
+        assert_eq!(comm["authst"], session.musickey);
+        assert_eq!(comm["tmeLoginType"], "1");
+        assert!(comm.get("uin").is_none());
     }
 
     #[test]

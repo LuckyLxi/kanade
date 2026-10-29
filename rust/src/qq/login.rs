@@ -10,7 +10,7 @@ use reqwest::redirect::Policy;
 use serde_json::json;
 use url::Url;
 
-use super::client::{core, now_ms, Session, UA};
+use super::client::{core, now_ms, Session, UA, ANDROID_VERSION};
 use super::error::ApiError;
 use super::parse::{first_s, s};
 use super::sign::hash33;
@@ -399,7 +399,6 @@ fn set_tme_state(qrcode_id: &str, state: TmeState) {
     tme_states().lock().unwrap().insert(qrcode_id.to_string(), state);
 }
 
-const TME_ANDROID_VERSION: i64 = 14090008;
 const TME_LOGIN_MODULE: &str = "music.login.LoginServer";
 
 /// 一次授权始终使用同一 Android 会话，不借用当前账号或通用接口的公参。
@@ -420,7 +419,7 @@ impl TmeClient {
             }
         };
         let comm = json!({
-            "ct": 11, "cv": TME_ANDROID_VERSION, "v": TME_ANDROID_VERSION,
+            "ct": 11, "cv": ANDROID_VERSION, "v": ANDROID_VERSION,
             "chid": "10003505", "tmeAppID": "qqmusic", "tmeLoginType": 2,
             "qq": "0", "authst": "", "uid": "", "sid": "",
             "OpenUDID": device_id, "OpenUDID2": device_id, "udid": device_id,
@@ -442,7 +441,7 @@ impl TmeClient {
             }
             client.comm[field] = json!(value);
         }
-        client.user_agent = format!("QQMusic {TME_ANDROID_VERSION}(android {})", client.comm["os_ver"].as_str().unwrap_or("10"));
+        client.user_agent = format!("QQMusic {ANDROID_VERSION}(android {})", client.comm["os_ver"].as_str().unwrap_or("10"));
         let data = client.call("music.getSession.session", "GetSession", json!({"uid": "", "vkey": 0, "caller": 0}), json!({})).await?;
         let uid = s(&data["session"]["uid"]);
         let sid = s(&data["session"]["sid"]);
@@ -498,7 +497,7 @@ pub async fn create_tme_qr() -> Result<QrCode> {
         .call(
             TME_LOGIN_MODULE,
             "CreateQRCode",
-            json!({"tmeAppID": "qqmusic", "ct": 11, "cv": TME_ANDROID_VERSION}),
+            json!({"tmeAppID": "qqmusic", "ct": 11, "cv": ANDROID_VERSION}),
             json!({"ct": 23, "cv": 0}),
         )
         .await?;
@@ -653,11 +652,11 @@ mod tests {
     #[test]
     fn tme_login_reuses_session_after_qr_overrides() {
         let client = TmeClient {
-            comm: json!({"ct": 11, "cv": TME_ANDROID_VERSION, "v": TME_ANDROID_VERSION,
+            comm: json!({"ct": 11, "cv": ANDROID_VERSION, "v": ANDROID_VERSION,
                 "uid": "server-uid", "sid": "server-sid", "OpenUDID": "install-id", "qq": "0", "authst": ""}),
             user_agent: String::new(),
         };
-        let qr = client.body(TME_LOGIN_MODULE, "CreateQRCode", json!({"ct": 11, "cv": TME_ANDROID_VERSION}), json!({"ct": 23, "cv": 0}));
+        let qr = client.body(TME_LOGIN_MODULE, "CreateQRCode", json!({"ct": 11, "cv": ANDROID_VERSION}), json!({"ct": 23, "cv": 0}));
         let login = client.body(
             TME_LOGIN_MODULE,
             "Login",
@@ -667,7 +666,7 @@ mod tests {
         assert_eq!(qr["comm"]["ct"], 23);
         assert_eq!(qr["comm"]["cv"], 0);
         assert_eq!(login["comm"]["ct"], 11);
-        assert_eq!(login["comm"]["cv"], TME_ANDROID_VERSION);
+        assert_eq!(login["comm"]["cv"], ANDROID_VERSION);
         assert_eq!(login["comm"]["tmeLoginType"], 6);
         for field in ["uid", "sid", "OpenUDID", "qq", "authst"] {
             assert_eq!(qr["comm"][field], login["comm"][field]);

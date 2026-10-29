@@ -210,6 +210,47 @@ async fn desktop_write_transport_with_readonly_call() {
     assert!(data.get("banner").is_some(), "PC 请求封装没有返回预期的只读数据");
 }
 
+/// 与应用登录上下文相同的写请求封装调用只读接口，不改动账号数据。
+#[tokio::test]
+#[ignore]
+async fn mobile_write_transport_with_readonly_call() {
+    use_desktop_test_login();
+    let data = client::core().mobile_write("music.vipcgi.VipBannerCgi", "QueryVipBanner", serde_json::json!({})).await.unwrap();
+    assert!(data.get("banner").is_some(), "Android 写请求封装没有返回预期的只读数据");
+}
+
+/// 仅在用户同意后显式运行：只测试报告中的一首未收藏歌曲，随后恢复原状态。
+#[tokio::test]
+#[ignore]
+async fn desktop_like_iris_and_restore() {
+    use rust_lib_kanade::qq::library;
+    assert_eq!(std::env::var("QQMUSIC_TEST_ALLOW_LIKE_IRIS").as_deref(), Ok("1"), "需要用户同意真实收藏并恢复");
+    let path = std::env::var_os("QQMUSIC_TEST_SESSION_DB").expect("需要明确指定当前登录数据库");
+    let db = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+    let raw: String = db.query_row("SELECT value FROM kv WHERE key='session'", [], |row| row.get(0)).unwrap();
+    let session: client::Session = serde_json::from_str(&raw).unwrap();
+    drop(db);
+    // 测试进程使用独立的内存 Store，不改动应用保存的登录态。
+    client::core().set_session(Some(session)).unwrap();
+    async fn liked() -> anyhow::Result<bool> {
+        let data = client::core().mobile_write("music.musicasset.SongFavRead", "IsSongFanByMid",
+            serde_json::json!({"v_songMid": ["004Ytrah01J9gS"]})).await?;
+        data["m_fan"]["004Ytrah01J9gS"].as_bool().ok_or_else(|| anyhow::anyhow!("missing favorite status"))
+    }
+    assert!(!liked().await.unwrap(), "目标歌曲已经收藏，停止测试以保留原状态");
+    let add = library::set_song_liked(634598738, true).await;
+    let after_add = liked().await;
+    // 初始状态已确认未收藏。成功或结果不明确时均恢复，不重试添加。
+    let restore = if !matches!(after_add, Ok(false)) || add.is_ok() {
+        library::set_song_liked(634598738, false).await
+    } else { Ok(()) };
+    let after_restore = liked().await;
+    assert!(restore.is_ok() && matches!(after_restore, Ok(false)), "未能确认恢复未收藏状态，请在官方客户端核对该曲");
+    assert!(add.is_ok(), "收藏请求失败：{add:?}");
+    assert!(matches!(after_add, Ok(true)), "写入后未确认已收藏：{after_add:?}");
+    println!("reported song: favorite confirmed, original unliked state restored");
+}
+
 /// 只读验证 ag-1 请求加密、签名、Cookie 以及响应解码，不提交收藏或取消收藏。
 #[tokio::test]
 #[ignore]

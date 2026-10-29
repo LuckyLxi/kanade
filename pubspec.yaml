@@ -48,6 +48,8 @@ dependencies:
   url_launcher: ^6.3.3
   gal: ^2.3.3
   window_manager: ^0.5.2
+  audio_service: ^0.18.19
+  smtc_windows: ^1.1.0
 
 dev_dependencies:
   flutter_test:

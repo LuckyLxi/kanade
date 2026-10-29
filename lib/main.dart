@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
@@ -6,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'auth/auth_controller.dart';
 import 'l10n/app_localizations.dart';
 import 'library/library_controller.dart';
+import 'player/media_session.dart';
 import 'player/player_controller.dart';
 import 'settings/locale_controller.dart';
 import 'src/rust/api/music.dart' as api;
@@ -26,7 +29,11 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => LocaleController()),
         ChangeNotifierProvider(create: (_) => AuthController()),
-        ChangeNotifierProvider(create: (context) => PlayerController(context.read<AuthController>())),
+        ChangeNotifierProvider(create: (context) {
+          final player = PlayerController(context.read<AuthController>());
+          unawaited(MediaSession.attach(player));
+          return player;
+        }),
         ChangeNotifierProvider(create: (context) => LibraryController(context.read<AuthController>()), lazy: false),
       ],
       child: const KanadeApp(),
