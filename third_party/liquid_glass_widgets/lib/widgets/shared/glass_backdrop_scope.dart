@@ -8,10 +8,15 @@ import 'package:flutter/widgets.dart';
 /// image filters. Keep the surfaces outside [GlassBackdropSource].
 class GlassBackdropScope extends StatefulWidget {
   /// Creates a scope for a background source and its floating controls.
-  const GlassBackdropScope({required this.child, super.key});
+  const GlassBackdropScope({required this.child, this.blurSigma = 0, super.key});
 
   /// The content and the controls which sample it.
   final Widget child;
+
+  /// Gaussian blur, in logical pixels, applied once to each capture. Matches
+  /// the backdrop blur of the shader-filter renderer; surfaces sampling a
+  /// pre-blurred texture skip their own approximate blur.
+  final double blurSigma;
 
   /// The nearest shared backdrop, if any.
   static GlassBackdropData? maybeOf(BuildContext context) =>
@@ -22,7 +27,14 @@ class GlassBackdropScope extends StatefulWidget {
 }
 
 class _GlassBackdropScopeState extends State<GlassBackdropScope> {
-  final GlassBackdropData _data = GlassBackdropData();
+  late final GlassBackdropData _data = GlassBackdropData()
+    ..blurSigma = widget.blurSigma;
+
+  @override
+  void didUpdateWidget(GlassBackdropScope oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _data.blurSigma = widget.blurSigma;
+  }
 
   @override
   void dispose() {
@@ -79,6 +91,9 @@ class GlassBackdropData extends ChangeNotifier {
   bool _capturing = false;
   bool _disposed = false;
 
+  /// Blur applied to captures, in logical pixels.
+  double blurSigma = 0;
+
   /// Latest content image, at the source's device pixel ratio.
   ui.Image? get image => _image;
 
@@ -111,7 +126,8 @@ class GlassBackdropData extends ChangeNotifier {
       }
       _capturing = true;
       try {
-        final next = source.toImageSync(pixelRatio: source.pixelRatio);
+        var next = source.toImageSync(pixelRatio: source.pixelRatio);
+        if (blurSigma > 0) next = _blur(next, blurSigma * source.pixelRatio);
         final previous = _image;
         _image = next;
         notifyListeners();
@@ -127,6 +143,22 @@ class GlassBackdropData extends ChangeNotifier {
         _capturing = false;
       }
     });
+  }
+
+  static ui.Image _blur(ui.Image image, double sigma) {
+    final recorder = ui.PictureRecorder();
+    ui.Canvas(recorder).drawImage(
+      image,
+      Offset.zero,
+      ui.Paint()
+        ..imageFilter = ui.ImageFilter.blur(
+            sigmaX: sigma, sigmaY: sigma, tileMode: ui.TileMode.clamp),
+    );
+    final picture = recorder.endRecording();
+    final blurred = picture.toImageSync(image.width, image.height);
+    picture.dispose();
+    image.dispose();
+    return blurred;
   }
 
   @override

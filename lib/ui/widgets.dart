@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show lerpDouble;
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +12,7 @@ import '../player/player_controller.dart';
 import '../src/rust/api/types.dart';
 import 'glass.dart';
 import 'player_page.dart';
+import 'player_route.dart';
 import 'song_actions.dart';
 
 String formatDuration(Duration d) {
@@ -377,106 +381,239 @@ class _PlayingBarsState extends State<PlayingBars> with SingleTickerProviderStat
   }
 }
 
-/// 浮在底部导航上方的玻璃播放条。里面的按钮都是普通按钮：玻璃里再套玻璃会双重折射，还费 GPU。
-class MiniPlayer extends StatelessWidget {
-  const MiniPlayer({super.key});
+/// 手机上才有的交互：左右滑切歌、滚动时收成圆球。
+/// 跟着 defaultTargetPlatform 走，测试里可以在桌面上模拟手机。
+bool get touchPlatform => const {TargetPlatform.android, TargetPlatform.iOS}.contains(defaultTargetPlatform);
+
+/// 浮在底部导航上方的玻璃胶囊播放条。外壳用 Positioned 给它当前的矩形，
+/// 形状的过渡由外壳驱动：[faceOpacity] 是歌名和按钮的显示程度，[coverShift] 把封面从左端挪到右端；
+/// [round] 时是导航栏旁边的圆球，只剩封面，点一下 [onExpand] 恢复。
+/// 胶囊上点一下或按住往上拖打开播放页，手机上左右滑切歌。
+/// 里面的按钮都是普通按钮：玻璃里再套玻璃会双重折射，还费 GPU。
+class MiniPlayer extends StatefulWidget {
+  const MiniPlayer({
+    super.key,
+    this.round = false,
+    this.faceOpacity = 1,
+    this.coverShift = 0,
+    this.capsuleWidth,
+    this.onExpand,
+  });
 
   static const height = 64.0;
+  static const _coverSize = 44.0;
+  static const _circleCover = 46.0;
+
+  /// 播放页从这里变形出来。
+  static final anchor = PlayerBarAnchor(
+    coverRadius: _coverSize / 2,
+    face: (_) => const Material(type: MaterialType.transparency, child: _MiniFace()),
+  );
+
+  final bool round;
+  final double faceOpacity;
+  final double coverShift;
+
+  /// 胶囊状态的宽度。歌名按它排版，收成圆的途中只被裁掉，不会重新换行。
+  final double? capsuleWidth;
+
+  final VoidCallback? onExpand;
+
+  @override
+  State<MiniPlayer> createState() => _MiniPlayerState();
+}
+
+class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
+  /// 左右滑时歌名跟着手指的位移。
+  late final _swipe = AnimationController.unbounded(vsync: this);
+  late final _drag = PlayerBarDrag(MiniPlayer.anchor, this);
+
+  @override
+  void dispose() {
+    _swipe.dispose();
+    super.dispose();
+  }
+
+  /// 松手才切：歌名滑出去，换成下一首从另一边滑进来；不够远就弹回。
+  Future<void> _onSwipeEnd(DragEndDetails d) async {
+    final p = context.read<PlayerController>();
+    final v = d.velocity.pixelsPerSecond.dx;
+    final dx = _swipe.value;
+    final next = dx < -56 || v < -500;
+    final previous = !next && (dx > 56 || v > 500);
+    if (!next && !previous) {
+      await _swipe.animateTo(0, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
+      return;
+    }
+    unawaited(next ? p.next() : p.previous());
+    const out = 140.0;
+    await _swipe.animateTo(next ? -out : out, duration: const Duration(milliseconds: 140), curve: Curves.easeIn);
+    if (!mounted) return;
+    _swipe.value = next ? out : -out;
+    await _swipe.animateTo(0, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final song = context.select<PlayerController, Song?>((p) => p.current);
+    if (song == null) return const SizedBox.shrink();
+    prefetchPlayerArt(context, song);
+    final round = widget.round;
+    final swipe = touchPlatform && !round;
+    final bar = GestureDetector(
+      key: MiniPlayer.anchor.barKey,
+      behavior: HitTestBehavior.opaque,
+      onTap: round ? widget.onExpand : () => PlayerRoute.open(context, anchor: MiniPlayer.anchor),
+      onVerticalDragUpdate: round ? null : (d) => _drag.update(context, d),
+      onVerticalDragEnd: round ? null : (d) => _drag.end(context, d.velocity.pixelsPerSecond.dy),
+      onVerticalDragCancel: round ? null : () => _drag.end(context, 0),
+      onHorizontalDragStart: swipe ? (_) => _swipe.stop() : null,
+      onHorizontalDragUpdate: swipe ? (d) => _swipe.value += d.delta.dx : null,
+      onHorizontalDragEnd: swipe ? _onSwipeEnd : null,
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final w = box.maxWidth, h = box.maxHeight;
+          // 胶囊里 44，圆球和导航栏那么高时 46
+          final d = lerpDouble(MiniPlayer._coverSize, MiniPlayer._circleCover, ((MiniPlayer.height - h) / 6).clamp(0.0, 1.0))!;
+          return GlassContainer(
+            useOwnLayer: true,
+            settings: KanadeGlass.navigationSettings(context),
+            quality: KanadeGlass.navigationQuality,
+            shape: LiquidRoundedRectangle(borderRadius: math.min(w, h) / 2),
+            clipBehavior: Clip.antiAlias,
+            child: Material(
+              type: MaterialType.transparency,
+              child: Stack(
+                children: [
+                  if (widget.faceOpacity > 0)
+                    Positioned(
+                      left: 0,
+                      top: (h - MiniPlayer.height) / 2,
+                      width: widget.capsuleWidth ?? w,
+                      height: MiniPlayer.height,
+                      child: Opacity(opacity: widget.faceOpacity.clamp(0.0, 1.0), child: _MiniFace(swipe: _swipe)),
+                    ),
+                  Positioned(
+                    // 封面平时待在左端的半圆里，收成圆时是右边缩进来
+                    left: lerpDouble((h - d) / 2, w - (h + d) / 2, widget.coverShift),
+                    top: (h - d) / 2,
+                    width: d,
+                    height: d,
+                    child: KeyedSubtree(
+                      key: MiniPlayer.anchor.coverKey,
+                      child: Cover(song.coverUrl, size: d, radius: d / 2),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    // 播放页盖在上面时由转场层画它，这里藏起来
+    return ValueListenableBuilder(
+      valueListenable: MiniPlayer.anchor.hidden,
+      child: bar,
+      builder: (_, hidden, bar) => Opacity(opacity: hidden ? 0 : 1, child: bar),
+    );
+  }
+}
+
+/// 胶囊上除封面以外的部分：歌名、播放键（桌面没有手势，再加上一首 / 下一首）、进度线。
+class _MiniFace extends StatelessWidget {
+  const _MiniFace({this.swipe});
+
+  final Animation<double>? swipe;
 
   @override
   Widget build(BuildContext context) {
     final p = context.watch<PlayerController>();
     final song = p.current;
     if (song == null) return const SizedBox.shrink();
-    prefetchPlayerArt(context, song);
     final scheme = Theme.of(context).colorScheme;
-    return GlassContainer(
-      useOwnLayer: true,
-      settings: KanadeGlass.playerBarSettings(context),
-      quality: KanadeGlass.navigationQuality,
-      height: height,
-      shape: const LiquidRoundedSuperellipse(borderRadius: 22),
-      clipBehavior: Clip.antiAlias,
-      child: Material(
-        color: KanadeGlass.playerBarScrim(context),
-        child: InkWell(
-          onTap: () => Navigator.of(context, rootNavigator: true).push(PlayerPage.route(from: globalRectOf(context))),
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Row(
-                  children: [
-                    Hero(tag: 'cover', child: Cover(song.coverUrl, size: 44, radius: 10)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            song.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                          ),
-                          Text(
-                            p.error == null
-                                ? singerNames(song)
-                                : playerErrorText(AppLocalizations.of(context), p.error!),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: p.error != null ? scheme.error : scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox.square(
-                      dimension: 40,
-                      child: p.loading || p.buffering
-                          ? Padding(
-                              padding: const EdgeInsets.all(10),
-                              child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary),
-                            )
-                          : IconButton.filled(
-                              padding: EdgeInsets.zero,
-                              onPressed: p.toggle,
-                              // 玻璃层会改写继承的图标颜色，这里显式指定
-                              icon: Icon(
-                                p.playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                                color: scheme.onPrimary,
-                              ),
-                            ),
-                    ),
-                    IconButton(
-                      onPressed: p.next,
-                      icon: Icon(Icons.skip_next_rounded, color: scheme.onSurface),
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                left: 22,
-                right: 22,
-                bottom: 0,
-                child: ValueListenableBuilder(
-                  valueListenable: p.position,
-                  builder: (_, pos, _) => LinearProgressIndicator(
-                    minHeight: 2,
-                    backgroundColor: scheme.onSurface.withValues(alpha: 0.12),
-                    value: p.duration.inMilliseconds == 0
-                        ? 0
-                        : (pos.inMilliseconds / p.duration.inMilliseconds).clamp(0.0, 1.0),
-                  ),
-                ),
-              ),
-            ],
+    Widget title = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          song.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+        Text(
+          p.error == null ? singerNames(song) : playerErrorText(AppLocalizations.of(context), p.error!),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 12, color: p.error != null ? scheme.error : scheme.onSurfaceVariant),
+        ),
+      ],
+    );
+    final swipe = this.swipe;
+    if (swipe != null) {
+      title = ClipRect(
+        child: AnimatedBuilder(
+          animation: swipe,
+          child: title,
+          builder: (_, title) => Transform.translate(
+            offset: Offset(swipe.value, 0),
+            child: Opacity(opacity: (1 - swipe.value.abs() / 140).clamp(0.0, 1.0), child: title),
           ),
         ),
-      ),
+      );
+    }
+    return Stack(
+      children: [
+        Row(
+          children: [
+            const SizedBox(width: 10 + MiniPlayer._coverSize + 12),
+            Expanded(child: title),
+            if (!touchPlatform)
+              IconButton(
+                onPressed: p.previous,
+                icon: Icon(Icons.skip_previous_rounded, color: scheme.onSurface),
+              ),
+            SizedBox.square(
+              dimension: 40,
+              child: p.loading || p.buffering
+                  ? Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary),
+                    )
+                  : IconButton.filled(
+                      padding: EdgeInsets.zero,
+                      onPressed: p.toggle,
+                      // 玻璃层会改写继承的图标颜色，这里显式指定
+                      icon: Icon(p.playing ? Icons.pause_rounded : Icons.play_arrow_rounded, color: scheme.onPrimary),
+                    ),
+            ),
+            if (!touchPlatform)
+              IconButton(
+                onPressed: p.next,
+                icon: Icon(Icons.skip_next_rounded, color: scheme.onSurface),
+              ),
+            // 手机上播放键和胶囊右端的半圆同心
+            SizedBox(width: touchPlatform ? 12 : 8),
+          ],
+        ),
+        // 进度线只画在胶囊的直边上
+        Positioned(
+          left: MiniPlayer.height / 2,
+          right: MiniPlayer.height / 2,
+          bottom: 0,
+          child: ValueListenableBuilder(
+            valueListenable: p.position,
+            builder: (_, pos, _) => LinearProgressIndicator(
+              minHeight: 2,
+              backgroundColor: scheme.onSurface.withValues(alpha: 0.12),
+              value: p.duration.inMilliseconds == 0
+                  ? 0
+                  : (pos.inMilliseconds / p.duration.inMilliseconds).clamp(0.0, 1.0),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

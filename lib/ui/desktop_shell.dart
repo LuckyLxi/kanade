@@ -10,6 +10,7 @@ import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'glass.dart';
 import 'player_page.dart';
+import 'player_route.dart';
 import 'song_actions.dart';
 import 'widgets.dart';
 
@@ -184,10 +185,57 @@ class _SidebarPlaylistsState extends State<_SidebarPlaylists> {
 
 /// 桌面底部整宽的玻璃播放栏：左边歌曲信息，中间播放控制和进度，右边歌词 / 队列 / 音量。
 /// 玻璃里只放普通控件，并且图标颜色要显式给（玻璃层会改写继承的图标颜色）。
-class DesktopPlayerBar extends StatelessWidget {
+class DesktopPlayerBar extends StatefulWidget {
   const DesktopPlayerBar({super.key});
 
   static const height = 84.0;
+
+  /// 播放页从这里变形出来。
+  static final anchor = PlayerBarAnchor(
+    coverRadius: 12,
+    face: (_) => const Material(type: MaterialType.transparency, child: _DesktopBarContent(showCover: false)),
+  );
+
+  @override
+  State<DesktopPlayerBar> createState() => _DesktopPlayerBarState();
+}
+
+class _DesktopPlayerBarState extends State<DesktopPlayerBar> with TickerProviderStateMixin {
+  late final _drag = PlayerBarDrag(DesktopPlayerBar.anchor, this);
+
+  @override
+  Widget build(BuildContext context) {
+    if (!context.select<PlayerController, bool>((p) => p.current != null)) return const SizedBox.shrink();
+    final bar = GestureDetector(
+      key: DesktopPlayerBar.anchor.barKey,
+      // 按住往上拖打开播放页
+      onVerticalDragUpdate: (d) => _drag.update(context, d),
+      onVerticalDragEnd: (d) => _drag.end(context, d.velocity.pixelsPerSecond.dy),
+      onVerticalDragCancel: () => _drag.end(context, 0),
+      child: GlassContainer(
+        useOwnLayer: true,
+        settings: KanadeGlass.navigationSettings(context),
+        quality: KanadeGlass.navigationQuality,
+        height: DesktopPlayerBar.height,
+        shape: const LiquidRoundedRectangle(borderRadius: DesktopPlayerBar.height / 2),
+        clipBehavior: Clip.antiAlias,
+        child: const Material(type: MaterialType.transparency, child: _DesktopBarContent(showCover: true)),
+      ),
+    );
+    // 播放页盖在上面时由转场层画它，这里藏起来
+    return ValueListenableBuilder(
+      valueListenable: DesktopPlayerBar.anchor.hidden,
+      child: bar,
+      builder: (_, hidden, bar) => Opacity(opacity: hidden ? 0 : 1, child: bar),
+    );
+  }
+}
+
+/// 播放栏里的内容。[showCover] 为 false 时是变形转场画的副本，封面由转场层单独飞。
+class _DesktopBarContent extends StatelessWidget {
+  const _DesktopBarContent({required this.showCover});
+
+  final bool showCover;
 
   @override
   Widget build(BuildContext context) {
@@ -200,159 +248,153 @@ class DesktopPlayerBar extends StatelessWidget {
     final liked = context.select<LibraryController, bool>((c) => c.isLiked(song));
     final muted = scheme.onSurfaceVariant;
     void openPlayer({bool queue = false}) =>
-        Navigator.of(context, rootNavigator: true)
-            .push(PlayerPage.route(from: globalRectOf(context), fromRadius: 24, showQueue: queue));
+        PlayerRoute.open(context, anchor: DesktopPlayerBar.anchor, showQueue: queue);
 
-    return GlassContainer(
-      useOwnLayer: true,
-      settings: KanadeGlass.playerBarSettings(context),
-      quality: KanadeGlass.navigationQuality,
-      height: height,
-      shape: const LiquidRoundedSuperellipse(borderRadius: 24),
-      clipBehavior: Clip.antiAlias,
-      child: Material(
-        color: KanadeGlass.playerBarScrim(context),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 300,
-                child: Row(
-                  children: [
-                    InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: openPlayer,
-                      child: Hero(tag: 'cover', child: Cover(song.coverUrl, size: 54, radius: 12)),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: InkWell(
-                        onTap: openPlayer,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              song.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                            ),
-                            Text(
-                              p.error == null ? singerNames(song) : playerErrorText(l, p.error!),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 12, color: p.error != null ? scheme.error : muted),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: liked ? l.unlike : l.like,
-                      onPressed: () => toggleLike(context, song),
-                      icon: Icon(
-                        liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                        color: liked ? scheme.primary : muted,
-                      ),
-                    ),
-                  ],
+    return Padding(
+      // 两端是半圆，内容往里收一点
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 300,
+            child: Row(
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: openPlayer,
+                  child: showCover
+                      ? KeyedSubtree(
+                          key: DesktopPlayerBar.anchor.coverKey,
+                          child: Cover(song.coverUrl, size: 54, radius: 12),
+                        )
+                      : const SizedBox.square(dimension: 54),
                 ),
-              ),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Row(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: openPlayer,
+                    child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        IconButton(
-                          tooltip: switch (p.mode) {
-                            PlayMode.sequence => l.modeSequence,
-                            PlayMode.repeatOne => l.modeRepeatOne,
-                            PlayMode.shuffle => l.modeShuffle,
-                          },
-                          onPressed: p.cycleMode,
-                          icon: Icon(
-                            switch (p.mode) {
-                              PlayMode.sequence => Icons.repeat_rounded,
-                              PlayMode.repeatOne => Icons.repeat_one_rounded,
-                              PlayMode.shuffle => Icons.shuffle_rounded,
-                            },
-                            size: 20,
-                            color: p.mode == PlayMode.sequence ? muted : scheme.onSurface,
-                          ),
+                        Text(
+                          song.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                         ),
-                        IconButton(
-                          onPressed: p.previous,
-                          icon: Icon(Icons.skip_previous_rounded, color: scheme.onSurface, size: 26),
+                        Text(
+                          p.error == null ? singerNames(song) : playerErrorText(l, p.error!),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12, color: p.error != null ? scheme.error : muted),
                         ),
-                        const SizedBox(width: 4),
-                        SizedBox.square(
-                          dimension: 44,
-                          child: p.loading || p.buffering
-                              ? Padding(
-                                  padding: const EdgeInsets.all(11),
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary),
-                                )
-                              : IconButton.filled(
-                                  padding: EdgeInsets.zero,
-                                  onPressed: p.toggle,
-                                  icon: Icon(
-                                    p.playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                                    color: scheme.onPrimary,
-                                  ),
-                                ),
-                        ),
-                        const SizedBox(width: 4),
-                        IconButton(
-                          onPressed: p.next,
-                          icon: Icon(Icons.skip_next_rounded, color: scheme.onSurface, size: 26),
-                        ),
-                        // 占位，让播放键落在正中
-                        const SizedBox(width: 48),
                       ],
                     ),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 560),
-                      child: const _ProgressRow(),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              SizedBox(
-                width: 260,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                IconButton(
+                  tooltip: liked ? l.unlike : l.like,
+                  onPressed: () => toggleLike(context, song),
+                  icon: Icon(
+                    liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    color: liked ? scheme.primary : muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(
-                      tooltip: l.lyrics,
-                      onPressed: openPlayer,
-                      icon: Icon(Icons.lyrics_outlined, size: 20, color: muted),
-                    ),
-                    IconButton(
-                      tooltip: l.queue,
-                      onPressed: () => openPlayer(queue: true),
-                      icon: Icon(Icons.queue_music_rounded, size: 20, color: muted),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(p.volume == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded, size: 20, color: muted),
-                    SizedBox(
-                      width: 110,
-                      child: _ThinSlider(
-                        value: p.volume / 100,
-                        color: scheme.onSurface,
-                        label: l.volume,
-                        onChanged: (v) => p.setVolume(v * 100),
+                      tooltip: switch (p.mode) {
+                        PlayMode.sequence => l.modeSequence,
+                        PlayMode.repeatOne => l.modeRepeatOne,
+                        PlayMode.shuffle => l.modeShuffle,
+                      },
+                      onPressed: p.cycleMode,
+                      icon: Icon(
+                        switch (p.mode) {
+                          PlayMode.sequence => Icons.repeat_rounded,
+                          PlayMode.repeatOne => Icons.repeat_one_rounded,
+                          PlayMode.shuffle => Icons.shuffle_rounded,
+                        },
+                        size: 20,
+                        color: p.mode == PlayMode.sequence ? muted : scheme.onSurface,
                       ),
                     ),
+                    IconButton(
+                      onPressed: p.previous,
+                      icon: Icon(Icons.skip_previous_rounded, color: scheme.onSurface, size: 26),
+                    ),
+                    const SizedBox(width: 4),
+                    SizedBox.square(
+                      dimension: 44,
+                      child: p.loading || p.buffering
+                          ? Padding(
+                              padding: const EdgeInsets.all(11),
+                              child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary),
+                            )
+                          : IconButton.filled(
+                              padding: EdgeInsets.zero,
+                              onPressed: p.toggle,
+                              icon: Icon(
+                                p.playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                color: scheme.onPrimary,
+                              ),
+                            ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      onPressed: p.next,
+                      icon: Icon(Icons.skip_next_rounded, color: scheme.onSurface, size: 26),
+                    ),
+                    // 占位，让播放键落在正中
+                    const SizedBox(width: 48),
                   ],
                 ),
-              ),
-            ],
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: const _ProgressRow(),
+                ),
+              ],
+            ),
           ),
-        ),
+          SizedBox(
+            width: 260,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  tooltip: l.lyrics,
+                  onPressed: openPlayer,
+                  icon: Icon(Icons.lyrics_outlined, size: 20, color: muted),
+                ),
+                IconButton(
+                  tooltip: l.queue,
+                  onPressed: () => openPlayer(queue: true),
+                  icon: Icon(Icons.queue_music_rounded, size: 20, color: muted),
+                ),
+                const SizedBox(width: 4),
+                Icon(p.volume == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded, size: 20, color: muted),
+                SizedBox(
+                  width: 110,
+                  child: _ThinSlider(
+                    value: p.volume / 100,
+                    color: scheme.onSurface,
+                    label: l.volume,
+                    onChanged: (v) => p.setVolume(v * 100),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

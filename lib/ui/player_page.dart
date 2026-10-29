@@ -12,24 +12,25 @@ import '../src/rust/api/types.dart';
 import 'comments_page.dart';
 import 'player_background.dart';
 import 'player_lyrics.dart';
+import 'player_route.dart';
 import 'song_actions.dart';
-import 'title_bar.dart';
 import 'widgets.dart';
 
 enum _Panel { none, lyrics, queue }
+
 
 const _motion = Duration(milliseconds: 550);
 const _curve = Curves.easeInOutCubicEmphasized;
 
 /// 播放页用的大封面地址。
-String _bigCover(Song s) => s.coverUrl.replaceFirst('300x300', '500x500');
+String bigCoverUrl(Song s) => s.coverUrl.replaceFirst('300x300', '500x500');
 
 String? _prefetched;
 
 /// 切歌时就把播放页要用的大封面和背景素材准备好，
 /// 打开播放页时不用在转场动画期间临时下载、取色、模糊。
 void prefetchPlayerArt(BuildContext context, Song song) {
-  final url = _bigCover(song);
+  final url = bigCoverUrl(song);
   if (url.isEmpty || url == _prefetched) return;
   _prefetched = url;
   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -37,66 +38,6 @@ void prefetchPlayerArt(BuildContext context, Song song) {
     unawaited(precacheImage(NetworkImage(url.replaceFirst('http://', 'https://')), context));
     unawaited(loadCoverArt(url).then<void>((_) {}, onError: (_) {}));
   });
-}
-
-/// 播放栏展开成播放页：裁剪区域从播放栏的圆角矩形插值到全屏。只裁剪不缩放，
-/// 页面每帧不用重新排版；开头叠一层播放栏的底色再淡掉，看起来是播放栏本身在长大。
-class _ExpandFromBar extends StatelessWidget {
-  const _ExpandFromBar({
-    required this.animation,
-    required this.from,
-    required this.fromRadius,
-    required this.barColor,
-    required this.child,
-  });
-
-  final Animation<double> animation;
-  final Rect? from;
-  final double fromRadius;
-  final Color barColor;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      child: child,
-      builder: (context, child) {
-        final size = MediaQuery.sizeOf(context);
-        final full = Offset.zero & size;
-        final start = from ?? Rect.fromLTWH(0, size.height, size.width, 0);
-        final t = animation.value;
-        final rect = Rect.lerp(start, full, t)!;
-        final radius = fromRadius * (1 - t);
-        // 底色在前 35% 里淡掉，之后就是播放页本身
-        final cover = (1 - t / 0.35).clamp(0.0, 1.0);
-        // 结构保持不变（只改参数），否则播放页会被重建，背景和歌词的状态会归零
-        return ClipRRect(
-          clipper: _RRectClipper(RRect.fromRectAndRadius(rect, Radius.circular(radius))),
-          clipBehavior: t >= 1 ? Clip.none : Clip.antiAlias,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              child!,
-              IgnorePointer(child: ColoredBox(color: barColor.withValues(alpha: cover))),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _RRectClipper extends CustomClipper<RRect> {
-  const _RRectClipper(this.rrect);
-
-  final RRect rrect;
-
-  @override
-  RRect getClip(Size size) => rrect;
-
-  @override
-  bool shouldReclip(_RRectClipper old) => old.rrect != rrect;
 }
 
 final _fallbackTheme = ThemeData(
@@ -112,51 +53,20 @@ class PlayerPage extends StatefulWidget {
   /// 打开时直接显示播放队列（桌面底栏的队列按钮用）。
   final bool showQueue;
 
-  /// [from] 是点开它的播放栏在屏幕上的位置：播放页从那个圆角矩形展开到全屏，关闭时收回去。
-  /// 不给的话从屏幕底边往上展开。
-  static Route<void> route({Rect? from, double fromRadius = 22, bool showQueue = false}) => PageRouteBuilder(
-        opaque: false,
-        transitionDuration: const Duration(milliseconds: 520),
-        reverseTransitionDuration: const Duration(milliseconds: 420),
-        // 全屏沉浸：窗口按钮平时隐藏，鼠标移到顶部才出现
-        pageBuilder: (_, _, _) => ImmersiveTitleBar(child: PlayerPage(showQueue: showQueue)),
-        transitionsBuilder: (context, a, _, child) => _ExpandFromBar(
-          animation: CurvedAnimation(parent: a, curve: _curve, reverseCurve: Curves.easeInOutCubic),
-          from: from,
-          fromRadius: fromRadius,
-          barColor: Theme.of(context).colorScheme.surfaceContainer,
-          child: child,
-        ),
-      );
+  /// 给了 [anchor] 时播放页从那个播放条变形出来，关闭时变回去；不给就从屏幕底边升上来。
+  static Route<void> route({PlayerBarAnchor? anchor, bool showQueue = false}) =>
+      PlayerRoute(anchor: anchor, showQueue: showQueue);
 
   @override
   State<PlayerPage> createState() => _PlayerPageState();
 }
 
-class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateMixin {
+class _PlayerPageState extends State<PlayerPage> {
   late _Panel _panel = widget.showQueue ? _Panel.queue : _Panel.none;
   CoverArt? _art;
   String? _artUrl;
 
   List<Color> get _palette => _art?.palette ?? fallbackPalette;
-
-  /// 下拉关闭的位移。只驱动外层 Transform，不重建页面内容。
-  final _drag = ValueNotifier<double>(0);
-  late final AnimationController _dragBack = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
-  double _dragFrom = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _dragBack.addListener(() => _drag.value = _dragFrom * (1 - Curves.easeOutCubic.transform(_dragBack.value)));
-  }
-
-  @override
-  void dispose() {
-    _dragBack.dispose();
-    _drag.dispose();
-    super.dispose();
-  }
 
   void _loadArt(String url) {
     if (url == _artUrl) return;
@@ -178,23 +88,15 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
 
   void _togglePanel(_Panel panel) => setState(() => _panel = _panel == panel ? _Panel.none : panel);
 
-  void _onDragEnd(DragEndDetails d) {
-    if (_drag.value > 140 || d.velocity.pixelsPerSecond.dy > 900) {
-      Navigator.pop(context);
-      return;
-    }
-    _dragFrom = _drag.value;
-    _dragBack.forward(from: 0);
-  }
-
   @override
   Widget build(BuildContext context) {
     final p = context.watch<PlayerController>();
     final song = p.current;
     if (song == null) return const Scaffold();
-    final cover = _bigCover(song);
+    final cover = bigCoverUrl(song);
     _loadArt(cover);
     final wide = MediaQuery.sizeOf(context).width >= 800;
+    final route = ModalRoute.of(context);
 
     final page = Scaffold(
       backgroundColor: Colors.black,
@@ -221,23 +123,16 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
       value: SystemUiOverlayStyle.light,
       child: Theme(
         data: _art?.theme ?? _fallbackTheme,
-        child: GestureDetector(
-          onVerticalDragUpdate: (d) => _drag.value = max(0, _drag.value + d.delta.dy),
-          onVerticalDragEnd: _onDragEnd,
-          child: ValueListenableBuilder(
-            valueListenable: _drag,
-            child: page,
-            // 外层结构不能随 drag 变：换结构会让整页（背景的旋转相位、歌词滚动位置）重建归零
-            builder: (_, drag, page) => Transform.translate(
-              offset: Offset(0, drag),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(min(drag / 4, 28)),
-                clipBehavior: drag == 0 ? Clip.none : Clip.antiAlias,
+        // 下拉时整页沿着变形的路径缩回播放条，手指松开再决定关还是弹回
+        child: route is PlayerRoute
+            ? GestureDetector(
+                onVerticalDragStart: (_) => route.dragStart(),
+                onVerticalDragUpdate: (d) => route.dragUpdate(d.delta.dy),
+                onVerticalDragEnd: (d) => route.dragEnd(d.velocity.pixelsPerSecond.dy),
+                onVerticalDragCancel: () => route.dragEnd(0),
                 child: page,
-              ),
-            ),
-          ),
-        ),
+              )
+            : page,
       ),
     );
   }
@@ -394,7 +289,8 @@ class _AlbumArt extends StatelessWidget {
     final p = context.read<PlayerController>();
     final lifted = expanded && playing;
     final radius = expanded ? 14.0 : 8.0;
-    return GestureDetector(
+    final morph = PlayerMorph.maybeOf(context);
+    final art = GestureDetector(
       onHorizontalDragEnd: !expanded
           ? null
           : (d) {
@@ -420,8 +316,9 @@ class _AlbumArt extends StatelessWidget {
               ),
             ],
           ),
-          child: Hero(
-            tag: 'cover',
+          // 打开播放页时封面从播放条飞过来，落点量的就是这里
+          child: KeyedSubtree(
+            key: morph?.artKey,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 450),
               transitionBuilder: (child, a) => FadeTransition(
@@ -433,6 +330,13 @@ class _AlbumArt extends StatelessWidget {
           ),
         ),
       ),
+    );
+    if (morph == null) return art;
+    // 封面还在飞的时候这里先藏起来，落地再接上
+    return ValueListenableBuilder(
+      valueListenable: morph.artInFlight,
+      child: art,
+      builder: (_, flying, art) => Opacity(opacity: flying ? 0 : 1, child: art),
     );
   }
 }

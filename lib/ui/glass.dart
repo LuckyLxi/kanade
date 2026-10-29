@@ -12,7 +12,12 @@ abstract final class KanadeGlass {
 
   /// Windows 没有 shader image filter，用共享内容纹理做折射；
   /// 玻璃控件要放在 [backdropSource] 外面，否则会采样到自己。
-  static Widget backdropScope({required Widget child}) => Platform.isWindows ? GlassBackdropScope(child: child) : child;
+  /// 纹理截下来先做一次真正的高斯模糊，和安卓 premium 的背景模糊一致；
+  /// 玻璃 shader 自带的五点近似模糊会让背后的文字出重影。
+  static Widget backdropScope({required Widget child}) =>
+      Platform.isWindows ? GlassBackdropScope(blurSigma: _blur, child: child) : child;
+
+  static const double _blur = 2;
 
   static Widget backdropSource({required Widget child}) =>
       Platform.isWindows ? GlassBackdropSource(child: child) : child;
@@ -35,7 +40,7 @@ abstract final class KanadeGlass {
     final circularLens = _usesPremiumRenderer(context, quality) || Platform.isWindows;
     return LiquidGlassSettings(
       thickness: circularLens ? 72 : 10,
-      blur: 2,
+      blur: _blur,
       refractiveIndex: 1.18,
       lensModel: circularLens ? GlassLensModel.circularArc : GlassLensModel.spherical,
       refractionAmount: circularLens ? 24 : 0,
@@ -81,15 +86,6 @@ abstract final class KanadeGlass {
     context,
     quality: navigationQuality,
   ).copyWith(glassColor: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.16));
-
-  /// 播放条和导航栏用同一套透镜，边缘的折射和高光保持一致。
-  static LiquidGlassSettings playerBarSettings(BuildContext context) =>
-      surfaceSettings(context, quality: navigationQuality);
-
-  /// 播放条上有歌名和一排按钮，玻璃太透时底下的文字会和它们叠在一起。
-  /// glassColor 在 Windows 的折射路径上几乎看不出来，所以在玻璃里面再垫一层半透明底色。
-  static Color playerBarScrim(BuildContext context) =>
-      Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.72);
 
   static Future<void> initialize() => LiquidGlassWidgets.initialize(enablePerformanceMonitor: false);
 

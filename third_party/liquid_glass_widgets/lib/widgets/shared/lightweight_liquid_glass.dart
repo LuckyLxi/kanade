@@ -1100,6 +1100,8 @@ class _RenderLightweightGlass extends RenderProxyBox
     shader.setFloat(index++, _settings.rimShade);
     shader.setFloat(index++, _settings.rimShadeEnds);
     shader.setFloat(index++, _settings.rimLight);
-    shader.setFloat(index++, _settings.effectiveBlur);
+    // A pre-blurred shared texture already carries the backdrop blur.
+    final preBlurred = !_isInsideBackdrop && (_backdrop?.blurSigma ?? 0) > 0;
+    shader.setFloat(index++, preBlurred ? 0 : _settings.effectiveBlur);
   }
 }

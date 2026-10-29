@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:kanade/ui/desktop_shell.dart';
 import 'package:kanade/ui/player_background.dart';
 import 'package:kanade/ui/player_lyrics.dart';
 import 'package:kanade/ui/player_page.dart';
@@ -36,6 +37,8 @@ void main() {
       'bg': () => slide(PlayerBackground(art: art, animate: true)),
       'lyrics': () => slide(const ColoredBox(color: Colors.black, child: LyricView(fontSize: 36))),
       'full': PlayerPage.route,
+      // 从播放栏变形出来：开头有一段玻璃跟着形状长大
+      'bar': () => PlayerPage.route(anchor: DesktopPlayerBar.anchor),
     };
     final report = StringBuffer();
     for (final MapEntry(key: name, value: make) in cases.entries) {
