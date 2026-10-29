@@ -554,10 +554,18 @@ class RecommendFeed {
   /// “刷歌模式”入口给的起始歌曲 id，传给 `get_radar_songs`；没有入口时为空。
   final Int64List radarSeed;
 
-  const RecommendFeed({required this.sections, required this.radarSeed});
+  /// 刷歌入口卡的封面（推荐歌曲的专辑图，每次可能不同），可能为空。
+  final String radarCover;
+
+  const RecommendFeed({
+    required this.sections,
+    required this.radarSeed,
+    required this.radarCover,
+  });
 
   @override
-  int get hashCode => sections.hashCode ^ radarSeed.hashCode;
+  int get hashCode =>
+      sections.hashCode ^ radarSeed.hashCode ^ radarCover.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -565,7 +573,8 @@ class RecommendFeed {
       other is RecommendFeed &&
           runtimeType == other.runtimeType &&
           sections == other.sections &&
-          radarSeed == other.radarSeed;
+          radarSeed == other.radarSeed &&
+          radarCover == other.radarCover;
 }
 
 /// 推荐页的一个区块；一个区块要么是歌曲，要么是歌单。

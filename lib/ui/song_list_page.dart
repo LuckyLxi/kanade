@@ -9,6 +9,7 @@ import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'glass.dart';
+import 'playlist_actions.dart';
 import 'song_actions.dart';
 import 'widgets.dart';
 
@@ -63,6 +64,24 @@ class SongListPage extends StatelessWidget {
     ),
   );
 
+  /// 云端最近播放，从新到旧。
+  static Route<void> recent(String title) => MaterialPageRoute(
+    builder: (_) => SongListPage(
+      title: title,
+      load: () async {
+        final songs = await api.getRecentPlays();
+        return (
+          title: title,
+          cover: songs.isEmpty ? '' : songs.first.coverUrl,
+          period: '',
+          description: '',
+          songs: songs,
+          owned: null,
+        );
+      },
+    ),
+  );
+
   static Route<void> toplist(int topId, String period, String title) => MaterialPageRoute(
     builder: (_) => SongListPage(
       title: title,
@@ -107,9 +126,34 @@ class _BodyState extends State<_Body> {
   /// 删歌成功后从这里去掉，不用重新加载整个歌单。
   late final List<Song> _songs = List.of(widget.d.songs);
 
+  /// 改名后就地更新，不重新加载。
+  late MyPlaylist? _owned = widget.d.owned;
+  late String _title = widget.d.title;
+
   Future<void> _remove(Song song) async {
-    if (await removeFromPlaylist(context, widget.d.owned!, song) && mounted) {
+    if (await removeFromPlaylist(context, _owned!, song) && mounted) {
       setState(() => _songs.remove(song));
+    }
+  }
+
+  Future<void> _edit() async {
+    final owned = _owned!;
+    switch (await showPlaylistActions(context, owned)) {
+      case PlaylistRenamed(:final name):
+        if (!mounted) return;
+        setState(() {
+          _title = name;
+          _owned = MyPlaylist(
+            dirId: owned.dirId,
+            tid: owned.tid,
+            name: name,
+            coverUrl: owned.coverUrl,
+            songCount: owned.songCount,
+          );
+        });
+      case PlaylistDeleted():
+        if (mounted) Navigator.of(context).pop();
+      case null:
     }
   }
 
@@ -119,13 +163,13 @@ class _BodyState extends State<_Body> {
     return ListView.builder(
       itemCount: _songs.length + 1,
       itemBuilder: (context, i) {
-        if (i == 0) return _Head(d, _songs);
+        if (i == 0) return _Head(d, _songs, title: _title, onEdit: canEditPlaylist(_owned) ? _edit : null);
         final song = _songs[i - 1];
         return SongTile(
           songs: _songs,
           index: i - 1,
           rank: widget.ranked ? i : null,
-          onRemove: d.owned == null ? null : () => _remove(song),
+          onRemove: _owned == null ? null : () => _remove(song),
         );
       },
     );
@@ -133,10 +177,14 @@ class _BodyState extends State<_Body> {
 }
 
 class _Head extends StatelessWidget {
-  const _Head(this.d, this.songs);
+  const _Head(this.d, this.songs, {required this.title, this.onEdit});
 
   final ListData d;
   final List<Song> songs;
+  final String title;
+
+  /// 自己的歌单（“我喜欢”除外）才有：改名、删除。
+  final VoidCallback? onEdit;
 
   void _shuffle(BuildContext context) {
     final p = context.read<PlayerController>();
@@ -163,7 +211,7 @@ class _Head extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            d.title,
+            title,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -203,6 +251,19 @@ class _Head extends StatelessWidget {
                 onPressed: songs.isEmpty ? null : () => _shuffle(context),
                 icon: const Icon(Icons.shuffle_rounded),
               ),
+              if (onEdit != null) ...[
+                const SizedBox(width: 10),
+                IconButton(
+                  tooltip: l.more,
+                  style: IconButton.styleFrom(
+                    fixedSize: const Size(46, 46),
+                    backgroundColor: scheme.surfaceContainerHigh,
+                    side: BorderSide(color: scheme.outlineVariant),
+                  ),
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.more_horiz_rounded),
+                ),
+              ],
             ],
           ),
         ],

@@ -4,7 +4,7 @@
 use crate::api::error::ApiError;
 use crate::api::types::*;
 use crate::qq::audio_cache::cache;
-use crate::qq::{client, detail, library, login, music, quality};
+use crate::qq::{client, detail, history, library, login, music, quality};
 
 #[flutter_rust_bridge::frb(init)]
 pub fn init_app() {
@@ -177,6 +177,26 @@ pub async fn add_song_to_playlist(dir_id: i64, song_id: i64) -> Result<(), ApiEr
 
 pub async fn remove_song_from_playlist(dir_id: i64, song_id: i64) -> Result<(), ApiError> {
     Ok(library::remove_from_playlist(dir_id, song_id).await?)
+}
+
+/// 改名自己的歌单（“我喜欢”除外）。
+pub async fn rename_playlist(dir_id: i64, name: String) -> Result<(), ApiError> {
+    Ok(library::rename_playlist(dir_id, &name).await?)
+}
+
+/// 删除整个自己的歌单（“我喜欢”除外）。
+pub async fn delete_playlist(dir_id: i64) -> Result<(), ApiError> {
+    Ok(library::delete_playlist(dir_id).await?)
+}
+
+/// 云端最近播放的歌曲（需要登录），从新到旧。
+pub async fn get_recent_plays() -> Result<Vec<Song>, ApiError> {
+    Ok(history::recent_plays().await?)
+}
+
+/// 上报一次播放到云端最近播放（需要登录）。
+pub async fn report_play(song_id: i64) -> Result<(), ApiError> {
+    Ok(history::report_play(song_id).await?)
 }
 
 pub async fn create_login_qr(kind: LoginKind) -> Result<QrCode, ApiError> {

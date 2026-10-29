@@ -55,6 +55,7 @@ class PlayerController extends ChangeNotifier {
         // 结果是被杀后台，或者进度在走却没声音。
         if (!v && _atEnd()) return;
         playing = v;
+        _reportPlay();
         notifyListeners();
       }),
       _player.stream.buffering.listen((v) {
@@ -66,6 +67,7 @@ class PlayerController extends ChangeNotifier {
         duration = v;
         // 拿到时长说明音源已经加载成功
         if (v > Duration.zero) _attempt = null;
+        _reportPlay();
         notifyListeners();
       }),
       _player.stream.completed.listen((done) {
@@ -127,6 +129,18 @@ class PlayerController extends ChangeNotifier {
   /// 当前这首歌之前已经连续跳过了几首播不了的歌。
   int _skipped = 0;
 
+  /// 已经上报过最近播放的那次切歌（`_token`），切音质、拖进度不再重复上报。
+  int _reportedToken = -1;
+
+  /// 歌曲加载成功并真正开始播放后，记一次云端最近播放。只在登录时，失败不影响播放。
+  void _reportPlay() {
+    final song = current;
+    if (song == null || !playing || _attempt != null || _player.state.duration <= Duration.zero) return;
+    if (_reportedToken == _token || !_auth.loggedIn) return;
+    _reportedToken = _token;
+    api.reportPlay(songId: song.id).ignore();
+  }
+
   /// 当前这首已经放到结尾（马上会自动切歌）。
   bool _atEnd() {
     final s = _player.state;
@@ -148,9 +162,10 @@ class PlayerController extends ChangeNotifier {
     await playAt(start);
   }
 
-  /// 开始电台播放。第一批取不到时抛出异常，由调用方提示。
-  Future<void> playRadio(Future<List<Song>> Function() fetch) async {
-    final first = await fetch();
+  /// 开始电台播放。`first` 是已经预取到的第一批（比如首页卡片封面用的那批），
+  /// 没有就现取；第一批取不到时抛出异常，由调用方提示。
+  Future<void> playRadio(Future<List<Song>> Function() fetch, {List<Song>? first}) async {
+    first ??= await fetch();
     if (first.isEmpty) throw StateError('radio returned no songs');
     _radio = fetch;
     queue = List.of(first);

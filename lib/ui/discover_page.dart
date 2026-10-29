@@ -147,61 +147,178 @@ class _TopListTile extends StatelessWidget {
 }
 
 /// 猜你喜欢（需要登录）和刷歌模式（需要推荐页给出起始歌曲）两个电台入口。
-class _RadioRow extends StatelessWidget {
+/// 猜你喜欢先预取一批，用第一首的专辑图当封面，点开就从这批放起；刷歌用入口卡给的封面。
+class _RadioRow extends StatefulWidget {
   const _RadioRow(this.feed);
 
   final RecommendFeed feed;
 
-  Future<void> _start(BuildContext context, Future<List<Song>> Function() fetch) async {
+  @override
+  State<_RadioRow> createState() => _RadioRowState();
+}
+
+class _RadioRowState extends State<_RadioRow> {
+  /// 预取的猜你喜欢下一批；没登录或已经用掉时为 null。
+  Future<List<Song>>? _guess;
+  List<Song> _guessShown = const [];
+
+  void _prefetchGuess() {
+    final f = api.getGuessYouLike();
+    _guess = f;
+    f.then((songs) {
+      if (mounted && _guess == f) setState(() => _guessShown = songs);
+    }, onError: (_) {
+      // 预取失败只是没有封面，点击时会再取
+    });
+  }
+
+  Future<void> _start(Future<List<Song>> Function() fetch, {Future<List<Song>>? first}) async {
     final l = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
+    final player = context.read<PlayerController>();
     try {
-      await context.read<PlayerController>().playRadio(fetch);
+      final batch = await first?.then<List<Song>?>((s) => s.isEmpty ? null : s, onError: (_) => null);
+      await player.playRadio(fetch, first: batch);
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(l.radioFailed(errorText(l, e)))));
     }
   }
 
+  void _startGuess() {
+    final first = _guess;
+    // 这批交给播放器了，封面换成下一批
+    _guessShown = const [];
+    _prefetchGuess();
+    _start(api.getGuessYouLike, first: first);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final feed = widget.feed;
     final loggedIn = context.watch<AuthController>().loggedIn;
+    if (loggedIn && _guess == null) _prefetchGuess();
+    if (!loggedIn && _guess != null) {
+      _guess = null;
+      _guessShown = const [];
+    }
     if (!loggedIn && feed.radarSeed.isEmpty) return const SliverToBoxAdapter();
     var page = 0;
-    final scheme = Theme.of(context).colorScheme;
-    // 深灰实心胶囊，抗色只给图标
-    final style = FilledButton.styleFrom(
-      backgroundColor: scheme.surfaceContainerHigh,
-      foregroundColor: scheme.onSurface,
-      iconColor: scheme.primary,
-      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-    );
+    final next = _guessShown.firstOrNull;
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       sliver: SliverToBoxAdapter(
-        child: Wrap(
-          spacing: 10,
-          runSpacing: 8,
-          children: [
-            if (loggedIn)
-              FilledButton.icon(
-                style: style,
-                icon: const Icon(Icons.favorite_outline),
-                label: Text(l.radioGuessYouLike),
-                onPressed: () => _start(context, api.getGuessYouLike),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Row(
+              children: [
+                if (loggedIn)
+                  Expanded(
+                    child: _RadioCard(
+                      icon: Icons.favorite,
+                      title: l.radioGuessYouLike,
+                      subtitle: next?.name,
+                      coverUrl: next?.coverUrl ?? '',
+                      onTap: _startGuess,
+                    ),
+                  ),
+                if (loggedIn && feed.radarSeed.isNotEmpty) const SizedBox(width: 10),
+                if (feed.radarSeed.isNotEmpty)
+                  Expanded(
+                    child: _RadioCard(
+                      icon: Icons.radar,
+                      title: l.radioRadar,
+                      coverUrl: feed.radarCover,
+                      // 每次点击从第 1 批开始，之后续取依次往后翻
+                      onTap: () {
+                        page = 0;
+                        _start(() => api.getRadarSongs(seed: feed.radarSeed, page: ++page));
+                      },
+                    ),
+                  ),
+                // 只有一张时也保持半宽
+                if (!loggedIn || feed.radarSeed.isEmpty) ...[const SizedBox(width: 10), const Spacer()],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 电台入口：左边专辑封面（右下角压一个抗色图标），右边标题和接下来那首歌。
+class _RadioCard extends StatelessWidget {
+  const _RadioCard({required this.icon, required this.title, this.subtitle, required this.coverUrl, required this.onTap});
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final String coverUrl;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Row(
+            children: [
+              SizedBox.square(
+                dimension: 56,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Cover(coverUrl, size: 56, radius: 12),
+                    Positioned(
+                      right: -4,
+                      bottom: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: scheme.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: scheme.surfaceContainerHigh, width: 2),
+                        ),
+                        child: Icon(icon, size: 13, color: scheme.onPrimary),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            if (feed.radarSeed.isNotEmpty)
-              FilledButton.icon(
-                style: style,
-                icon: const Icon(Icons.radar),
-                label: Text(l.radioRadar),
-                // 每次点击从第 1 批开始，之后续取依次往后翻
-                onPressed: () {
-                  page = 0;
-                  _start(context, () => api.getRadarSongs(seed: feed.radarSeed, page: ++page));
-                },
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );

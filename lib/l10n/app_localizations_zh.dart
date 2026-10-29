@@ -541,4 +541,27 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get seeAll => '全部';
+
+  @override
+  String get renamePlaylist => '重命名';
+
+  @override
+  String get deletePlaylist => '删除歌单';
+
+  @override
+  String get delete => '删除';
+
+  @override
+  String get playlistNameHint => '歌单名';
+
+  @override
+  String deletePlaylistConfirm(String name) {
+    return '确定删除歌单「$name」吗？删除后无法恢复。';
+  }
+
+  @override
+  String get playlistRenamed => '已重命名';
+
+  @override
+  String get playlistDeleted => '已删除歌单';
 }

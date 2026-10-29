@@ -63,15 +63,33 @@ class LibraryController extends ChangeNotifier {
 
   Future<List<MyPlaylist>> myPlaylists() => api.getMyPlaylists();
 
+  /// 歌单列表（名字、歌曲数）每次被改动后加一，列表页用它作 key 重新加载。
+  int get playlistsVersion => _playlistsVersion;
+  int _playlistsVersion = 0;
+
   Future<void> addToPlaylist(MyPlaylist p, Song s) async {
     await api.addSongToPlaylist(dirId: p.dirId, songId: s.id);
     if (p.dirId == 201) _liked.add(s.id.toInt());
+    _playlistsVersion++;
     notifyListeners();
   }
 
   Future<void> removeFromPlaylist(MyPlaylist p, Song s) async {
     await api.removeSongFromPlaylist(dirId: p.dirId, songId: s.id);
     if (p.dirId == 201) _liked.remove(s.id.toInt());
+    _playlistsVersion++;
+    notifyListeners();
+  }
+
+  Future<void> renamePlaylist(MyPlaylist p, String name) async {
+    await api.renamePlaylist(dirId: p.dirId, name: name);
+    _playlistsVersion++;
+    notifyListeners();
+  }
+
+  Future<void> deletePlaylist(MyPlaylist p) async {
+    await api.deletePlaylist(dirId: p.dirId);
+    _playlistsVersion++;
     notifyListeners();
   }
 

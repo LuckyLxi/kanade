@@ -1039,6 +1039,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'全部'**
   String get seeAll;
+
+  /// No description provided for @renamePlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'重命名'**
+  String get renamePlaylist;
+
+  /// No description provided for @deletePlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除歌单'**
+  String get deletePlaylist;
+
+  /// No description provided for @delete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get delete;
+
+  /// No description provided for @playlistNameHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单名'**
+  String get playlistNameHint;
+
+  /// No description provided for @deletePlaylistConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除歌单「{name}」吗？删除后无法恢复。'**
+  String deletePlaylistConfirm(String name);
+
+  /// No description provided for @playlistRenamed.
+  ///
+  /// In zh, this message translates to:
+  /// **'已重命名'**
+  String get playlistRenamed;
+
+  /// No description provided for @playlistDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已删除歌单'**
+  String get playlistDeleted;
 }
 
 class _AppLocalizationsDelegate

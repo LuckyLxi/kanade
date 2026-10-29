@@ -342,11 +342,13 @@ pub async fn recommend_feed() -> Result<RecommendFeed> {
             sections.push(RecommendSection { title, songs, playlists });
         }
     }
-    Ok(RecommendFeed { sections, radar_seed: radar_seed(&data["feed"]) })
+    let (radar_seed, radar_cover) = radar_entry(&data["feed"]).unwrap_or_default();
+    Ok(RecommendFeed { sections, radar_seed, radar_cover })
 }
 
 /// 刷歌模式入口卡的跳转形如 `qqmusic://qq.com/ui/jumpToRadarMode?p={"EntranceSongs":[id],...}`。
-fn radar_seed(feed: &Value) -> Vec<i64> {
+/// 返回起始歌曲和卡片封面（动态的专辑图，可能为空）。
+fn radar_entry(feed: &Value) -> Option<(Vec<i64>, String)> {
     cards(feed)
         .filter_map(|c| {
             let scheme = s(&c["scheme"]);
@@ -355,10 +357,10 @@ fn radar_seed(feed: &Value) -> Vec<i64> {
             }
             let p = url::Url::parse(&scheme).ok()?.query_pairs().find(|(k, _)| k == "p")?.1.into_owned();
             let p: Value = serde_json::from_str(&p).ok()?;
-            Some(p["EntranceSongs"].as_array()?.iter().map(n).filter(|id| *id > 0).collect::<Vec<_>>())
+            let ids: Vec<i64> = p["EntranceSongs"].as_array()?.iter().map(n).filter(|id| *id > 0).collect();
+            Some((ids, s(&c["cover"])))
         })
-        .find(|ids| !ids.is_empty())
-        .unwrap_or_default()
+        .find(|(ids, _)| !ids.is_empty())
 }
 
 /// 猜你喜欢电台的下一批歌，需要登录。每次调用都是新的一批，不缓存。
@@ -514,9 +516,9 @@ mod tests {
     #[test]
     fn extracts_radar_seed_from_entry_card() {
         let feed = json!({ "v_shelf": [{ "v_niche": [{ "v_card": [
-            { "type": 900, "scheme": "qqmusic://qq.com/ui/jumpToRadarMode?p=%7B%22EntranceSongs%22%3A%5B104420880%5D%2C%22Page%22%3A%221%22%7D" }
+            { "type": 900, "cover": "https://y.gtimg.cn/c.jpg", "scheme": "qqmusic://qq.com/ui/jumpToRadarMode?p=%7B%22EntranceSongs%22%3A%5B104420880%5D%2C%22Page%22%3A%221%22%7D" }
         ] }] }] });
-        assert_eq!(radar_seed(&feed), vec![104420880]);
+        assert_eq!(radar_entry(&feed), Some((vec![104420880], "https://y.gtimg.cn/c.jpg".into())));
     }
 
     #[tokio::test]

@@ -214,6 +214,25 @@ Future<void> removeSongFromPlaylist({
   songId: songId,
 );
 
+/// 改名自己的歌单（“我喜欢”除外）。
+Future<void> renamePlaylist({
+  required PlatformInt64 dirId,
+  required String name,
+}) =>
+    RustLib.instance.api.crateApiMusicRenamePlaylist(dirId: dirId, name: name);
+
+/// 删除整个自己的歌单（“我喜欢”除外）。
+Future<void> deletePlaylist({required PlatformInt64 dirId}) =>
+    RustLib.instance.api.crateApiMusicDeletePlaylist(dirId: dirId);
+
+/// 云端最近播放的歌曲（需要登录），从新到旧。
+Future<List<Song>> getRecentPlays() =>
+    RustLib.instance.api.crateApiMusicGetRecentPlays();
+
+/// 上报一次播放到云端最近播放（需要登录）。
+Future<void> reportPlay({required PlatformInt64 songId}) =>
+    RustLib.instance.api.crateApiMusicReportPlay(songId: songId);
+
 Future<QrCode> createLoginQr({required LoginKind kind}) =>
     RustLib.instance.api.crateApiMusicCreateLoginQr(kind: kind);
 

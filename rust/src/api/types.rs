@@ -172,6 +172,8 @@ pub struct RecommendFeed {
     pub sections: Vec<RecommendSection>,
     /// “刷歌模式”入口给的起始歌曲 id，传给 `get_radar_songs`；没有入口时为空。
     pub radar_seed: Vec<i64>,
+    /// 刷歌入口卡的封面（推荐歌曲的专辑图，每次可能不同），可能为空。
+    pub radar_cover: String,
 }
 
 #[derive(Debug, Clone)]

@@ -2,6 +2,7 @@ pub mod audio_cache;
 pub mod client;
 pub mod detail;
 pub mod error;
+pub mod history;
 pub mod library;
 pub mod login;
 pub mod lyric;

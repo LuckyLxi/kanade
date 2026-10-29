@@ -62,12 +62,18 @@ async fn write(dir: &MyPlaylist, song_id: i64, add: bool) -> Result<()> {
     let data = if dir.dir_id == LIKED_DIR_ID {
         c.mobile_write(module, method, param).await?
     } else {
-        c.desktop_write(module, method, param).await?
+        c.desktop_private(module, method, param).await?
     };
-    check_write_result(&data)?;
+    check_write_result(&data, "PlaylistDetailWrite")?;
+    forget(dir);
+    Ok(())
+}
+
+/// 写入成功后丢掉这个歌单和歌单列表的缓存。
+fn forget(dir: &MyPlaylist) {
+    let c = core();
     c.uncache(&format!("playlist:{}:{}", c.uin(), dir.tid));
     c.uncache("my_playlists");
-    Ok(())
 }
 
 fn write_param(dir: &MyPlaylist, song_id: i64) -> Value {
@@ -75,10 +81,10 @@ fn write_param(dir: &MyPlaylist, song_id: i64) -> Value {
         "v_songInfo": [{"songId": song_id, "songType": 0}]})
 }
 
-fn check_write_result(data: &Value) -> Result<()> {
-    let code = data["retCode"].as_i64().context(ApiError::bad_response("PlaylistDetailWrite returned no retCode"))?;
+fn check_write_result(data: &Value, api: &str) -> Result<()> {
+    let code = data["retCode"].as_i64().context(ApiError::bad_response(format!("{api} returned no retCode")))?;
     if code != 0 {
-        bail!(ApiError::ServerError { api: "PlaylistDetailWrite".into(), code: code.to_string() });
+        bail!(ApiError::ServerError { api: api.into(), code: code.to_string() });
     }
     Ok(())
 }
@@ -103,6 +109,35 @@ pub async fn remove_from_playlist(dir_id: i64, song_id: i64) -> Result<()> {
     write(&own_dir(dir_id).await?, song_id, false).await
 }
 
+/// 改名或删除整个歌单，“我喜欢”两样都不允许。
+async fn base_write(dir_id: i64, method: &str, param: impl FnOnce(&MyPlaylist) -> Value) -> Result<()> {
+    if dir_id == LIKED_DIR_ID {
+        bail!(ApiError::bad_response("the liked playlist cannot be renamed or deleted"));
+    }
+    let dir = own_dir(dir_id).await?;
+    let data = core().desktop_private("music.musicasset.PlaylistBaseWrite", method, param(&dir)).await?;
+    check_write_result(&data, &format!("PlaylistBaseWrite.{method}"))?;
+    forget(&dir);
+    Ok(())
+}
+
+pub async fn rename_playlist(dir_id: i64, new_name: &str) -> Result<()> {
+    base_write(dir_id, "EditPlaylist", |dir| rename_param(dir, new_name)).await
+}
+
+/// 删除要带歌单当前的名字，所以先从 `my_playlists` 重新取目标。
+pub async fn delete_playlist(dir_id: i64) -> Result<()> {
+    base_write(dir_id, "DelPlaylist", delete_param).await
+}
+
+fn rename_param(dir: &MyPlaylist, new_name: &str) -> Value {
+    json!({"bFmtUtf8": true, "dirId": dir.dir_id, "dirNewName": new_name, "dirShow": 1, "mask": 1})
+}
+
+fn delete_param(dir: &MyPlaylist) -> Value {
+    json!({"bFmtUtf8": true, "dirId": dir.dir_id, "dirName": dir.name})
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -119,11 +154,18 @@ mod tests {
 
     #[test]
     fn write_result_requires_explicit_success() {
-        assert!(check_write_result(&json!({"retCode": 0})).is_ok());
+        assert!(check_write_result(&json!({"retCode": 0}), "X").is_ok());
         for data in [json!({}), json!({"retCode": null})] {
-            assert!(matches!(ApiError::from(check_write_result(&data).unwrap_err()), ApiError::BadResponse { .. }));
+            assert!(matches!(ApiError::from(check_write_result(&data, "X").unwrap_err()), ApiError::BadResponse { .. }));
         }
-        let error = check_write_result(&json!({"retCode": 2000})).unwrap_err();
-        assert!(matches!(ApiError::from(error), ApiError::ServerError { code, .. } if code == "2000"));
+        let error = check_write_result(&json!({"retCode": 2000}), "PlaylistBaseWrite.DelPlaylist").unwrap_err();
+        assert!(matches!(ApiError::from(error), ApiError::ServerError { api, code } if code == "2000" && api == "PlaylistBaseWrite.DelPlaylist"));
+    }
+
+    #[test]
+    fn rename_and_delete_params_use_captured_pc_shape() {
+        let dir = MyPlaylist { dir_id: 5, tid: 123456, name: "now".into(), cover_url: String::new(), song_count: 0 };
+        assert_eq!(rename_param(&dir, "new"), json!({"bFmtUtf8": true, "dirId": 5, "dirNewName": "new", "dirShow": 1, "mask": 1}));
+        assert_eq!(delete_param(&dir), json!({"bFmtUtf8": true, "dirId": 5, "dirName": "now"}));
     }
 }

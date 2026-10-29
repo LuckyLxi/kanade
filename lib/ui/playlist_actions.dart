@@ -1,0 +1,131 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../l10n/l10n_ext.dart';
+import '../library/library_controller.dart';
+import '../src/rust/api/types.dart';
+
+/// 歌单菜单做了什么，详情页据此改标题或退出。
+sealed class PlaylistEdit {}
+
+class PlaylistRenamed extends PlaylistEdit {
+  PlaylistRenamed(this.name);
+
+  final String name;
+}
+
+class PlaylistDeleted extends PlaylistEdit {}
+
+/// “我喜欢”不能改名也不能删。
+bool canEditPlaylist(MyPlaylist? p) => p != null && p.dirId != 201;
+
+void _toast(BuildContext context, String text) =>
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(text)));
+
+/// 自建歌单的更多操作：重命名、删除。没有改动时返回 null。
+Future<PlaylistEdit?> showPlaylistActions(BuildContext context, MyPlaylist playlist) async {
+  final l = AppLocalizations.of(context);
+  final action = await showModalBottomSheet<String>(
+    context: context,
+    builder: (sheet) => SafeArea(
+      child: ListView(
+        shrinkWrap: true,
+        children: [
+          ListTile(
+            title: Text(playlist.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+            titleTextStyle: Theme.of(sheet).textTheme.titleMedium,
+          ),
+          ListTile(
+            leading: const Icon(Icons.edit_outlined),
+            title: Text(l.renamePlaylist),
+            onTap: () => Navigator.pop(sheet, 'rename'),
+          ),
+          ListTile(
+            leading: Icon(Icons.delete_outline, color: Theme.of(sheet).colorScheme.error),
+            title: Text(l.deletePlaylist, style: TextStyle(color: Theme.of(sheet).colorScheme.error)),
+            onTap: () => Navigator.pop(sheet, 'delete'),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (!context.mounted) return null;
+  return switch (action) {
+    'rename' => _rename(context, playlist),
+    'delete' => _delete(context, playlist),
+    _ => null,
+  };
+}
+
+Future<PlaylistEdit?> _rename(BuildContext context, MyPlaylist playlist) async {
+  final l = AppLocalizations.of(context);
+  final library = context.read<LibraryController>();
+  final controller = TextEditingController(text: playlist.name);
+  final name = await showDialog<String>(
+    context: context,
+    builder: (context) {
+      void submit() {
+        final v = controller.text.trim();
+        if (v.isNotEmpty) Navigator.of(context).pop(v);
+      }
+
+      return AlertDialog(
+        title: Text(l.renamePlaylist),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 40,
+          decoration: InputDecoration(hintText: l.playlistNameHint),
+          onSubmitted: (_) => submit(),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(l.cancel)),
+          ValueListenableBuilder(
+            valueListenable: controller,
+            builder: (context, v, _) => FilledButton(
+              onPressed: v.text.trim().isEmpty ? null : submit,
+              child: Text(l.ok),
+            ),
+          ),
+        ],
+      );
+    },
+  ).whenComplete(controller.dispose);
+  if (name == null || name == playlist.name || !context.mounted) return null;
+  try {
+    await library.renamePlaylist(playlist, name);
+    if (context.mounted) _toast(context, l.playlistRenamed);
+    return PlaylistRenamed(name);
+  } catch (e) {
+    if (context.mounted) _toast(context, l.actionFailed(errorText(l, e)));
+    return null;
+  }
+}
+
+Future<PlaylistEdit?> _delete(BuildContext context, MyPlaylist playlist) async {
+  final l = AppLocalizations.of(context);
+  final library = context.read<LibraryController>();
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      content: Text(l.deletePlaylistConfirm(playlist.name)),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(l.cancel)),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(l.delete),
+        ),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return null;
+  try {
+    await library.deletePlaylist(playlist);
+    if (context.mounted) _toast(context, l.playlistDeleted);
+    return PlaylistDeleted();
+  } catch (e) {
+    if (context.mounted) _toast(context, l.actionFailed(errorText(l, e)));
+    return null;
+  }
+}

@@ -11,6 +11,7 @@ import '../src/rust/api/types.dart';
 import 'glass.dart';
 import 'player_page.dart';
 import 'player_route.dart';
+import 'playlist_actions.dart';
 import 'song_actions.dart';
 import 'widgets.dart';
 
@@ -36,6 +37,7 @@ class DesktopSidebar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
     final user = context.select<AuthController, UserInfo?>((a) => a.user);
+    final playlistsVersion = context.select<LibraryController, int>((c) => c.playlistsVersion);
     return Material(
       color: scheme.surfaceContainer,
       borderRadius: BorderRadius.circular(20),
@@ -65,8 +67,8 @@ class DesktopSidebar extends StatelessWidget {
                 ),
               ),
               Expanded(
-                // 换账号时重新拉取
-                child: _SidebarPlaylists(key: ValueKey(user.uin), onOpen: onOpenPlaylist),
+                // 换账号、歌单被改动后重新拉取
+                child: _SidebarPlaylists(key: ValueKey((user.uin, playlistsVersion)), onOpen: onOpenPlaylist),
               ),
             ],
           ],
@@ -135,6 +137,12 @@ class _SidebarPlaylists extends StatefulWidget {
 class _SidebarPlaylistsState extends State<_SidebarPlaylists> {
   late final Future<List<PlaylistBrief>> _lists = api.getUserPlaylists();
 
+  /// 右键：自建歌单（“我喜欢”除外）可以改名、删除。
+  Future<void> _showActions(PlaylistBrief p) async {
+    final own = await context.read<LibraryController>().ownPlaylist(p.id);
+    if (mounted && canEditPlaylist(own)) await showPlaylistActions(context, own!);
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -149,6 +157,7 @@ class _SidebarPlaylistsState extends State<_SidebarPlaylists> {
             InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () => widget.onOpen(p),
+              onSecondaryTap: () => _showActions(p),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 child: Row(

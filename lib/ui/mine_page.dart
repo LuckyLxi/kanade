@@ -14,6 +14,7 @@ import '../library/library_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/error.dart';
 import '../src/rust/api/types.dart';
+import 'playlist_actions.dart';
 import 'settings_page.dart';
 import 'song_list_page.dart';
 import 'widgets.dart';
@@ -113,6 +114,16 @@ class _LoggedIn extends StatefulWidget {
   State<_LoggedIn> createState() => _LoggedInState();
 }
 
+/// 全部歌单（含收藏的），以及自建歌单按 tid 查到的可写信息。
+typedef _Playlists = (List<PlaylistBrief>, Map<String, MyPlaylist>);
+
+/// 自建歌单的可写信息拿不到时，只是没有改名/删除入口，列表照常显示。
+Future<_Playlists> _loadPlaylists(LibraryController library) async {
+  final own = library.myPlaylists().then((l) => {for (final p in l) p.tid.toString(): p}, onError: (_) => <String, MyPlaylist>{});
+  final all = await api.getUserPlaylists();
+  return (all, await own);
+}
+
 class _LoggedInState extends State<_LoggedIn> {
   /// false：自己创建的；true：收藏别人的。
   bool _collected = false;
@@ -138,6 +149,7 @@ class _LoggedInState extends State<_LoggedIn> {
     final scheme = Theme.of(context).colorScheme;
     final user = widget.user;
     final likedCount = context.select<LibraryController, int>((c) => c.likedCount);
+    final playlistsVersion = context.select<LibraryController, int>((c) => c.playlistsVersion);
     return ListView(
       children: [
         Padding(
@@ -189,9 +201,12 @@ class _LoggedInState extends State<_LoggedIn> {
                 ),
               ),
               const SizedBox(width: 10),
-              // 接口还没抓到，先占位
               Expanded(
-                child: _QuickTile(icon: const Icon(Icons.history), label: l.recentPlays, onTap: null),
+                child: _QuickTile(
+                  icon: const Icon(Icons.history),
+                  label: l.recentPlays,
+                  onTap: () => Navigator.of(context).push(SongListPage.recent(l.recentPlays)),
+                ),
               ),
             ],
           ),
@@ -209,9 +224,12 @@ class _LoggedInState extends State<_LoggedIn> {
             ],
           ),
         ),
-        AsyncView<List<PlaylistBrief>>(
-          load: api.getUserPlaylists,
-          builder: (context, all) {
+        AsyncView<_Playlists>(
+          // 改名、删除、加删歌之后重新加载
+          key: ValueKey(playlistsVersion),
+          load: () => _loadPlaylists(context.read<LibraryController>()),
+          builder: (context, data) {
+            final (all, own) = data;
             final lists = all.where((p) => _isCreated(p) != _collected).toList();
             if (lists.isEmpty) {
               return Padding(
@@ -235,8 +253,15 @@ class _LoggedInState extends State<_LoggedIn> {
                     subtitle: Text(
                       [if (p.songCount > 0) l.songCount(p.songCount), if (!_isCreated(p)) p.creator].join(' · '),
                     ),
-                    trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+                    trailing: canEditPlaylist(own[p.id])
+                        ? IconButton(
+                            tooltip: l.more,
+                            icon: Icon(Icons.more_vert, color: scheme.onSurfaceVariant),
+                            onPressed: () => showPlaylistActions(context, own[p.id]!),
+                          )
+                        : Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
                     onTap: () => Navigator.of(context).push(SongListPage.playlist(p.id, p.title)),
+                    onLongPress: canEditPlaylist(own[p.id]) ? () => showPlaylistActions(context, own[p.id]!) : null,
                   ),
               ],
             );

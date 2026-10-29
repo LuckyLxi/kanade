@@ -162,8 +162,9 @@ impl Core {
         self.desktop_request(DESKTOP_MUSICU, module, module, method, param, false).await
     }
 
-    /// 歌单写操作保留 PC 的请求键和 Cookie；musicu 网关不需要尚未实现的 Sign/Mask。
-    pub async fn desktop_write(&self, module: &str, method: &str, param: Value) -> Result<Value> {
+    /// 读写当前账号自己的数据（歌单、最近播放）：保留 PC 的完整请求键和 Cookie；
+    /// musicu 网关不需要尚未实现的 Sign/Mask。
+    pub async fn desktop_private(&self, module: &str, method: &str, param: Value) -> Result<Value> {
         self.desktop_request(DESKTOP_MUSICU, &format!("{module}.{method}"), module, method, param, true).await
     }
 

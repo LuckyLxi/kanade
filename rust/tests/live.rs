@@ -204,10 +204,23 @@ async fn desktop_my_playlists_include_liked() {
 /// 使用写操作的请求封装调用只读接口，验证网关和请求结构，不改动账号数据。
 #[tokio::test]
 #[ignore]
-async fn desktop_write_transport_with_readonly_call() {
+async fn desktop_private_transport_with_readonly_call() {
     use_desktop_test_login();
-    let data = client::core().desktop_write("music.vipcgi.VipBannerCgi", "QueryVipBanner", serde_json::json!({})).await.unwrap();
+    let data = client::core().desktop_private("music.vipcgi.VipBannerCgi", "QueryVipBanner", serde_json::json!({})).await.unwrap();
     assert!(data.get("banner").is_some(), "PC 请求封装没有返回预期的只读数据");
+}
+
+/// 只读：云端最近播放能取到带 mid 的歌曲；顺带看较小的 requestCnt 是否被接受。
+#[tokio::test]
+#[ignore]
+async fn desktop_recent_plays() {
+    use_desktop_test_login();
+    let songs = rust_lib_kanade::qq::history::recent_plays().await.unwrap();
+    assert!(!songs.is_empty() && songs.iter().all(|s| !s.mid.is_empty()), "最近播放为空或缺少 mid");
+    let small = client::core()
+        .desktop_private("music.musicasset.PlayRecentlyRead", "GetPlayRecentlyInfo", serde_json::json!({"requestCnt": 300, "type": 2, "updateTime": 0}))
+        .await.unwrap();
+    println!("recent={} requestCnt300: code={} songs={}", songs.len(), small["code"], small["data"]["songList"].as_array().map_or(0, |a| a.len()));
 }
 
 /// 与应用登录上下文相同的写请求封装调用只读接口，不改动账号数据。

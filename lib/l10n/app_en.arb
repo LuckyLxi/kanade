@@ -156,5 +156,12 @@
   "playlistsCreated": "Created",
   "playlistsCollected": "Saved",
   "shufflePlay": "Shuffle",
-  "seeAll": "See all"
+  "seeAll": "See all",
+  "renamePlaylist": "Rename",
+  "deletePlaylist": "Delete playlist",
+  "delete": "Delete",
+  "playlistNameHint": "Playlist name",
+  "deletePlaylistConfirm": "Delete playlist \"{name}\"? This can't be undone.",
+  "playlistRenamed": "Renamed",
+  "playlistDeleted": "Playlist deleted"
 }

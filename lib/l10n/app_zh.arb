@@ -380,5 +380,19 @@
   "playlistsCreated": "创建的",
   "playlistsCollected": "收藏的",
   "shufflePlay": "随机播放",
-  "seeAll": "全部"
+  "seeAll": "全部",
+  "renamePlaylist": "重命名",
+  "deletePlaylist": "删除歌单",
+  "delete": "删除",
+  "playlistNameHint": "歌单名",
+  "deletePlaylistConfirm": "确定删除歌单「{name}」吗？删除后无法恢复。",
+  "@deletePlaylistConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "playlistRenamed": "已重命名",
+  "playlistDeleted": "已删除歌单"
 }

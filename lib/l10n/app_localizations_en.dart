@@ -567,4 +567,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get seeAll => 'See all';
+
+  @override
+  String get renamePlaylist => 'Rename';
+
+  @override
+  String get deletePlaylist => 'Delete playlist';
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get playlistNameHint => 'Playlist name';
+
+  @override
+  String deletePlaylistConfirm(String name) {
+    return 'Delete playlist \"$name\"? This can\'t be undone.';
+  }
+
+  @override
+  String get playlistRenamed => 'Renamed';
+
+  @override
+  String get playlistDeleted => 'Playlist deleted';
 }
