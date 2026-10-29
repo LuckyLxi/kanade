@@ -50,6 +50,10 @@ class PlayerController extends ChangeNotifier {
     _auth.addListener(_onAuthChanged);
     _subs.addAll([
       _player.stream.playing.listen((v) {
+        // 一首放完时 mpv 会先报「暂停」，紧接着就自动切下一首。不能把它当成暂停告诉系统，
+        // 否则 Android 会撤掉后台播放服务和唤醒锁，切歌时在后台重新起不来，
+        // 结果是被杀后台，或者进度在走却没声音。
+        if (!v && _atEnd()) return;
         playing = v;
         notifyListeners();
       }),
@@ -68,6 +72,8 @@ class PlayerController extends ChangeNotifier {
         if (done) _onCompleted();
       }),
       _player.stream.error.listen((e) {
+        // 个别音频帧解不出来（多见于文件开头结尾），mpv 会跳过继续放，不算出错
+        if (e.startsWith('Error decoding')) return;
         if (_attempt != null) {
           _downgrade(e);
           return;
@@ -120,6 +126,15 @@ class PlayerController extends ChangeNotifier {
 
   /// 当前这首歌之前已经连续跳过了几首播不了的歌。
   int _skipped = 0;
+
+  /// 当前这首已经放到结尾（马上会自动切歌）。
+  bool _atEnd() {
+    final s = _player.state;
+    return s.completed || (s.duration > Duration.zero && s.position >= s.duration - const Duration(seconds: 1));
+  }
+
+  /// 切歌失败停下来时，按播放器的真实状态更新（放完时报的暂停之前被忽略了）。
+  void _syncPlaying() => playing = _player.state.playing;
 
   Song? get current => index >= 0 && index < queue.length ? queue[index] : null;
 
@@ -187,6 +202,7 @@ class PlayerController extends ChangeNotifier {
       if (token != _token || urlToken != _urlToken) return;
       error = PlaybackFailed(song, e);
       if (await _skipFailed()) return;
+      _syncPlaying();
     }
     // 降级重试已经接手时由它收尾
     if (token != _token || urlToken != _urlToken) return;
@@ -267,6 +283,7 @@ class PlayerController extends ChangeNotifier {
         if (a.token != _token) return;
         error = PlaybackFailed(a.song, e);
         if (await _skipFailed()) return;
+        _syncPlaying();
       }
       loading = false;
       notifyListeners();
@@ -343,11 +360,16 @@ class PlayerController extends ChangeNotifier {
     await playAt((index - 1 + queue.length) % queue.length);
   }
 
-  Future<void> toggle() => _player.playOrPause();
+  Future<void> toggle() => playing ? pause() : play();
 
   Future<void> play() => _player.play();
 
-  Future<void> pause() => _player.pause();
+  Future<void> pause() async {
+    await _player.pause();
+    // 快放完时按暂停，播放器报的暂停会被当成放完而忽略，这里补上
+    _syncPlaying();
+    notifyListeners();
+  }
 
   Future<void> seek(Duration d) => _player.seek(d);
 
