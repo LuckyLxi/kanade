@@ -25,15 +25,27 @@ typedef ListData = ({
 
 /// 歌单详情 / 榜单详情共用的页面。
 class SongListPage extends StatelessWidget {
-  const SongListPage({super.key, required this.title, required this.load, this.ranked = false});
+  const SongListPage({
+    super.key,
+    required this.title,
+    required this.load,
+    this.ranked = false,
+    this.searchable = false,
+  });
 
   final String title;
   final Future<ListData> Function() load;
+
+  /// 显示名次。
   final bool ranked;
+
+  /// 头部下面有搜索框，按歌名、歌手筛选。
+  final bool searchable;
 
   static Route<void> playlist(String id, String title) => MaterialPageRoute(
     builder: (context) => SongListPage(
       title: title,
+      searchable: true,
       load: () async {
         final owned = context.read<LibraryController>().ownPlaylist(id);
         final d = await api.getPlaylistDetail(id: id);
@@ -68,6 +80,7 @@ class SongListPage extends StatelessWidget {
   static Route<void> recent(String title) => MaterialPageRoute(
     builder: (_) => SongListPage(
       title: title,
+      searchable: true,
       load: () async {
         final songs = await api.getRecentPlays();
         return (
@@ -106,17 +119,18 @@ class SongListPage extends StatelessWidget {
     return GlassBackScaffold(
       body: AsyncView<ListData>(
         load: load,
-        builder: (context, d) => _Body(d, ranked: ranked),
+        builder: (context, d) => _Body(d, ranked: ranked, searchable: searchable),
       ),
     );
   }
 }
 
 class _Body extends StatefulWidget {
-  const _Body(this.d, {required this.ranked});
+  const _Body(this.d, {required this.ranked, required this.searchable});
 
   final ListData d;
   final bool ranked;
+  final bool searchable;
 
   @override
   State<_Body> createState() => _BodyState();
@@ -178,8 +192,7 @@ class _BodyState extends State<_Body> {
   @override
   Widget build(BuildContext context) {
     final d = widget.d;
-    // 榜单不需要搜索
-    final searchable = !widget.ranked;
+    final searchable = widget.searchable;
     final shown = searchable ? _shown : _songs;
     // 列表前面固定的行：头部，可搜索时再加搜索框
     final lead = searchable ? 2 : 1;
@@ -200,7 +213,8 @@ class _BodyState extends State<_Body> {
         return SongTile(
           songs: shown,
           index: i - lead,
-          rank: widget.ranked ? i : null,
+          // 筛选后仍显示原来的名次
+          rank: widget.ranked ? _songs.indexOf(song) + 1 : null,
           // “我喜欢”里不给删，取消喜欢就行
           onRemove: canEditPlaylist(_owned) ? () => _remove(song) : null,
         );

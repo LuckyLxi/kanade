@@ -269,6 +269,8 @@ class PlayerRoute extends ModalRoute<void> with PlayerMorph {
 
   /// 松手：按速度或位置决定展开还是收回。
   void dragEnd(double velocityY) {
+    // 点按钮时下拉手势没真正开始也会收到取消，这时不能切到线性进度，否则之后的关闭动画变成匀速
+    if (!_dragging) return;
     final c = controller!;
     final v = -velocityY / travel;
     final open = v.abs() > 1 ? v > 0 : c.value > 0.5;
