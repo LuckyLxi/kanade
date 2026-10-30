@@ -1,5 +1,3 @@
-library smtc_windows;
-
 export 'src/smtc_windows_base.dart' show SMTCWindows;
 export 'src/extensions.dart';
 export 'src/rust/internal/config.dart';
