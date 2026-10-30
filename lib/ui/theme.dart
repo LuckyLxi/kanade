@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 /// 全应用唯一的配色：黑白灰 + 柠檬绿抗色，不随封面变，也不给用户改。
@@ -121,5 +122,9 @@ ThemeData buildTheme(Brightness b) {
       inactiveTrackColor: scheme.surfaceContainerHighest,
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(color: scheme.primary),
+    // 二级页面从右边推进来，旧页面往左让一点；手机上从左边缘右滑能返回
+    pageTransitionsTheme: PageTransitionsTheme(
+      builders: {for (final p in TargetPlatform.values) p: const CupertinoPageTransitionsBuilder()},
+    ),
   );
 }

@@ -170,7 +170,7 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
     _syncChrome(hasSong);
     final scheme = Theme.of(context).colorScheme;
     final destinations = _destinations(AppLocalizations.of(context));
-    final body = IndexedStack(
+    final body = _TabSwitcher(
       index: _tab,
       children: [
         _tabNavigator(0, const DiscoverPage()),
@@ -400,6 +400,78 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
         }
       },
       child: content,
+    );
+  }
+}
+
+/// 切换标签时页面横着滑过去：往右边的标签切，新页面从右边推进来，反过来从左边。
+/// 三个页面一直留着（滚动位置、二级页面都在），不在显示的不绘制、停掉动画。
+class _TabSwitcher extends StatefulWidget {
+  const _TabSwitcher({required this.index, required this.children});
+
+  final int index;
+  final List<Widget> children;
+
+  @override
+  State<_TabSwitcher> createState() => _TabSwitcherState();
+}
+
+class _TabSwitcherState extends State<_TabSwitcher> with SingleTickerProviderStateMixin {
+  late final _slide = AnimationController(vsync: this, duration: const Duration(milliseconds: 300), value: 1)
+    // 滑完把旧页面藏起来
+    ..addStatusListener((s) {
+      if (s == AnimationStatus.completed) setState(() {});
+    });
+  late int _from = widget.index;
+
+  @override
+  void didUpdateWidget(_TabSwitcher old) {
+    super.didUpdateWidget(old);
+    if (widget.index != old.index) {
+      _from = old.index;
+      _slide.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _slide.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final to = widget.index;
+    return ClipRect(
+      child: AnimatedBuilder(
+        animation: _slide,
+        builder: (context, _) {
+          final moving = _slide.isAnimating;
+          final t = Curves.easeOutCubic.transform(_slide.value);
+          final dir = to > _from ? 1.0 : -1.0;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              for (final (i, child) in widget.children.indexed)
+                // 每一层的结构保持不变，页面的状态才不会丢
+                Offstage(
+                  offstage: i != to && !(moving && i == _from),
+                  child: TickerMode(
+                    enabled: i == to || (moving && i == _from),
+                    child: FractionalTranslation(
+                      translation: Offset(i == to ? dir * (1 - t) : -dir * t, 0),
+                      child: IgnorePointer(
+                        ignoring: i != to,
+                        // 滑动时只挪图层，不重绘页面内容
+                        child: RepaintBoundary(child: child),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
