@@ -5,6 +5,8 @@
 - **Flutter**：界面，以及基于 media_kit（libmpv）的音频播放
 - **Rust**（通过 flutter_rust_bridge 2.12）：网络请求、`zzc` 签名、登录、SQLite 缓存、歌词解析
 
+QQ 音乐上游接口的请求方式、参数、返回路径及验证边界见 [接口参考](docs/qqmusic-api.md)。
+
 ## 功能
 
 | 功能 | 状态 |

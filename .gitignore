@@ -54,6 +54,7 @@ app.*.map.json
 
 # Local QQ Music captures (may contain login credentials).
 /qqmusic*.har
+/qqmusic*.saz
 /qqmusic-pc*.etl
 /qqmusic-pc*.pcapng
 /qqmusic-pc*.sockets.jsonl

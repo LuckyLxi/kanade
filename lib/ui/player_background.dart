@@ -189,9 +189,12 @@ class PlayerBackground extends StatefulWidget {
   State<PlayerBackground> createState() => _PlayerBackgroundState();
 }
 
+/// 流动相位全局共用：拖动预览交给真正的播放页、重新打开播放页时都接着转，不从头开始。
+double _sharedPhase = 0;
+
 class _PlayerBackgroundState extends State<PlayerBackground> with TickerProviderStateMixin {
   /// 流动相位 0–1，一圈 60 秒。
-  final _phase = ValueNotifier<double>(0);
+  final _phase = ValueNotifier<double>(_sharedPhase);
   late final Ticker _ticker = createTicker(_onTick);
   Duration _last = Duration.zero;
 
@@ -214,7 +217,7 @@ class _PlayerBackgroundState extends State<PlayerBackground> with TickerProvider
     final dt = elapsed - _last;
     if (dt < const Duration(milliseconds: 33)) return;
     _last = elapsed;
-    _phase.value = (_phase.value + dt.inMicroseconds / 60e6) % 1;
+    _phase.value = _sharedPhase = (_sharedPhase + dt.inMicroseconds / 60e6) % 1;
   }
 
   @override
