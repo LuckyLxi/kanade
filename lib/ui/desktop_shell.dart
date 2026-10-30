@@ -49,13 +49,37 @@ class DesktopSidebar extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final (i, d) in destinations.indexed)
-              _NavItem(
-                icon: i == selected ? d.$2 : d.$1,
-                label: d.$3,
-                selected: i == selected,
-                onTap: () => onSelect(i),
-              ),
+            Stack(
+              children: [
+                // 选中的底色是单独一块，切换时从原来的按钮上下滑到新按钮
+                AnimatedPositioned(
+                  duration: _NavItem.motion,
+                  curve: Curves.easeOutCubic,
+                  left: 0,
+                  right: 0,
+                  top: selected * (_NavItem.height + _NavItem.gap),
+                  height: _NavItem.height,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (i, d) in destinations.indexed)
+                      _NavItem(
+                        icon: i == selected ? d.$2 : d.$1,
+                        label: d.$3,
+                        selected: i == selected,
+                        onTap: () => onSelect(i),
+                      ),
+                  ],
+                ),
+              ],
+            ),
             if (user != null) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
@@ -88,36 +112,44 @@ class _NavItem extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  static const height = 42.0;
+  static const gap = 4.0;
+  static const motion = Duration(milliseconds: 300);
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    // 选中态：白底黑字
-    final fg = selected ? scheme.onSecondaryContainer : scheme.onSurface;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Material(
-        color: selected ? scheme.secondaryContainer : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: SizedBox(
-            height: 42,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  Icon(icon, size: 20, color: fg),
-                  const SizedBox(width: 12),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                      color: fg,
+    // 选中态：白底黑字；底色由侧栏画，这里只跟着它渐变文字颜色
+    return TweenAnimationBuilder<Color?>(
+      tween: ColorTween(end: selected ? scheme.onSecondaryContainer : scheme.onSurface),
+      duration: motion,
+      curve: Curves.easeOutCubic,
+      builder: (context, fg, _) => Padding(
+        padding: const EdgeInsets.only(bottom: gap),
+        child: Material(
+          type: MaterialType.transparency,
+          borderRadius: BorderRadius.circular(12),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: SizedBox(
+              height: height,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    Icon(icon, size: 20, color: fg),
+                    const SizedBox(width: 12),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                        color: fg,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
 import '../player/player_controller.dart';
+import '../src/rust/api/types.dart';
 import 'desktop_shell.dart';
 import 'discover_page.dart';
 import 'glass.dart';
@@ -57,6 +58,20 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
     } else {
       setState(() => _tab = i);
     }
+  }
+
+  /// 侧栏点开的歌单，用来判断是不是又点了正在看的那个。
+  (String, Route<void>)? _sidebarPlaylist;
+
+  /// 侧栏点歌单：替换掉当前标签里已经打开的页面，不往上叠，返回时直接回到发现/搜索/我的。
+  void _openSidebarPlaylist(PlaylistBrief p) {
+    final nav = _keys[_tab].currentState;
+    if (nav == null) return;
+    final open = _sidebarPlaylist;
+    if (open != null && open.$1 == p.id && open.$2.isCurrent) return;
+    final route = SongListPage.playlist(p.id, p.title);
+    _sidebarPlaylist = (p.id, route);
+    nav.pushAndRemoveUntil(route, (r) => r.isFirst);
   }
 
   /// 手机上滚动页面时播放条收成导航栏右边的圆球，只有点圆球才恢复。
@@ -205,8 +220,7 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
                               destinations: destinations,
                               selected: _tab,
                               onSelect: _select,
-                              onOpenPlaylist: (p) =>
-                                  _keys[_tab].currentState?.push(SongListPage.playlist(p.id, p.title)),
+                              onOpenPlaylist: _openSidebarPlaylist,
                             ),
                           ),
                         ),
