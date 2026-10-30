@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math';
 import 'dart:ui' as ui;
@@ -203,14 +204,67 @@ class _PlayerBackgroundState extends State<PlayerBackground> with TickerProvider
   late CoverArt? _from = widget.art;
   late CoverArt? _to = widget.art;
 
-  /// 每个背景一个 shader 对象，只建一次，每帧只改参数，不产生新的纹理。
+  /// 每个背景一个 shader 对象，只建一次，每帧只改参数。
   ui.FragmentShader? _shader;
+
+  // Windows/Skia can allocate very large shader intermediates while the page
+  // is translated. Rasterize at a stable origin, then move the resulting image.
+  final _rasterReady = ValueNotifier(0);
+  ui.Image? _rasterImage;
+  Size? _rasterSize;
+  double _pixelRatio = 1;
+  double? _rasterPixelRatio;
+  bool _rasterDirty = true;
+  bool _rasterPending = false;
 
   @override
   void initState() {
     super.initState();
+    if (Platform.isWindows) {
+      _phase.addListener(_invalidateRaster);
+      _fade.addListener(_invalidateRaster);
+    }
     if (widget.animate) _ticker.start();
-    if (_program == null) _loadProgram().then((_) => mounted ? setState(() {}) : null, onError: (_) {});
+    if (_program == null) {
+      _loadProgram().then((_) {
+        if (mounted) {
+          _rasterDirty = true;
+          _rasterReady.value++;
+        }
+      }, onError: (_) {});
+    }
+  }
+
+  void _invalidateRaster() => _rasterDirty = true;
+
+  Future<void> _rasterize(Size size) async {
+    _rasterPending = true;
+    _rasterDirty = false;
+    _rasterSize = size;
+    final ratio = _rasterPixelRatio = _pixelRatio;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)..scale(ratio);
+    _BackgroundPainter(this)._paintBackground(canvas, size);
+    final picture = recorder.endRecording();
+    final firstFrame = _rasterImage == null;
+    ui.Image? next;
+    try {
+      final width = (size.width * ratio).ceil();
+      final height = (size.height * ratio).ceil();
+      // The first image must be available in this paint. Drawing the live
+      // shader while awaiting it would reintroduce the moving-shader path.
+      next = firstFrame ? picture.toImageSync(width, height) : await picture.toImage(width, height);
+      if (!mounted) return;
+      final previous = _rasterImage;
+      _rasterImage = next;
+      next = null;
+      previous?.dispose();
+    } finally {
+      next?.dispose();
+      picture.dispose();
+      _rasterPending = false;
+      if (mounted && !firstFrame) _rasterReady.value++;
+    }
   }
 
   void _onTick(Duration elapsed) {
@@ -241,6 +295,8 @@ class _PlayerBackgroundState extends State<PlayerBackground> with TickerProvider
     _ticker.dispose();
     _fade.dispose();
     _phase.dispose();
+    _rasterImage?.dispose();
+    _rasterReady.dispose();
     _shader?.dispose();
     super.dispose();
   }
@@ -248,6 +304,12 @@ class _PlayerBackgroundState extends State<PlayerBackground> with TickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final pixelRatio = View.of(context).devicePixelRatio;
+    if (_pixelRatio != pixelRatio) {
+      _pixelRatio = pixelRatio;
+      _rasterDirty = true;
+      _rasterReady.value++;
+    }
     return RepaintBoundary(
       child: CustomPaint(
         size: Size.infinite,
@@ -260,7 +322,7 @@ class _PlayerBackgroundState extends State<PlayerBackground> with TickerProvider
 }
 
 class _BackgroundPainter extends CustomPainter {
-  _BackgroundPainter(this.s) : super(repaint: Listenable.merge([s._phase, s._fade]));
+  _BackgroundPainter(this.s) : super(repaint: Listenable.merge([s._phase, s._fade, s._rasterReady]));
 
   final _PlayerBackgroundState s;
 
@@ -268,6 +330,26 @@ class _BackgroundPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (!Platform.isWindows || size.isEmpty) {
+      _paintBackground(canvas, size);
+      return;
+    }
+    if (s._rasterSize != size || s._rasterPixelRatio != s._pixelRatio) s._rasterDirty = true;
+    if (s._rasterDirty && !s._rasterPending) unawaited(s._rasterize(size));
+    final image = s._rasterImage;
+    if (image == null) {
+      _paintBackground(canvas, size);
+    } else {
+      canvas.drawImageRect(
+        image,
+        Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+        Offset.zero & size,
+        Paint()..filterQuality = FilterQuality.low,
+      );
+    }
+  }
+
+  void _paintBackground(Canvas canvas, Size size) {
     final t = Curves.easeInOut.transform(s._fade.value);
     final full = Offset.zero & size;
     final program = _program;

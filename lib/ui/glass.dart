@@ -19,8 +19,8 @@ abstract final class KanadeGlass {
 
   static const double _blur = 2;
 
-  static Widget backdropSource({required Widget child}) =>
-      Platform.isWindows ? GlassBackdropSource(child: child) : child;
+  static Widget backdropSource({required Widget child, Rect Function(Size size)? captureBounds}) =>
+      Platform.isWindows ? GlassBackdropSource(captureBounds: captureBounds, child: child) : child;
 
   static GlassQuality get navigationQuality =>
       !_isFlutterTest && !Platform.isWindows && !Platform.isLinux && ui.ImageFilter.isShaderFilterSupported
@@ -116,7 +116,12 @@ class GlassBackScaffold extends StatelessWidget {
         child: Stack(
           children: [
             Positioned.fill(
-              child: KanadeGlass.backdropSource(child: ColoredBox(color: scheme.surface, child: body)),
+              child: KanadeGlass.backdropSource(
+                // Only the floating back button samples this source. Keep its
+                // lens/blur margin without copying the whole fullscreen list.
+                captureBounds: (_) => Rect.fromLTWH(0, 0, 112, MediaQuery.paddingOf(context).top + 112),
+                child: ColoredBox(color: scheme.surface, child: body),
+              ),
             ),
             Positioned(
               left: 16,

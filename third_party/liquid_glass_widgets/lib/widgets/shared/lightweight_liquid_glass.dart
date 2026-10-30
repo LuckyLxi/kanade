@@ -871,8 +871,9 @@ class _RenderLightweightGlass extends RenderProxyBox
     final sharedSource = _backdrop?.source;
     final sharedImage = _isInsideBackdrop ? null : _backdrop?.image;
     if (sharedSource != null && sharedSource.attached && sharedImage != null) {
-      bgRelativeOffset = sharedSource.globalToLocal(localToGlobal(Offset.zero));
-      bgSize = sharedSource.size;
+      final bounds = _backdrop!.imageBounds;
+      bgRelativeOffset = sharedSource.globalToLocal(localToGlobal(Offset.zero)) - bounds.topLeft;
+      bgSize = bounds.size;
     }
 
     if (sharedImage == null &&

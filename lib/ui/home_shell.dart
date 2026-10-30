@@ -208,6 +208,7 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
             children: [
               Positioned.fill(
                 child: KanadeGlass.backdropSource(
+                  captureBounds: (size) => Rect.fromLTRB(0, size.height - barSpace - 32, size.width, size.height),
                   child: ColoredBox(
                     color: scheme.surface,
                     child: Row(

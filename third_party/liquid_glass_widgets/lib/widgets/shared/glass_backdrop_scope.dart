@@ -63,10 +63,14 @@ class _BackdropTheme extends InheritedTheme {
 /// Marks content behind the glass, excluding the glass itself from the capture.
 class GlassBackdropSource extends StatelessWidget {
   /// Creates a repaint-driven backdrop source. No continuous ticker is used.
-  const GlassBackdropSource({required this.child, super.key});
+  const GlassBackdropSource({required this.child, this.captureBounds, super.key});
 
   /// Scrolling or animated content behind the floating controls.
   final Widget child;
+
+  /// Optional sampling region in source-local logical pixels. Include the
+  /// surfaces' refraction and blur margins. Resolution is unchanged.
+  final Rect Function(Size size)? captureBounds;
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +79,7 @@ class GlassBackdropSource extends StatelessWidget {
     return _BackdropBoundary(
       data: data,
       pixelRatio: View.of(context).devicePixelRatio,
+      captureBounds: captureBounds,
       child: child,
     );
   }
@@ -87,8 +92,10 @@ class GlassBackdropData extends ChangeNotifier {
 
   _RenderBackdropBoundary? _source;
   ui.Image? _image;
+  Rect _imageBounds = Rect.zero;
   bool _pending = false;
   bool _capturing = false;
+  bool _dirty = false;
   bool _disposed = false;
 
   /// Blur applied to captures, in logical pixels.
@@ -96,6 +103,9 @@ class GlassBackdropData extends ChangeNotifier {
 
   /// Latest content image, at the source's device pixel ratio.
   ui.Image? get image => _image;
+
+  /// Source-local logical bounds represented by [image].
+  Rect get imageBounds => _imageBounds;
 
   /// Source used to map controls into the captured content's local coordinates.
   RenderBox? get source => _source;
@@ -116,36 +126,64 @@ class GlassBackdropData extends ChangeNotifier {
   }
 
   void _scheduleCapture() {
-    if (_disposed || _pending || _capturing || !hasListeners) return;
+    if (_disposed || !hasListeners) return;
+    _dirty = true;
+    if (_pending || _capturing) return;
     _pending = true;
-    SchedulerBinding.instance.addPostFrameCallback((_) {
+    SchedulerBinding.instance.addPostFrameCallback((_) async {
       _pending = false;
       final source = _source;
       if (_disposed || !hasListeners || source == null || !source.canCapture) {
         return;
       }
+      _dirty = false;
       _capturing = true;
+      final pixelRatio = source.pixelRatio;
+      final sigma = blurSigma * pixelRatio;
+      final bounds = source.captureRect;
+      if (bounds.isEmpty) {
+        _capturing = false;
+        return;
+      }
+      ui.Image? next;
       try {
-        var next = source.toImageSync(pixelRatio: source.pixelRatio);
-        if (blurSigma > 0) next = _blur(next, blurSigma * source.pixelRatio);
+        // Wait for rasterization, not just submission of GPU work. Synchronous
+        // captures let scrolling queue full-resolution textures faster than
+        // the raster thread can consume them, especially in fullscreen.
+        next = await source.capture(bounds, pixelRatio);
+        if (_disposed || !hasListeners || _source != source) return;
+        if (sigma > 0) {
+          final unblurred = next;
+          next = null;
+          next = await _blur(unblurred, sigma);
+        }
+        if (_disposed || !hasListeners || _source != source) return;
         final previous = _image;
         _image = next;
+        _imageBounds = bounds;
+        next = null;
         notifyListeners();
         previous?.dispose();
       } catch (error) {
         // The live backdrop path remains usable if the GPU cannot allocate a
         // capture (for example, while its window surface is being recreated).
-        _image?.dispose();
-        _image = null;
-        notifyListeners();
+        if (!_disposed) {
+          _image?.dispose();
+          _image = null;
+          notifyListeners();
+        }
         debugPrint('[GlassBackdrop] Capture failed: $error');
       } finally {
+        next?.dispose();
         _capturing = false;
+        // Coalesce changes received while awaiting the GPU into one capture.
+        if (_dirty && !_disposed && hasListeners) _scheduleCapture();
       }
     });
+    SchedulerBinding.instance.ensureVisualUpdate();
   }
 
-  static ui.Image _blur(ui.Image image, double sigma) {
+  static Future<ui.Image> _blur(ui.Image image, double sigma) async {
     final recorder = ui.PictureRecorder();
     ui.Canvas(recorder).drawImage(
       image,
@@ -155,10 +193,12 @@ class GlassBackdropData extends ChangeNotifier {
             sigmaX: sigma, sigmaY: sigma, tileMode: ui.TileMode.clamp),
     );
     final picture = recorder.endRecording();
-    final blurred = picture.toImageSync(image.width, image.height);
-    picture.dispose();
-    image.dispose();
-    return blurred;
+    try {
+      return await picture.toImage(image.width, image.height);
+    } finally {
+      picture.dispose();
+      image.dispose();
+    }
   }
 
   @override
@@ -175,15 +215,17 @@ class _BackdropBoundary extends SingleChildRenderObjectWidget {
   const _BackdropBoundary({
     required this.data,
     required this.pixelRatio,
+    required this.captureBounds,
     required super.child,
   });
 
   final GlassBackdropData data;
   final double pixelRatio;
+  final Rect Function(Size size)? captureBounds;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderBackdropBoundary(data, pixelRatio);
+      _RenderBackdropBoundary(data, pixelRatio, captureBounds);
 
   @override
   void updateRenderObject(
@@ -192,16 +234,27 @@ class _BackdropBoundary extends SingleChildRenderObjectWidget {
       object.pixelRatio = pixelRatio;
       object.markNeedsPaint();
     }
+    if (object.captureBounds != captureBounds) {
+      object.captureBounds = captureBounds;
+      data._scheduleCapture();
+    }
   }
 }
 
 class _RenderBackdropBoundary extends RenderRepaintBoundary {
-  _RenderBackdropBoundary(this.data, this.pixelRatio) {
+  _RenderBackdropBoundary(this.data, this.pixelRatio, this.captureBounds) {
     data._source = this;
   }
 
   final GlassBackdropData data;
   double pixelRatio;
+  Rect Function(Size size)? captureBounds;
+
+  Rect get captureRect => (captureBounds?.call(size) ?? Offset.zero & size)
+      .intersect(Offset.zero & size);
+
+  Future<ui.Image> capture(Rect bounds, double ratio) =>
+      (layer! as OffsetLayer).toImage(bounds, pixelRatio: ratio);
 
   bool get canCapture => attached && hasSize && !size.isEmpty && layer != null;
 
