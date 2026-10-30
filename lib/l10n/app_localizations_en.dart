@@ -599,4 +599,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playlistDeleted => 'Playlist deleted';
+
+  @override
+  String get nothingPlaying => 'Nothing playing';
 }

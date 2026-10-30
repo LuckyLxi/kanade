@@ -1099,6 +1099,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已删除歌单'**
   String get playlistDeleted;
+
+  /// No description provided for @nothingPlaying.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有在播放的歌'**
+  String get nothingPlaying;
 }
 
 class _AppLocalizationsDelegate

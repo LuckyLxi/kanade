@@ -573,4 +573,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get playlistDeleted => '已删除歌单';
+
+  @override
+  String get nothingPlaying => '还没有在播放的歌';
 }

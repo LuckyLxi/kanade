@@ -166,5 +166,6 @@
   "playlistNameHint": "Playlist name",
   "deletePlaylistConfirm": "Delete playlist \"{name}\"? This can't be undone.",
   "playlistRenamed": "Renamed",
-  "playlistDeleted": "Playlist deleted"
+  "playlistDeleted": "Playlist deleted",
+  "nothingPlaying": "Nothing playing"
 }

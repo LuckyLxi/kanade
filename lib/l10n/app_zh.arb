@@ -397,5 +397,6 @@
     }
   },
   "playlistRenamed": "已重命名",
-  "playlistDeleted": "已删除歌单"
+  "playlistDeleted": "已删除歌单",
+  "nothingPlaying": "还没有在播放的歌"
 }

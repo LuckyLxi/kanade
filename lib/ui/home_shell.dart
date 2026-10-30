@@ -184,7 +184,8 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
       // 左侧实心侧栏 + 底部整宽玻璃播放栏，侧栏底部让出播放栏的位置
       const gap = 12.0;
       final mq = MediaQuery.of(context);
-      final barSpace = hasSong ? DesktopPlayerBar.height + gap * 2 : gap;
+      // 桌面播放栏常驻，还没放过歌时显示空状态
+      const barSpace = DesktopPlayerBar.height + gap * 2;
       content = Material(
         color: scheme.surface,
         child: KanadeGlass.backdropScope(
@@ -210,20 +211,19 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
                           ),
                         ),
                         Expanded(
-                          child: _insetBottom(context, hasSong ? DesktopPlayerBar.height + gap * 2 : 0, body),
+                          child: _insetBottom(context, barSpace, body),
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-              if (hasSong)
-                Positioned(
-                  left: gap,
-                  right: gap,
-                  bottom: gap + mq.padding.bottom,
-                  child: const DesktopPlayerBar(),
-                ),
+              Positioned(
+                left: gap,
+                right: gap,
+                bottom: gap + mq.padding.bottom,
+                child: const DesktopPlayerBar(),
+              ),
             ],
           ),
         ),

@@ -215,13 +215,15 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> with TickerProvider
 
   @override
   Widget build(BuildContext context) {
-    if (!context.select<PlayerController, bool>((p) => p.current != null)) return const SizedBox.shrink();
+    final hasSong = context.select<PlayerController, bool>((p) => p.current != null);
     final bar = GestureDetector(
       key: DesktopPlayerBar.anchor.barKey,
+      // 栏里的空白处也要接住点击，不能漏到下面的列表上
+      behavior: HitTestBehavior.opaque,
       // 按住往上拖打开播放页
-      onVerticalDragUpdate: (d) => _drag.update(context, d),
-      onVerticalDragEnd: (d) => _drag.end(context, d.velocity.pixelsPerSecond.dy),
-      onVerticalDragCancel: () => _drag.end(context, 0),
+      onVerticalDragUpdate: hasSong ? (d) => _drag.update(context, d) : null,
+      onVerticalDragEnd: hasSong ? (d) => _drag.end(context, d.velocity.pixelsPerSecond.dy) : null,
+      onVerticalDragCancel: hasSong ? () => _drag.end(context, 0) : null,
       child: GlassContainer(
         useOwnLayer: true,
         settings: KanadeGlass.navigationSettings(context),
@@ -229,7 +231,10 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> with TickerProvider
         height: DesktopPlayerBar.height,
         shape: const LiquidRoundedRectangle(borderRadius: DesktopPlayerBar.height / 2),
         clipBehavior: Clip.antiAlias,
-        child: const Material(type: MaterialType.transparency, child: _DesktopBarContent(showCover: true)),
+        child: Material(
+          type: MaterialType.transparency,
+          child: hasSong ? const _DesktopBarContent(showCover: true) : const _DesktopBarIdle(),
+        ),
       ),
     );
     // 播放页盖在上面时由转场层画它，这里藏起来
@@ -404,6 +409,61 @@ class _DesktopBarContent extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 还没放过歌时的播放栏：占位封面、提示文字和不能点的播放键。
+class _DesktopBarIdle extends StatelessWidget {
+  const _DesktopBarIdle();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final muted = scheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 300,
+            child: Row(
+              children: [
+                const Cover('', size: 54, radius: 12),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    AppLocalizations.of(context).nothingPlaying,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: muted),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const IconButton(onPressed: null, icon: Icon(Icons.skip_previous_rounded, size: 26)),
+                const SizedBox(width: 4),
+                SizedBox.square(
+                  dimension: 44,
+                  child: IconButton.filled(
+                    padding: EdgeInsets.zero,
+                    onPressed: null,
+                    icon: Icon(Icons.play_arrow_rounded, color: muted),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const IconButton(onPressed: null, icon: Icon(Icons.skip_next_rounded, size: 26)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 260),
         ],
       ),
     );
