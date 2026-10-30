@@ -8,6 +8,7 @@ import '../src/rust/api/types.dart';
 import 'comments_page.dart';
 import 'glass.dart';
 import 'singer_page.dart';
+import 'smooth_scroll.dart';
 import 'widgets.dart';
 
 class AlbumPage extends StatelessWidget {
@@ -23,9 +24,12 @@ class AlbumPage extends StatelessWidget {
     return GlassBackScaffold(
       body: AsyncView<AlbumDetail>(
         load: () => api.getAlbumDetail(mid: mid),
-        builder: (context, d) => ListView.builder(
-          itemCount: d.songs.length + 1,
-          itemBuilder: (context, i) => i == 0 ? _Head(d) : SongTile(songs: d.songs, index: i - 1),
+        builder: (context, d) => SmoothScroll(
+          builder: (context, scroll) => ListView.builder(
+            controller: scroll,
+            itemCount: d.songs.length + 1,
+            itemBuilder: (context, i) => i == 0 ? _Head(d) : SongTile(songs: d.songs, index: i - 1),
+          ),
         ),
       ),
     );

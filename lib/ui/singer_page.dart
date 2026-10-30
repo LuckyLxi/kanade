@@ -6,6 +6,7 @@ import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'album_page.dart';
+import 'smooth_scroll.dart';
 import 'widgets.dart';
 
 /// 歌手页：简介 + 歌曲 / 专辑两个标签，滚到底自动加载下一页。
@@ -153,9 +154,16 @@ class _PagedListState<T> extends State<_PagedList<T>> with AutomaticKeepAliveCli
   late bool _hasMore = _items.length < widget.total;
   bool _loading = false;
   Object? _error;
+  final _scroll = SmoothScrollController();
 
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   Future<void> _more() async {
     if (_loading || !_hasMore) return;
@@ -188,6 +196,7 @@ class _PagedListState<T> extends State<_PagedList<T>> with AutomaticKeepAliveCli
         return false;
       },
       child: ListView.builder(
+        controller: _scroll,
         itemCount: head + _items.length + 1,
         itemBuilder: (context, i) {
           if (i < head) return widget.header!;

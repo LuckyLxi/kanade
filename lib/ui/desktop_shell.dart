@@ -13,6 +13,7 @@ import 'glass.dart';
 import 'player_background.dart';
 import 'player_route.dart';
 import 'playlist_actions.dart';
+import 'smooth_scroll.dart';
 import 'song_actions.dart';
 import 'widgets.dart';
 
@@ -137,6 +138,13 @@ class _SidebarPlaylists extends StatefulWidget {
 
 class _SidebarPlaylistsState extends State<_SidebarPlaylists> {
   late final Future<List<PlaylistBrief>> _lists = api.getUserPlaylists();
+  final _scroll = SmoothScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   /// 右键：自建歌单（“我喜欢”除外）可以改名、删除。
   Future<void> _showActions(PlaylistBrief p) async {
@@ -152,6 +160,7 @@ class _SidebarPlaylistsState extends State<_SidebarPlaylists> {
       future: _lists,
       // 侧栏只是快捷入口，加载失败就留空，完整列表在“我的”里
       builder: (context, snap) => ListView(
+        controller: _scroll,
         padding: EdgeInsets.zero,
         children: [
           for (final p in snap.data ?? const <PlaylistBrief>[])

@@ -5,6 +5,7 @@ import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'smooth_scroll.dart';
 
 typedef CommentLoader = Future<CommentPage> Function(int page, String lastSeqNo);
 
@@ -59,10 +60,19 @@ class _CommentListState extends State<_CommentList> {
   bool _loading = false;
   Object? _error;
 
+  /// 回复面板会传进它自己的 controller（拖动面板用），否则用自己的。
+  final _scroll = SmoothScrollController();
+
   @override
   void initState() {
     super.initState();
     _more();
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
 
   Future<void> _more() async {
@@ -124,7 +134,7 @@ class _CommentListState extends State<_CommentList> {
         if (n.metrics.extentAfter < 400 && _error == null) _more();
         return false;
       },
-      child: ListView(controller: widget.controller, children: [...rows, footer]),
+      child: ListView(controller: widget.controller ?? _scroll, children: [...rows, footer]),
     );
   }
 }

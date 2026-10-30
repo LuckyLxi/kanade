@@ -10,6 +10,7 @@ import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'glass.dart';
 import 'playlist_actions.dart';
+import 'smooth_scroll.dart';
 import 'song_actions.dart';
 import 'widgets.dart';
 
@@ -172,10 +173,12 @@ class _BodyState extends State<_Body> {
   }
 
   final _query = TextEditingController();
+  final _scroll = SmoothScrollController();
 
   @override
   void dispose() {
     _query.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -197,6 +200,7 @@ class _BodyState extends State<_Body> {
     // 列表前面固定的行：头部，可搜索时再加搜索框
     final lead = searchable ? 2 : 1;
     return ListView.builder(
+      controller: _scroll,
       // 拖动列表时收起键盘
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       itemCount: lead + (shown.isEmpty && searchable ? 1 : shown.length),

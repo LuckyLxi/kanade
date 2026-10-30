@@ -14,6 +14,7 @@ import 'comments_page.dart';
 import 'player_background.dart';
 import 'player_lyrics.dart';
 import 'player_route.dart';
+import 'smooth_scroll.dart';
 import 'song_actions.dart';
 import 'widgets.dart';
 
@@ -1005,7 +1006,7 @@ class _QueuePanel extends StatefulWidget {
 
 class _QueuePanelState extends State<_QueuePanel> {
   static const _extent = 64.0;
-  late final ScrollController _scroll = ScrollController(
+  late final ScrollController _scroll = SmoothScrollController(
     initialScrollOffset: max(0, (context.read<PlayerController>().index - 1) * _extent),
   );
 

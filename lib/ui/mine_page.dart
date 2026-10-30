@@ -17,6 +17,7 @@ import '../src/rust/api/error.dart';
 import '../src/rust/api/types.dart';
 import 'playlist_actions.dart';
 import 'settings_page.dart';
+import 'smooth_scroll.dart';
 import 'song_list_page.dart';
 import 'widgets.dart';
 
@@ -128,6 +129,13 @@ Future<_Playlists> _loadPlaylists(LibraryController library) async {
 class _LoggedInState extends State<_LoggedIn> {
   /// false：自己创建的；true：收藏别人的。
   bool _collected = false;
+  final _scroll = SmoothScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   bool _isCreated(PlaylistBrief p) => p.creator.isEmpty || p.creator == widget.user.nickname;
 
@@ -152,6 +160,7 @@ class _LoggedInState extends State<_LoggedIn> {
     final likedCount = context.select<LibraryController, int>((c) => c.likedCount);
     final playlistsVersion = context.select<LibraryController, int>((c) => c.playlistsVersion);
     return ListView(
+      controller: _scroll,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),

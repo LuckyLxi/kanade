@@ -7,6 +7,7 @@ import '../l10n/l10n_ext.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'smooth_scroll.dart';
 import 'song_list_page.dart';
 import 'widgets.dart';
 
@@ -111,20 +112,23 @@ class _RecommendTab extends StatelessWidget {
         // 电台卡排在第一排歌单（每日30首那排）的最前面；没有歌单时单独一排
         final radioAt = feed.sections.indexWhere((s) => s.playlists.isNotEmpty);
         final radio = _RadioCards(feed);
-        return CustomScrollView(
-          slivers: [
-            if (radioAt < 0) _PlaylistRow(const [], leading: radio),
-            for (final (i, section) in feed.sections.indexed) ...[
-              if (section.playlists.isNotEmpty) ...[
-                _Header(section.title.isEmpty ? l.recommendedPlaylists : section.title),
-                _PlaylistRow(section.playlists, leading: i == radioAt ? radio : null),
+        return SmoothScroll(
+          builder: (context, scroll) => CustomScrollView(
+            controller: scroll,
+            slivers: [
+              if (radioAt < 0) _PlaylistRow(const [], leading: radio),
+              for (final (i, section) in feed.sections.indexed) ...[
+                if (section.playlists.isNotEmpty) ...[
+                  _Header(section.title.isEmpty ? l.recommendedPlaylists : section.title),
+                  _PlaylistRow(section.playlists, leading: i == radioAt ? radio : null),
+                ],
+                if (section.songs.isNotEmpty)
+                  ..._songSection(context, section.title.isEmpty ? l.recommendedSongs : section.title, section.songs),
               ],
-              if (section.songs.isNotEmpty)
-                ..._songSection(context, section.title.isEmpty ? l.recommendedSongs : section.title, section.songs),
+              if (newSongs.isNotEmpty) ..._songSection(context, l.newSongs, newSongs),
+              const SliverToBoxAdapter(child: BottomSpacer()),
             ],
-            if (newSongs.isNotEmpty) ..._songSection(context, l.newSongs, newSongs),
-            const SliverToBoxAdapter(child: BottomSpacer()),
-          ],
+          ),
         );
       },
     );
@@ -205,15 +209,18 @@ class _ToplistTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return AsyncView<List<TopListGroup>>(
       load: api.getToplists,
-      builder: (context, groups) => CustomScrollView(
-        slivers: [
-          for (final (i, g) in groups.indexed)
-            if (g.lists.isNotEmpty) ...[
-              _Header(g.name),
-              if (i == 0) _FeaturedToplists(g.lists) else _ToplistGrid(g.lists),
-            ],
-          const SliverToBoxAdapter(child: BottomSpacer()),
-        ],
+      builder: (context, groups) => SmoothScroll(
+        builder: (context, scroll) => CustomScrollView(
+          controller: scroll,
+          slivers: [
+            for (final (i, g) in groups.indexed)
+              if (g.lists.isNotEmpty) ...[
+                _Header(g.name),
+                if (i == 0) _FeaturedToplists(g.lists) else _ToplistGrid(g.lists),
+              ],
+            const SliverToBoxAdapter(child: BottomSpacer()),
+          ],
+        ),
       ),
     );
   }

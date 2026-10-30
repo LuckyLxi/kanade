@@ -9,6 +9,7 @@ import '../src/rust/api/types.dart';
 import 'album_page.dart';
 import 'comments_page.dart';
 import 'singer_page.dart';
+import 'smooth_scroll.dart';
 import 'widgets.dart';
 
 bool _requireLogin(BuildContext context) {
@@ -39,18 +40,22 @@ Future<void> addToPlaylist(BuildContext context, Song song) async {
         load: library.myPlaylists,
         builder: (context, lists) => lists.isEmpty
             ? Center(child: Text(l.noMyPlaylists))
-            : ListView(
-                shrinkWrap: true,
-                children: [
-                  ListTile(title: Text(l.addToPlaylist, style: Theme.of(context).textTheme.titleMedium)),
-                  for (final p in lists)
-                    ListTile(
-                      leading: Cover(p.coverUrl, size: 40),
-                      title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(l.songCount(p.songCount)),
-                      onTap: () => Navigator.pop(context, p),
-                    ),
-                ],
+            // 歌单多的时候会很长，滚轮也要平滑
+            : SmoothScroll(
+                builder: (_, scroll) => ListView(
+                  controller: scroll,
+                  shrinkWrap: true,
+                  children: [
+                    ListTile(title: Text(l.addToPlaylist, style: Theme.of(context).textTheme.titleMedium)),
+                    for (final p in lists)
+                      ListTile(
+                        leading: Cover(p.coverUrl, size: 40),
+                        title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(l.songCount(p.songCount)),
+                        onTap: () => Navigator.pop(context, p),
+                      ),
+                  ],
+                ),
               ),
       ),
     ),

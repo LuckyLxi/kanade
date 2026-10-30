@@ -8,6 +8,7 @@ import '../player/player_controller.dart';
 import '../settings/locale_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'smooth_scroll.dart';
 import 'widgets.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -44,11 +45,18 @@ class _SettingsPageState extends State<SettingsPage> {
   int _limitMb = api.getAudioCacheLimitMb();
   int? _audioSize;
   int? _apiSize;
+  final _scroll = SmoothScrollController();
 
   @override
   void initState() {
     super.initState();
     _loadSizes();
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSizes() async {
@@ -209,6 +217,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Scaffold(
       appBar: AppBar(title: Text(l.settings)),
       body: ListView(
+        controller: _scroll,
         children: [
           header(l.settingsGeneral),
           ListTile(

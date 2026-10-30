@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../l10n/l10n_ext.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'smooth_scroll.dart';
 import 'widgets.dart';
 
 class SearchPage extends StatefulWidget {
@@ -18,7 +19,9 @@ class _SearchPageState extends State<SearchPage> {
   static const _pageSize = 30;
 
   final _controller = TextEditingController();
-  final _scroll = ScrollController();
+  final _scroll = SmoothScrollController();
+  final _hotScroll = SmoothScrollController();
+  final _suggestScroll = SmoothScrollController();
   String _keyword = '';
   List<Song> _songs = [];
   int _page = 0;
@@ -48,6 +51,8 @@ class _SearchPageState extends State<SearchPage> {
     _debounce?.cancel();
     _controller.dispose();
     _scroll.dispose();
+    _hotScroll.dispose();
+    _suggestScroll.dispose();
     super.dispose();
   }
 
@@ -185,6 +190,7 @@ class _SearchPageState extends State<SearchPage> {
 
   Widget _suggestionList() {
     return ListView(
+      controller: _suggestScroll,
       children: [
         for (final s in _suggestions)
           ListTile(
@@ -210,6 +216,7 @@ class _SearchPageState extends State<SearchPage> {
     }
     final theme = Theme.of(context);
     return ListView(
+      controller: _hotScroll,
       // 自己指定 padding 会盖掉 ListView 自动加的底部留白，要把玻璃条的高度算进去
       padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 16),
       children: [
