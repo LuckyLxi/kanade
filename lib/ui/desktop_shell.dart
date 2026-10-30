@@ -261,6 +261,8 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> with TickerProvider
       key: DesktopPlayerBar.anchor.barKey,
       // 栏里的空白处也要接住点击，不能漏到下面的列表上
       behavior: HitTestBehavior.opaque,
+      // 点空白处打开播放页；栏里的按钮和滑条会先接住自己的点击
+      onTap: hasSong ? () => PlayerRoute.open(context, anchor: DesktopPlayerBar.anchor) : null,
       // 按住往上拖打开播放页
       onVerticalDragUpdate: hasSong ? (d) => _drag.update(context, d) : null,
       onVerticalDragEnd: hasSong ? (d) => _drag.end(context, d.velocity.pixelsPerSecond.dy) : null,
