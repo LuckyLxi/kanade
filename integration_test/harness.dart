@@ -14,12 +14,13 @@ Future<(PlayerController, NavigatorState)> launchWithSong(
   WidgetTester tester, {
   Future<void> Function()? setup,
   Future<void> Function()? onPlay,
+  bool mediaSession = false,
 }) async {
   await initApp();
   await setup?.call();
 
-  // 测试里不接系统媒体卡片
-  await tester.pumpWidget(KanadeGlass.wrap(child: const AppProviders(mediaSession: false, child: KanadeApp())));
+  // 测试里默认不接系统媒体卡片
+  await tester.pumpWidget(KanadeGlass.wrap(child: AppProviders(mediaSession: mediaSession, child: const KanadeApp())));
   final player = tester.element(find.byType(HomeShell)).read<PlayerController>();
 
   final songs = await tester.runAsync(() async {
