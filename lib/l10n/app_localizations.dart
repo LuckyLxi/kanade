@@ -662,6 +662,24 @@ abstract class AppLocalizations {
   /// **'接下来播放'**
   String get upNext;
 
+  /// No description provided for @playNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一首播放'**
+  String get playNext;
+
+  /// No description provided for @queuedNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'已添加到下一首播放'**
+  String get queuedNext;
+
+  /// No description provided for @alreadyPlaying.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在播放这首歌'**
+  String get alreadyPlaying;
+
   /// No description provided for @volume.
   ///
   /// In zh, this message translates to:

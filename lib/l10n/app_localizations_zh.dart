@@ -320,6 +320,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get upNext => '接下来播放';
 
   @override
+  String get playNext => '下一首播放';
+
+  @override
+  String get queuedNext => '已添加到下一首播放';
+
+  @override
+  String get alreadyPlaying => '正在播放这首歌';
+
+  @override
   String get volume => '音量';
 
   @override

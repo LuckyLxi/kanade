@@ -5,6 +5,7 @@ import '../auth/auth_controller.dart';
 import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
+import '../player/player_controller.dart';
 import '../src/rust/api/types.dart';
 import 'album_page.dart';
 import 'comments_page.dart';
@@ -50,6 +51,18 @@ Future<void> addToPlaylist(BuildContext context, Song song) async {
   }
 }
 
+void playNext(BuildContext context, Song song) {
+  final l = AppLocalizations.of(context);
+  switch (context.read<PlayerController>().playNext(song)) {
+    case PlayNextResult.queued:
+      showToast(context, l.queuedNext, kind: ToastKind.success);
+    case PlayNextResult.current:
+      showToast(context, l.alreadyPlaying);
+    case PlayNextResult.started:
+      break;
+  }
+}
+
 /// 从自己的歌单删歌，成功返回 true。
 Future<bool> removeFromPlaylist(BuildContext context, MyPlaylist playlist, Song song) async {
   if (!_requireLogin(context)) return false;
@@ -89,7 +102,7 @@ void openSinger(BuildContext context, Song song) {
   );
 }
 
-/// 歌曲的更多操作：红心、加入歌单、评论放在上面一排，歌手、专辑在下面。
+/// 歌曲的更多操作：下一首播放、红心、加入歌单、评论放在上面一排，歌手、专辑在下面。
 /// 在自己的歌单里打开时传入 [onRemove]，多出“从歌单中删除”。
 Future<void> showSongActions(BuildContext context, Song song, {VoidCallback? onRemove}) {
   final l = AppLocalizations.of(context);
@@ -97,6 +110,8 @@ Future<void> showSongActions(BuildContext context, Song song, {VoidCallback? onR
     context: context,
     builder: (sheet) {
       final liked = sheet.watch<LibraryController>().isLiked(song);
+      // 正在放的这首（比如从播放页打开）没必要“下一首播放”
+      final isCurrent = sheet.select<PlayerController, bool>((p) => p.current?.mid == song.mid);
       // 先关掉面板，再用外层 context 执行，面板关闭后 sheet 就失效了
       void run(void Function() action) {
         Navigator.pop(sheet);
@@ -114,6 +129,12 @@ Future<void> showSongActions(BuildContext context, Song song, {VoidCallback? onR
           ),
           SheetQuickActions(
             children: [
+              if (!isCurrent)
+                SheetQuickAction(
+                  icon: Icons.queue_play_next_rounded,
+                  label: l.playNext,
+                  onTap: () => run(() => playNext(context, song)),
+                ),
               SheetQuickAction(
                 icon: liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                 iconColor: liked ? Theme.of(sheet).colorScheme.primary : null,

@@ -13,6 +13,22 @@ import 'player_error.dart';
 
 enum PlayMode { sequence, repeatOne, shuffle }
 
+/// “下一首播放”的结果：插进了队列、队列是空的所以直接开放、或者就是正在放的这首。
+enum PlayNextResult { queued, started, current }
+
+/// 把 [song] 插到第 [index] 首后面，已经在队列里的先挪出来。返回新队列和当前歌曲的新下标。
+(List<Song>, int) insertNext(List<Song> queue, int index, Song song) {
+  final q = List.of(queue);
+  var i = index;
+  final old = q.indexWhere((s) => s.mid == song.mid);
+  if (old >= 0) {
+    q.removeAt(old);
+    if (old < i) i--;
+  }
+  q.insert(i + 1, song);
+  return (q, i);
+}
+
 /// 刚打开、还没加载成功的音源。这时出错就降一档重试。
 class _Attempt {
   _Attempt(this.song, this.source, this.start, this.play, this.token, this.urlToken);
@@ -183,8 +199,29 @@ class PlayerController extends ChangeNotifier {
     }
   }
 
-  Future<void> playAt(int i, {int skipped = 0}) async {
+  /// 随机模式下，“下一首播放”插在当前歌后面、还没放到的有几首；[next] 先按顺序放完它们。
+  int _pinnedNext = 0;
+
+  /// 把歌插到当前这首后面。连着点几首时，后点的先放。
+  PlayNextResult playNext(Song song) {
+    if (current == null) {
+      unawaited(playList([song], 0));
+      return PlayNextResult.started;
+    }
+    if (current!.mid == song.mid) return PlayNextResult.current;
+    final (q, i) = insertNext(queue, index, song);
+    queue = q;
+    index = i;
+    _pinnedNext = min(_pinnedNext + 1, queue.length - 1 - index);
+    _saveSession();
+    notifyListeners();
+    return PlayNextResult.queued;
+  }
+
+  Future<void> playAt(int i, {int skipped = 0, int pinnedNext = 0}) async {
     if (i < 0 || i >= queue.length) return;
+    // 手动点了别的歌，之前插的“下一首”就不再算数
+    _pinnedNext = pinnedNext;
     final token = ++_token;
     final urlToken = ++_urlToken;
     _attempt = null;
@@ -319,7 +356,9 @@ class PlayerController extends ChangeNotifier {
       await playAt((index + 1) % queue.length);
       return;
     }
-    if (mode == PlayMode.shuffle && queue.length > 1) {
+    if (mode == PlayMode.shuffle && _pinnedNext > 0 && index + 1 < queue.length) {
+      await playAt(index + 1, pinnedNext: _pinnedNext - 1);
+    } else if (mode == PlayMode.shuffle && queue.length > 1) {
       var n = index;
       while (n == index) {
         n = _random.nextInt(queue.length);

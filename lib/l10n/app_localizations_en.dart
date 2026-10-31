@@ -342,6 +342,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get upNext => 'Up next';
 
   @override
+  String get playNext => 'Play next';
+
+  @override
+  String get queuedNext => 'Will play next';
+
+  @override
+  String get alreadyPlaying => 'Already playing';
+
+  @override
   String get volume => 'Volume';
 
   @override
