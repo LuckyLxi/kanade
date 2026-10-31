@@ -11,7 +11,6 @@ import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'glass.dart';
 import 'playlist_actions.dart';
-import 'profile_layout.dart';
 import 'smooth_scroll.dart';
 import 'song_actions.dart';
 import 'widgets.dart';
@@ -163,7 +162,7 @@ class _Body extends StatefulWidget {
   State<_Body> createState() => _BodyState();
 }
 
-class _BodyState extends State<_Body> {
+class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
   static const _heroHeight = 300.0;
   static const _barHeight = 56.0;
 
@@ -204,22 +203,44 @@ class _BodyState extends State<_Body> {
   final _query = TextEditingController();
   final _scroll = SmoothScrollController();
 
-  /// 搜索时顶栏换成搜索框，大封面先收起来。
+  final _focus = FocusNode();
+
+  /// 搜索时大封面收成顶栏、按钮行收起，标题淡出、搜索框淡入。
   bool _searching = false;
+  late final _searchAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 360));
+  late final _searchCurve = CurvedAnimation(
+    parent: _searchAnim,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInOutCubic,
+  );
 
   @override
   void dispose() {
     _query.dispose();
     _scroll.dispose();
+    _focus.dispose();
+    _searchCurve.dispose();
+    _searchAnim.dispose();
     super.dispose();
   }
 
   void _search(bool on) {
-    if (_scroll.hasClients) _scroll.jumpTo(0);
+    if (on == _searching) return;
     setState(() {
       _searching = on;
       if (!on) _query.clear();
     });
+    if (on) {
+      // 列表回到顶上，封面和按钮行一起收起来，看到的就是筛选结果的开头
+      if (_scroll.hasClients && _scroll.offset > 0) {
+        _scroll.animateTo(0, duration: _searchAnim.duration!, curve: Curves.easeOutCubic);
+      }
+      _searchAnim.forward();
+      _focus.requestFocus();
+    } else {
+      _focus.unfocus();
+      _searchAnim.reverse();
+    }
   }
 
   /// 按歌名或歌手筛选，不区分大小写。点歌时只播筛出来的这些。
@@ -251,16 +272,10 @@ class _BodyState extends State<_Body> {
         // 拖动列表时收起键盘
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         slivers: [
-          if (_searching)
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: PinnedBox(
-                height: top + 60,
-                child: _SearchBar(_query, onChanged: () => setState(() {}), onCancel: () => _search(false)),
-              ),
-            )
-          else ...[
-            SliverPersistentHeader(
+          // 只有头部跟着动画每帧重建，下面的列表不动
+          AnimatedBuilder(
+            animation: _searchCurve,
+            builder: (context, _) => SliverPersistentHeader(
               pinned: true,
               delegate: _Hero(
                 d: d,
@@ -269,17 +284,36 @@ class _BodyState extends State<_Body> {
                 top: top,
                 maxHeight: top + _heroHeight,
                 minHeight: top + _barHeight,
+                search: _searchCurve.value,
+                searchBar: _searchAnim.isDismissed
+                    ? null
+                    : IgnorePointer(
+                        ignoring: !_searching,
+                        child: _SearchBar(
+                          _query,
+                          focusNode: _focus,
+                          onChanged: () => setState(() {}),
+                          onCancel: () => _search(false),
+                        ),
+                      ),
               ),
             ),
-            SliverToBoxAdapter(
-              child: _Actions(
-                songs: _songs,
-                description: d.description.replaceAll(RegExp(r'<[^>]+>'), '').trim(),
-                onSearch: widget.searchable ? () => _search(true) : null,
-                onEdit: onEdit,
+          ),
+          SliverToBoxAdapter(
+            child: SizeTransition(
+              sizeFactor: ReverseAnimation(_searchCurve),
+              alignment: Alignment.topCenter,
+              child: FadeTransition(
+                opacity: ReverseAnimation(_searchCurve),
+                child: _Actions(
+                  songs: _songs,
+                  description: d.description.replaceAll(RegExp(r'<[^>]+>'), '').trim(),
+                  onSearch: widget.searchable ? () => _search(true) : null,
+                  onEdit: onEdit,
+                ),
               ),
             ),
-          ],
+          ),
           if (filtered && shown.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
@@ -348,6 +382,7 @@ class _BodyState extends State<_Body> {
 }
 
 /// 封面铺满顶部，标题压在左下角；往上滚收成一条只有标题的顶栏。
+/// 搜索时（[search] 从 0 到 1）整个头部也收成顶栏，标题换成 [searchBar]。
 class _Hero extends SliverPersistentHeaderDelegate {
   _Hero({
     required this.d,
@@ -356,6 +391,8 @@ class _Hero extends SliverPersistentHeaderDelegate {
     required this.top,
     required this.maxHeight,
     required this.minHeight,
+    required this.search,
+    required this.searchBar,
   });
 
   final ListData d;
@@ -364,9 +401,11 @@ class _Hero extends SliverPersistentHeaderDelegate {
   final double top;
   final double maxHeight;
   final double minHeight;
+  final double search;
+  final Widget? searchBar;
 
   @override
-  double get maxExtent => maxHeight;
+  double get maxExtent => maxHeight + (minHeight - maxHeight) * search;
 
   @override
   double get minExtent => minHeight;
@@ -374,7 +413,10 @@ class _Hero extends SliverPersistentHeaderDelegate {
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     final scheme = Theme.of(context).colorScheme;
-    final t = (shrinkOffset / (maxHeight - minHeight)).clamp(0.0, 1.0);
+    // 按实际剩下的高度算收起了多少，滚动和搜索两种收法表现一致
+    final height = max(minHeight, maxExtent - shrinkOffset);
+    final t = ((maxHeight - height) / (maxHeight - minHeight)).clamp(0.0, 1.0);
+    final bar = searchBar;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -422,7 +464,8 @@ class _Hero extends SliverPersistentHeaderDelegate {
           top: top,
           height: minHeight - top,
           child: Opacity(
-            opacity: ((t - 0.6) / 0.4).clamp(0.0, 1.0),
+            // 只有往上滚收起时显示；搜索时让给搜索框
+            opacity: (((t - 0.6) / 0.4).clamp(0.0, 1.0) * (1 - search * 2)).clamp(0.0, 1.0),
             child: Align(
               alignment: AlignmentDirectional.centerStart,
               child: Text(
@@ -434,6 +477,17 @@ class _Hero extends SliverPersistentHeaderDelegate {
             ),
           ),
         ),
+        if (bar != null)
+          Positioned(
+            left: 72,
+            right: 8,
+            top: top,
+            height: minHeight - top,
+            child: Opacity(
+              opacity: ((search - 0.3) / 0.7).clamp(0.0, 1.0),
+              child: Transform.translate(offset: Offset(24 * (1 - search), 0), child: bar),
+            ),
+          ),
       ],
     );
   }
@@ -445,7 +499,9 @@ class _Hero extends SliverPersistentHeaderDelegate {
       old.meta != meta ||
       old.top != top ||
       old.maxHeight != maxHeight ||
-      old.minHeight != minHeight;
+      old.minHeight != minHeight ||
+      old.search != search ||
+      old.searchBar != searchBar;
 }
 
 /// 简介一行（点开看全文），下面左边是搜索、更多，右边是随机和柠檬绿的大播放钮。
@@ -539,11 +595,12 @@ class _ActionsState extends State<_Actions> {
   }
 }
 
-/// 搜索时的顶栏：左边让出玻璃返回钮的位置，后面是搜索框和“取消”。
+/// 搜索时顶栏里的搜索框和“取消”，左边让出玻璃返回钮的位置（由 [_Hero] 摆放）。
 class _SearchBar extends StatelessWidget {
-  const _SearchBar(this.controller, {required this.onChanged, required this.onCancel});
+  const _SearchBar(this.controller, {required this.focusNode, required this.onChanged, required this.onCancel});
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final VoidCallback onChanged;
   final VoidCallback onCancel;
 
@@ -551,8 +608,7 @@ class _SearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(72, MediaQuery.paddingOf(context).top + 8, 8, 8),
+    return Center(
       child: Row(
         children: [
           Expanded(
@@ -560,7 +616,7 @@ class _SearchBar extends StatelessWidget {
               height: 44,
               child: TextField(
                 controller: controller,
-                autofocus: true,
+                focusNode: focusNode,
                 textInputAction: TextInputAction.search,
                 onChanged: (_) => onChanged(),
                 style: const TextStyle(fontSize: 15),

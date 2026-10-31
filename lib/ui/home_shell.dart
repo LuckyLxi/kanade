@@ -422,7 +422,8 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
         if (didPop) return;
         final nav = _keys[_tab].currentState;
         if (nav != null && nav.canPop()) {
-          nav.pop();
+          // maybePop 让二级页面自己的 PopScope 先处理（比如歌单页先退出搜索）
+          nav.maybePop();
         } else if (_tab != 0) {
           setState(() => _tab = 0);
         }
