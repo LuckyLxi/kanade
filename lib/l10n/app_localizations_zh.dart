@@ -717,4 +717,24 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get showLess => '收起';
+
+  @override
+  String durationHoursMinutes(int hours, int minutes) {
+    return '$hours 小时 $minutes 分';
+  }
+
+  @override
+  String durationMinutes(int minutes) {
+    return '$minutes 分钟';
+  }
+
+  @override
+  String filterFound(int count) {
+    return '找到 $count 首';
+  }
+
+  @override
+  String playFiltered(int count) {
+    return '播放这 $count 首';
+  }
 }

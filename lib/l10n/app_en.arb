@@ -210,5 +210,9 @@
   "statFollows": "Following",
   "statPlaylists": "Playlists",
   "showMore": "More",
-  "showLess": "Less"
+  "showLess": "Less",
+  "durationHoursMinutes": "{hours} hr {minutes} min",
+  "durationMinutes": "{minutes} min",
+  "filterFound": "{count, plural, =1{1 song found} other{{count} songs found}}",
+  "playFiltered": "Play {count}"
 }

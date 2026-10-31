@@ -108,6 +108,7 @@ void main() {
                 load: () async => (
                   title: title,
                   cover: '',
+                  creator: '',
                   period: '',
                   description: '',
                   songs: songs,

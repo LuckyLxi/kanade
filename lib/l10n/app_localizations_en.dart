@@ -761,4 +761,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get showLess => 'Less';
+
+  @override
+  String durationHoursMinutes(int hours, int minutes) {
+    return '$hours hr $minutes min';
+  }
+
+  @override
+  String durationMinutes(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String filterFound(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count songs found',
+      one: '1 song found',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String playFiltered(int count) {
+    return 'Play $count';
+  }
 }

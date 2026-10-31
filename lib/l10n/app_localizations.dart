@@ -1363,6 +1363,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'收起'**
   String get showLess;
+
+  /// No description provided for @durationHoursMinutes.
+  ///
+  /// In zh, this message translates to:
+  /// **'{hours} 小时 {minutes} 分'**
+  String durationHoursMinutes(int hours, int minutes);
+
+  /// No description provided for @durationMinutes.
+  ///
+  /// In zh, this message translates to:
+  /// **'{minutes} 分钟'**
+  String durationMinutes(int minutes);
+
+  /// No description provided for @filterFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'找到 {count} 首'**
+  String filterFound(int count);
+
+  /// No description provided for @playFiltered.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放这 {count} 首'**
+  String playFiltered(int count);
 }
 
 class _AppLocalizationsDelegate

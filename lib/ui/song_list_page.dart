@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../data/data_ext.dart';
 import '../l10n/app_localizations.dart';
 import '../library/library_controller.dart';
 import '../player/player_controller.dart';
@@ -10,6 +11,7 @@ import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'glass.dart';
 import 'playlist_actions.dart';
+import 'profile_layout.dart';
 import 'smooth_scroll.dart';
 import 'song_actions.dart';
 import 'widgets.dart';
@@ -18,6 +20,7 @@ import 'widgets.dart';
 typedef ListData = ({
   String title,
   String cover,
+  String creator,
   String period,
   String description,
   List<Song> songs,
@@ -40,7 +43,7 @@ class SongListPage extends StatelessWidget {
   /// 显示名次。
   final bool ranked;
 
-  /// 头部下面有搜索框，按歌名、歌手筛选。
+  /// 头部有搜索钮，点开后顶栏变成搜索框，按歌名、歌手筛选。
   final bool searchable;
 
   static Route<void> playlist(String id, String title) => MaterialPageRoute(
@@ -48,15 +51,19 @@ class SongListPage extends StatelessWidget {
       title: title,
       searchable: true,
       load: () async {
-        final owned = context.read<LibraryController>().ownPlaylist(id);
+        final mine = context.read<LibraryController>().ownPlaylist(id);
         final d = await api.getPlaylistDetail(id: id);
+        final owned = await mine;
+        // “我喜欢”自带的封面是一张固定的红心图，铺满头部不好看，换成第一首歌的封面
+        final liked = owned != null && isLikedPlaylist(owned) && d.songs.isNotEmpty;
         return (
           title: d.title,
-          cover: d.coverUrl,
+          cover: liked ? d.songs.first.coverUrl : d.coverUrl,
+          creator: d.creator,
           period: '',
           description: d.description,
           songs: d.songs,
-          owned: await owned,
+          owned: owned,
         );
       },
     ),
@@ -69,6 +76,7 @@ class SongListPage extends StatelessWidget {
       load: () async => (
         title: title,
         cover: songs.isEmpty ? '' : songs.first.coverUrl,
+        creator: '',
         period: '',
         description: '',
         songs: songs,
@@ -84,6 +92,7 @@ class SongListPage extends StatelessWidget {
       load: () async => (
         title: title,
         cover: song.coverUrl,
+        creator: '',
         period: '',
         description: '',
         songs: await api.getSimilarSongs(songId: song.id),
@@ -102,6 +111,7 @@ class SongListPage extends StatelessWidget {
         return (
           title: title,
           cover: songs.isEmpty ? '' : songs.first.coverUrl,
+          creator: '',
           period: '',
           description: '',
           songs: songs,
@@ -120,6 +130,7 @@ class SongListPage extends StatelessWidget {
         return (
           title: d.title,
           cover: d.coverUrl,
+          creator: '',
           period: d.period,
           description: d.description,
           songs: d.songs,
@@ -153,6 +164,9 @@ class _Body extends StatefulWidget {
 }
 
 class _BodyState extends State<_Body> {
+  static const _heroHeight = 300.0;
+  static const _barHeight = 56.0;
+
   /// 删歌成功后从这里去掉，不用重新加载整个歌单。
   late final List<Song> _songs = List.of(widget.d.songs);
 
@@ -190,11 +204,22 @@ class _BodyState extends State<_Body> {
   final _query = TextEditingController();
   final _scroll = SmoothScrollController();
 
+  /// 搜索时顶栏换成搜索框，大封面先收起来。
+  bool _searching = false;
+
   @override
   void dispose() {
     _query.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  void _search(bool on) {
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+    setState(() {
+      _searching = on;
+      if (!on) _query.clear();
+    });
   }
 
   /// 按歌名或歌手筛选，不区分大小写。点歌时只播筛出来的这些。
@@ -209,82 +234,240 @@ class _BodyState extends State<_Body> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final d = widget.d;
-    final searchable = widget.searchable;
-    final shown = searchable ? _shown : _songs;
-    // 列表前面固定的行：头部，可搜索时再加搜索框
-    final lead = searchable ? 2 : 1;
-    return ListView.builder(
-      controller: _scroll,
-      // 拖动列表时收起键盘
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      itemCount: lead + (shown.isEmpty && searchable ? 1 : shown.length),
-      itemBuilder: (context, i) {
-        if (i == 0) return _Head(d, _songs, title: _title, onEdit: canEditPlaylist(_owned) ? _edit : null);
-        if (searchable && i == 1) return _FilterField(_query, onChanged: () => setState(() {}));
-        if (shown.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.all(32),
-            child: Center(child: Text(AppLocalizations.of(context).searchNoResults)),
-          );
-        }
-        final song = shown[i - lead];
-        return SongTile(
-          songs: shown,
-          index: i - lead,
-          // 筛选后仍显示原来的名次
-          rank: widget.ranked ? _songs.indexOf(song) + 1 : null,
-          // “我喜欢”里不给删，取消喜欢就行
-          onRemove: canEditPlaylist(_owned) ? () => _remove(song) : null,
-        );
+    final top = MediaQuery.paddingOf(context).top;
+    final shown = _searching ? _shown : _songs;
+    final filtered = _searching && _query.text.trim().isNotEmpty;
+    final onEdit = canEditPlaylist(_owned) ? _edit : null;
+    return PopScope(
+      // 搜索时返回先退出搜索
+      canPop: !_searching,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _search(false);
       },
-    );
-  }
-}
-
-class _FilterField extends StatelessWidget {
-  const _FilterField(this.controller, {required this.onChanged});
-
-  final TextEditingController controller;
-  final VoidCallback onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: SearchBar(
-        controller: controller,
-        hintText: AppLocalizations.of(context).filterSongsHint,
-        leading: const Icon(Icons.search),
-        elevation: const WidgetStatePropertyAll(0),
-        constraints: const BoxConstraints(minHeight: 44),
-        onChanged: (_) => onChanged(),
-        trailing: [
-          if (controller.text.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.clear),
-              onPressed: () {
-                controller.clear();
-                onChanged();
+      child: CustomScrollView(
+        controller: _scroll,
+        // 拖动列表时收起键盘
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        slivers: [
+          if (_searching)
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: PinnedBox(
+                height: top + 60,
+                child: _SearchBar(_query, onChanged: () => setState(() {}), onCancel: () => _search(false)),
+              ),
+            )
+          else ...[
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _Hero(
+                d: d,
+                title: _title,
+                meta: _meta(l, d),
+                top: top,
+                maxHeight: top + _heroHeight,
+                minHeight: top + _barHeight,
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: _Actions(
+                songs: _songs,
+                description: d.description.replaceAll(RegExp(r'<[^>]+>'), '').trim(),
+                onSearch: widget.searchable ? () => _search(true) : null,
+                onEdit: onEdit,
+              ),
+            ),
+          ],
+          if (filtered && shown.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 16, 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l.filterFound(shown.length),
+                        style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                    ),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 36),
+                        padding: const EdgeInsets.fromLTRB(10, 0, 14, 0),
+                        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                      ),
+                      onPressed: () => context.read<PlayerController>().playList(shown, 0),
+                      icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                      label: Text(l.playFiltered(shown.length)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          if (shown.isEmpty && filtered)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Center(child: Text(l.searchNoResults)),
+              ),
+            )
+          else
+            SliverList.builder(
+              itemCount: shown.length,
+              itemBuilder: (context, i) {
+                final song = shown[i];
+                return SongTile(
+                  songs: shown,
+                  index: i,
+                  // 筛选后仍显示原来的名次
+                  rank: widget.ranked ? _songs.indexOf(song) + 1 : null,
+                  // “我喜欢”里不给删，取消喜欢就行
+                  onRemove: onEdit != null ? () => _remove(song) : null,
+                );
               },
             ),
+          const SliverToBoxAdapter(child: BottomSpacer()),
         ],
       ),
     );
   }
+
+  String _meta(AppLocalizations l, ListData d) {
+    final secs = _songs.fold<int>(0, (sum, s) => sum + s.durationSecs);
+    final hours = secs ~/ 3600;
+    final minutes = secs % 3600 ~/ 60;
+    return [
+      d.creator,
+      l.songCount(_songs.length),
+      if (secs > 0) hours > 0 ? l.durationHoursMinutes(hours, minutes) : l.durationMinutes(minutes),
+      if (d.period.isNotEmpty) l.updatedAt(d.period),
+    ].where((s) => s.isNotEmpty).join(' · ');
+  }
 }
 
-class _Head extends StatelessWidget {
-  const _Head(this.d, this.songs, {required this.title, this.onEdit});
+/// 封面铺满顶部，标题压在左下角；往上滚收成一条只有标题的顶栏。
+class _Hero extends SliverPersistentHeaderDelegate {
+  _Hero({
+    required this.d,
+    required this.title,
+    required this.meta,
+    required this.top,
+    required this.maxHeight,
+    required this.minHeight,
+  });
 
   final ListData d;
-  final List<Song> songs;
   final String title;
+  final String meta;
+  final double top;
+  final double maxHeight;
+  final double minHeight;
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final scheme = Theme.of(context).colorScheme;
+    final t = (shrinkOffset / (maxHeight - minHeight)).clamp(0.0, 1.0);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Cover(d.cover, radius: 0),
+        // 底部压暗好放字；收起时整张盖住
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              stops: const [0.4, 1],
+              colors: [scheme.surface.withValues(alpha: t), scheme.surface],
+            ),
+          ),
+        ),
+        Positioned(
+          left: 20,
+          right: 20,
+          bottom: 4,
+          child: Opacity(
+            opacity: (1 - t * 2).clamp(0.0, 1.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, height: 1.15),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  meta,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          left: 72,
+          right: 20,
+          top: top,
+          height: minHeight - top,
+          child: Opacity(
+            opacity: ((t - 0.6) / 0.4).clamp(0.0, 1.0),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  bool shouldRebuild(_Hero old) =>
+      old.d != d ||
+      old.title != title ||
+      old.meta != meta ||
+      old.top != top ||
+      old.maxHeight != maxHeight ||
+      old.minHeight != minHeight;
+}
+
+/// 简介一行（点开看全文），下面左边是搜索、更多，右边是随机和柠檬绿的大播放钮。
+class _Actions extends StatefulWidget {
+  const _Actions({required this.songs, required this.description, this.onSearch, this.onEdit});
+
+  final List<Song> songs;
+  final String description;
+  final VoidCallback? onSearch;
 
   /// 自己的歌单（“我喜欢”除外）才有：改名、删除。
   final VoidCallback? onEdit;
 
-  void _shuffle(BuildContext context) {
+  @override
+  State<_Actions> createState() => _ActionsState();
+}
+
+class _ActionsState extends State<_Actions> {
+  bool _expanded = false;
+
+  void _shuffle() {
+    final songs = widget.songs;
     final p = context.read<PlayerController>();
     p.setMode(PlayMode.shuffle);
     p.playList(songs, Random().nextInt(songs.length));
@@ -294,75 +477,117 @@ class _Head extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
-    final meta = [l.songCount(songs.length), if (d.period.isNotEmpty) l.updatedAt(d.period)].join(' · ');
-    final description = d.description.replaceAll(RegExp(r'<[^>]+>'), '').trim();
+    final songs = widget.songs;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, GlassBackScaffold.topInset, 24, 12),
+      padding: const EdgeInsets.fromLTRB(10, 4, 16, 8),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 40, offset: Offset(0, 20))],
+          if (widget.description.isNotEmpty)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
+                child: AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  alignment: Alignment.topCenter,
+                  child: Text(
+                    widget.description,
+                    maxLines: _expanded ? null : 1,
+                    overflow: _expanded ? null : TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13, height: 1.5, color: scheme.onSurfaceVariant),
+                  ),
+                ),
+              ),
             ),
-            child: Cover(d.cover, size: 196, radius: 20),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-          ),
           const SizedBox(height: 6),
-          Text(meta, style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant)),
-          if (description.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, height: 1.5, color: scheme.onSurfaceVariant),
-            ),
-          ],
-          const SizedBox(height: 18),
           Row(
             children: [
-              Expanded(
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(minimumSize: const Size(0, 46)),
-                  onPressed: songs.isEmpty ? null : () => context.read<PlayerController>().playList(songs, 0),
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  label: Text(l.playAll(songs.length)),
+              if (widget.onSearch != null)
+                IconButton(
+                  tooltip: l.filterSongsHint,
+                  onPressed: widget.onSearch,
+                  icon: const Icon(Icons.search_rounded),
                 ),
-              ),
-              const SizedBox(width: 10),
+              if (widget.onEdit != null)
+                IconButton(tooltip: l.more, onPressed: widget.onEdit, icon: const Icon(Icons.more_horiz_rounded)),
+              const Spacer(),
               IconButton(
                 tooltip: l.shufflePlay,
-                style: IconButton.styleFrom(
-                  fixedSize: const Size(46, 46),
-                  backgroundColor: scheme.surfaceContainerHigh,
-                  side: BorderSide(color: scheme.outlineVariant),
-                ),
-                onPressed: songs.isEmpty ? null : () => _shuffle(context),
+                onPressed: songs.isEmpty ? null : _shuffle,
                 icon: const Icon(Icons.shuffle_rounded),
               ),
-              if (onEdit != null) ...[
-                const SizedBox(width: 10),
-                IconButton(
-                  tooltip: l.more,
-                  style: IconButton.styleFrom(
-                    fixedSize: const Size(46, 46),
-                    backgroundColor: scheme.surfaceContainerHigh,
-                    side: BorderSide(color: scheme.outlineVariant),
-                  ),
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.more_horiz_rounded),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: l.playAll(songs.length),
+                style: IconButton.styleFrom(
+                  fixedSize: const Size(56, 56),
+                  backgroundColor: scheme.primaryContainer,
+                  foregroundColor: scheme.onPrimaryContainer,
+                  disabledBackgroundColor: scheme.surfaceContainerHigh,
                 ),
-              ],
+                onPressed: songs.isEmpty ? null : () => context.read<PlayerController>().playList(songs, 0),
+                icon: const Icon(Icons.play_arrow_rounded, size: 32),
+              ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 搜索时的顶栏：左边让出玻璃返回钮的位置，后面是搜索框和“取消”。
+class _SearchBar extends StatelessWidget {
+  const _SearchBar(this.controller, {required this.onChanged, required this.onCancel});
+
+  final TextEditingController controller;
+  final VoidCallback onChanged;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(72, MediaQuery.paddingOf(context).top + 8, 8, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: 44,
+              child: TextField(
+                controller: controller,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                onChanged: (_) => onChanged(),
+                style: const TextStyle(fontSize: 15),
+                decoration: InputDecoration(
+                  hintText: l.filterSongsHint,
+                  filled: true,
+                  fillColor: scheme.surfaceContainerHigh,
+                  contentPadding: EdgeInsets.zero,
+                  prefixIcon: Icon(Icons.search_rounded, size: 20, color: scheme.onSurfaceVariant),
+                  suffixIcon: controller.text.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                          onPressed: () {
+                            controller.clear();
+                            onChanged();
+                          },
+                        ),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(999), borderSide: BorderSide.none),
+                ),
+              ),
+            ),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: scheme.onSurface),
+            onPressed: onCancel,
+            child: Text(l.cancel),
           ),
         ],
       ),

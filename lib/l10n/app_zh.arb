@@ -486,5 +486,40 @@
   "statFollows": "关注",
   "statPlaylists": "歌单",
   "showMore": "展开",
-  "showLess": "收起"
+  "showLess": "收起",
+  "durationHoursMinutes": "{hours} 小时 {minutes} 分",
+  "@durationHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "durationMinutes": "{minutes} 分钟",
+  "@durationMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "filterFound": "找到 {count} 首",
+  "@filterFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "playFiltered": "播放这 {count} 首",
+  "@playFiltered": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }
