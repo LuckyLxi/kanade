@@ -186,7 +186,7 @@ pub struct UserProfile {
     pub avatar_url: String,
     pub fans_count: u64,
     pub follow_count: u64,
-    /// 个人简介；没填时退回认证说明，两者都没有为空。
+    /// 简介，即认证说明（QQ 音乐没有用户自写的简介）；没认证为空。
     pub intro: String,
     /// 公开歌单数；主页没有歌单标签时为 0。
     pub playlist_count: u32,

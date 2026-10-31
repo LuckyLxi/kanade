@@ -1257,7 +1257,7 @@ class UserProfile {
   final BigInt fansCount;
   final BigInt followCount;
 
-  /// 个人简介；没填时退回认证说明，两者都没有为空。
+  /// 简介，即认证说明（QQ 音乐没有用户自写的简介）；没认证为空。
   final String intro;
 
   /// 公开歌单数；主页没有歌单标签时为 0。

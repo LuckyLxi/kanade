@@ -139,7 +139,7 @@ void main() {
     await screenshot('liked_videos');
     expect(tester.takeException(), isNull);
 
-    // 官方账号没填简介，会退回显示认证说明
+    // 简介位置显示认证说明
     Navigator.of(tester.element(find.byType(UserPage)))
         .pushReplacement(UserPage.route('ownk7e-l7e4kNn**', '鸣潮先约电台'));
     await wait();

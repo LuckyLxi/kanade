@@ -442,13 +442,14 @@ songmid=<SONG_MID>&format=json&nobase64=1&g_tk=5381
 
 | 功能 / 上游方法 | `param` | 返回路径 |
 | --- | --- | --- |
-| 资料：GET `https://c6.y.qq.com/rsc/fcgi-bin/fcg_get_profile_homepage.fcg` | `userid/cid=205360838/ct=20/cv=2276/reqfrom=1/reqtype=0/format=json`，以及 `uin/g_tk/g_tk_new_20200303/platform` | `data.creator.nick/headpic/encrypt_uin/nums/isfollow/ishost/diss_lock`；`data.mydiss.num` |
-| 简介：`…UnifiedHomepageSrv.GetHomepageTabDetail` | `uin`、`IsQueryTabDetail=1`、`TabID="about"`、`PageNum=0`、`PageSize=10`、`Order=0` | `IntroductionTab.List[].AboutList[].baseInfo.desc`；2026-10-31 扫过约 260 个搜索到的用户全为空，没填时退回 `creator.cfinfo.title`（认证说明）。失败不影响资料 |
+| 资料：GET `https://c6.y.qq.com/rsc/fcgi-bin/fcg_get_profile_homepage.fcg` | `userid/cid=205360838/ct=20/cv=2276/reqfrom=1/reqtype=0/format=json`，以及 `uin/g_tk/g_tk_new_20200303/platform` | `data.creator.nick/headpic/encrypt_uin/nums/isfollow/ishost/diss_lock`；`data.mydiss.num`；简介用 `creator.cfinfo.title`（认证说明） |
 | 歌单：`…UnifiedHomepageSrv.GetHomepageTabDetail` | `uin`、`IsQueryTabDetail=1`、`TabID="disc"`、`PageNum`、`PageSize`、`Order=0` | `DiscTab.List[]` 的 `Dissid/Title/Picurl/Subtitle`，`HasMore` |
 | 喜欢歌曲：`music.srfDissInfo.DissInfo.CgiGetDiss` | `optype=0,disstid=<目标用户喜欢歌单ID>,onlysonglist=1,song_begin=page*page_size,song_num=page_size` | `songlist[]/hasmore`；复用歌曲解析与播放组件 |
 | 收藏歌单：`music.musicasset.PlaylistFavRead.GetPlaylistFavInfo_v2` | `uin=<encrypt_uin>,offset=page*page_size,size=page_size` | `v_list[].tid/name/logo/songnum/nickname`、`hasmore/hide` |
 | 收藏专辑：`music.musicasset.AlbumFavRead.GetAlbumFavInfo_v2` | `euin=<encrypt_uin>,offset=page*page_size,size=page_size` | `v_list[].mid/name/logo/pubtime/v_singer`、`hasmore/hide` |
 | 收藏视频：`music.musicasset.MVFavRead.getMyFavMV_v2` | `encuin=<encrypt_uin>,cid=205361447,support=1,num=page*page_size,pagesize=page_size` | `mvlist[].vid/mv_name/mv_picurl/duration/playcount/singer_name/uploader_nick`、`hasmore` |
+
+QQ 音乐不支持用户自己写简介，PC 主页简介位置显示的就是 `cfinfo.title`，为空时显示“暂无”；统一主页 about 标签的 `AboutList[].baseInfo.desc` 在 2026-10-31 扫过约 260 个用户全为空，不再请求。
 
 资料 CGI 严格检查 `code/subcode=0`，缓存 600 秒。`creator.nums.fansnum/follownum` 为粉丝及关注计数；
 `ishost=1` 时隐藏关注按钮。非本人且 `diss_lock=1` 时展示未公开，不请求自建歌单。
