@@ -139,6 +139,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<VideoBrief> dco_decode_list_video_brief(dynamic raw);
 
   @protected
+  List<VideoTag> dco_decode_list_video_tag(dynamic raw);
+
+  @protected
   LoginKind dco_decode_login_kind(dynamic raw);
 
   @protected
@@ -218,6 +221,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SingerDetail dco_decode_singer_detail(dynamic raw);
 
   @protected
+  SingerSocial dco_decode_singer_social(dynamic raw);
+
+  @protected
+  SingerVideoPage dco_decode_singer_video_page(dynamic raw);
+
+  @protected
   Song dco_decode_song(dynamic raw);
 
   @protected
@@ -248,6 +257,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void dco_decode_unit(dynamic raw);
 
   @protected
+  UserAssetKind dco_decode_user_asset_kind(dynamic raw);
+
+  @protected
+  UserAssetPage dco_decode_user_asset_page(dynamic raw);
+
+  @protected
   UserBrief dco_decode_user_brief(dynamic raw);
 
   @protected
@@ -261,6 +276,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   VideoBrief dco_decode_video_brief(dynamic raw);
+
+  @protected
+  VideoTag dco_decode_video_tag(dynamic raw);
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
@@ -386,6 +404,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<VideoBrief> sse_decode_list_video_brief(SseDeserializer deserializer);
 
   @protected
+  List<VideoTag> sse_decode_list_video_tag(SseDeserializer deserializer);
+
+  @protected
   LoginKind sse_decode_login_kind(SseDeserializer deserializer);
 
   @protected
@@ -471,6 +492,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SingerDetail sse_decode_singer_detail(SseDeserializer deserializer);
 
   @protected
+  SingerSocial sse_decode_singer_social(SseDeserializer deserializer);
+
+  @protected
+  SingerVideoPage sse_decode_singer_video_page(SseDeserializer deserializer);
+
+  @protected
   Song sse_decode_song(SseDeserializer deserializer);
 
   @protected
@@ -501,6 +528,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_decode_unit(SseDeserializer deserializer);
 
   @protected
+  UserAssetKind sse_decode_user_asset_kind(SseDeserializer deserializer);
+
+  @protected
+  UserAssetPage sse_decode_user_asset_page(SseDeserializer deserializer);
+
+  @protected
   UserBrief sse_decode_user_brief(SseDeserializer deserializer);
 
   @protected
@@ -514,6 +547,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   VideoBrief sse_decode_video_brief(SseDeserializer deserializer);
+
+  @protected
+  VideoTag sse_decode_video_tag(SseDeserializer deserializer);
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer);
@@ -678,6 +714,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_video_tag(List<VideoTag> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_login_kind(LoginKind self, SseSerializer serializer);
 
   @protected
@@ -780,6 +819,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_singer_detail(SingerDetail self, SseSerializer serializer);
 
   @protected
+  void sse_encode_singer_social(SingerSocial self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_singer_video_page(
+    SingerVideoPage self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_song(Song self, SseSerializer serializer);
 
   @protected
@@ -813,6 +861,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_unit(void self, SseSerializer serializer);
 
   @protected
+  void sse_encode_user_asset_kind(UserAssetKind self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_user_asset_page(UserAssetPage self, SseSerializer serializer);
+
+  @protected
   void sse_encode_user_brief(UserBrief self, SseSerializer serializer);
 
   @protected
@@ -829,6 +883,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_video_brief(VideoBrief self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_video_tag(VideoTag self, SseSerializer serializer);
 }
 
 // Section: wire_class

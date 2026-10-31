@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../l10n/l10n_ext.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
-import 'mv_page.dart';
+import 'video_tile.dart';
 import 'singer_page.dart';
 import 'smooth_scroll.dart';
 import 'song_list_page.dart';
@@ -312,7 +312,7 @@ class _SearchPageState extends State<SearchPage> {
           onTap: () => Navigator.of(context).push(SongListPage.playlist(p.id, p.title)),
         );
       case SearchKind.video:
-        return _VideoTile(r.videos[i]);
+        return VideoTile(r.videos[i]);
       case SearchKind.user:
         final u = r.users[i];
         return ListTile(
@@ -443,58 +443,3 @@ class _LyricTile extends StatelessWidget {
 }
 
 /// 16:9 封面，右下角是时长。官方 MV 标 MV，用户上传的不标。
-class _VideoTile extends StatelessWidget {
-  const _VideoTile(this.video);
-
-  final VideoBrief video;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    return ListTile(
-      leading: SizedBox(
-        width: 96,
-        height: 54,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Cover(video.coverUrl, radius: 8),
-            if (video.durationSecs > 0)
-              Positioned(
-                right: 4,
-                bottom: 4,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
-                  child: Text(
-                    formatDuration(Duration(seconds: video.durationSecs)),
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontFeatures: [FontFeature.tabularFigures()]),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-      title: Text(video.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 3),
-        child: Row(
-          children: [
-            if (!video.uploaded) const QualityBadge('MV'),
-            Expanded(
-              child: Text(
-                [
-                  if (video.creator.isNotEmpty) video.creator,
-                  if (video.playCount > BigInt.zero) '▶ ${formatCount(l, video.playCount.toInt())}',
-                ].join(' · '),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-      onTap: () => Navigator.of(context).push(MvPage.route(video.vid, video.name)),
-    );
-  }
-}

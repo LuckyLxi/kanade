@@ -1225,6 +1225,84 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'粉丝 {fans}'**
   String userFans(String fans);
+
+  /// No description provided for @singerFeatured.
+  ///
+  /// In zh, this message translates to:
+  /// **'精选'**
+  String get singerFeatured;
+
+  /// No description provided for @singerSelectedAlbums.
+  ///
+  /// In zh, this message translates to:
+  /// **'精选专辑'**
+  String get singerSelectedAlbums;
+
+  /// No description provided for @follow.
+  ///
+  /// In zh, this message translates to:
+  /// **'关注'**
+  String get follow;
+
+  /// No description provided for @followed.
+  ///
+  /// In zh, this message translates to:
+  /// **'已关注'**
+  String get followed;
+
+  /// No description provided for @createPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建歌单'**
+  String get createPlaylist;
+
+  /// No description provided for @playlistCreated.
+  ///
+  /// In zh, this message translates to:
+  /// **'已新建歌单'**
+  String get playlistCreated;
+
+  /// No description provided for @savedPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏歌单'**
+  String get savedPlaylists;
+
+  /// No description provided for @savedAlbums.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏专辑'**
+  String get savedAlbums;
+
+  /// No description provided for @userPrivate.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容未公开'**
+  String get userPrivate;
+
+  /// No description provided for @noItems.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无内容'**
+  String get noItems;
+
+  /// No description provided for @newest.
+  ///
+  /// In zh, this message translates to:
+  /// **'最新'**
+  String get newest;
+
+  /// No description provided for @hottest.
+  ///
+  /// In zh, this message translates to:
+  /// **'最热'**
+  String get hottest;
+
+  /// No description provided for @userLikes.
+  ///
+  /// In zh, this message translates to:
+  /// **'我喜欢'**
+  String get userLikes;
 }
 
 class _AppLocalizationsDelegate

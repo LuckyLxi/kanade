@@ -1,6 +1,5 @@
 //! 扫码登录。QQ：ptlogin 二维码 → graph.qq.com OAuth code → QQ 音乐 musickey；
 //! 微信：open.weixin.qq.com 二维码 → wx_code → QQ 音乐 musickey。
-//! 全程由用户在手机 QQ / 微信上扫码确认，本程序不接触账号密码。
 
 use std::sync::Arc;
 

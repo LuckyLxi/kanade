@@ -274,6 +274,15 @@ impl Core {
         }
     }
 
+    /// 内嵌页写操作只提交一次，不使用通用读请求的失败回退。
+    pub async fn musicu_write_with_comm(&self, module: &str, method: &str, param: Value, extra_comm: Value) -> Result<Value> {
+        self.session().context(ApiError::NotLoggedIn)?;
+        let mut comm = self.comm();
+        if let (Some(c), Some(extra)) = (comm.as_object_mut(), extra_comm.as_object()) { c.extend(extra.clone()); }
+        let body = json!({"comm": comm, "req_0": {"module": module, "method": method, "param": param}}).to_string();
+        musicu_result(self.post_musicu(MUSICU, &body).await?, module, method)
+    }
+
     async fn post_musicu(&self, url: &str, body: &str) -> Result<Value> {
         let mut req = self
             .http

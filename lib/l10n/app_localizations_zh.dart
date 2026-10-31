@@ -648,4 +648,43 @@ class AppLocalizationsZh extends AppLocalizations {
   String userFans(String fans) {
     return '粉丝 $fans';
   }
+
+  @override
+  String get singerFeatured => '精选';
+
+  @override
+  String get singerSelectedAlbums => '精选专辑';
+
+  @override
+  String get follow => '关注';
+
+  @override
+  String get followed => '已关注';
+
+  @override
+  String get createPlaylist => '新建歌单';
+
+  @override
+  String get playlistCreated => '已新建歌单';
+
+  @override
+  String get savedPlaylists => '收藏歌单';
+
+  @override
+  String get savedAlbums => '收藏专辑';
+
+  @override
+  String get userPrivate => '内容未公开';
+
+  @override
+  String get noItems => '暂无内容';
+
+  @override
+  String get newest => '最新';
+
+  @override
+  String get hottest => '最热';
+
+  @override
+  String get userLikes => '我喜欢';
 }

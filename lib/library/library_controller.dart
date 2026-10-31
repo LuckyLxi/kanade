@@ -68,6 +68,13 @@ class LibraryController extends ChangeNotifier {
   int get playlistsVersion => _playlistsVersion;
   int _playlistsVersion = 0;
 
+  Future<MyPlaylist> createPlaylist(String name) async {
+    final playlist = await api.createPlaylist(name: name);
+    _playlistsVersion++;
+    notifyListeners();
+    return playlist;
+  }
+
   Future<void> addToPlaylist(MyPlaylist p, Song s) async {
     await api.addSongToPlaylist(dirId: p.dirId, songId: s.id);
     if (isLikedPlaylist(p)) _liked.add(s.id.toInt());

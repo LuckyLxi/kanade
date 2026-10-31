@@ -28,6 +28,56 @@ fn use_desktop_test_login() {
     })).unwrap();
 }
 
+/// 只读：新歌手页、自己的资料，以及抓包中已有公开歌单用户的收藏分页。
+#[tokio::test]
+#[ignore = "需要本地 HAR 登录态和网络；不执行任何关注或歌单写入"]
+async fn desktop_singer_social_and_user_assets() {
+    use rust_lib_kanade::{api::types::UserAssetKind, qq::{detail, user}};
+    use_desktop_test_login();
+    let mid = "002wbPaC0L9C3A";
+    let singer = detail::singer_detail(mid).await.unwrap();
+    assert!(!singer.selected_albums.is_empty());
+    let social = detail::singer_social(mid).await.unwrap();
+    assert!(social.fans_count > 0 && !social.guard_title.is_empty());
+    let tags = detail::singer_video_tags(mid).await.unwrap();
+    assert!(tags.iter().any(|t| t.id == 0));
+    let first = detail::singer_videos(mid, &singer.name, 0, 0, 0, 5).await.unwrap();
+    let next = detail::singer_videos(mid, &singer.name, 0, 0, 5, 5).await.unwrap();
+    assert_eq!(first.videos.len(), 5);
+    assert!(!next.videos.is_empty());
+    assert!(first.videos.iter().all(|v| !v.vid.is_empty() && !v.name.is_empty()));
+    assert!(next.videos.iter().all(|v| first.videos.iter().all(|p| p.vid != v.vid)));
+    let hot = detail::singer_videos(mid, &singer.name, 0, 1, 0, 5).await.unwrap();
+    let hot_next = detail::singer_videos(mid, &singer.name, 0, 1, 5, 5).await.unwrap();
+    assert_eq!((hot.videos.len(), hot_next.videos.len()), (5, 5));
+    assert_ne!(first.videos.iter().map(|v| &v.vid).collect::<Vec<_>>(), hot.videos.iter().map(|v| &v.vid).collect::<Vec<_>>());
+    assert!(hot_next.videos.iter().all(|v| hot.videos.iter().all(|p| p.vid != v.vid)));
+    let own = user::user_profile(&client::core().uin()).await.unwrap();
+    assert!(own.is_self && !own.euin.is_empty());
+    let har = desktop_test_har();
+    let target = har["log"]["entries"].as_array().unwrap().iter().find_map(|e| {
+        if !e["request"]["url"].as_str()?.contains("fcg_get_profile_homepage") { return None; }
+        let r: serde_json::Value = serde_json::from_str(e["response"]["content"]["text"].as_str()?).ok()?;
+        (r["data"]["mydiss"]["num"].as_u64()? > 0).then(|| r["data"]["creator"]["encrypt_uin"].as_str().unwrap().to_string())
+    }).expect("HAR 中需要有公开歌单的用户主页样本");
+    let profile = user::user_profile(&target).await.unwrap();
+    assert!(!profile.name.is_empty() && profile.playlist_count > 0 && !profile.is_self);
+    let saved = user::user_assets(&target, UserAssetKind::Playlist, 0, 3).await.unwrap();
+    let next = user::user_assets(&target, UserAssetKind::Playlist, 1, 3).await.unwrap();
+    assert!(!saved.hidden && saved.has_more && saved.playlists.len() == 3);
+    assert!(next.playlists.iter().all(|p| saved.playlists.iter().all(|first| p.id != first.id)));
+    let albums = user::user_assets(&target, UserAssetKind::Album, 0, 3).await.unwrap();
+    assert!(!albums.albums.is_empty() && !albums.albums[0].mid.is_empty() && !albums.albums[0].name.is_empty());
+    let created = user::user_playlists(&target, &profile.name, 0, 30).await.unwrap();
+    assert!(!created.playlists.is_empty(), "主页宣称存在公开歌单，但分页列表为空");
+    client::core().set_session(None).unwrap();
+    // 两套上游主页的匿名请求均已返回 1000；明确要求登录，不能伪装成空的公开主页。
+    assert!(matches!(rust_lib_kanade::qq::error::ApiError::from(user::user_profile(&target).await.unwrap_err()),
+        rust_lib_kanade::qq::error::ApiError::NotLoggedIn));
+    assert!(!rust_lib_kanade::qq::social::singer_followed(mid).await.unwrap());
+    println!("Read-only singer metadata, social counts, video pagination, self/public profiles and saved asset pagination passed.");
+}
+
 #[tokio::test]
 #[ignore]
 async fn desktop_quality_tiers_for_reported_song() {
@@ -42,6 +92,40 @@ async fn desktop_quality_tiers_for_reported_song() {
         Quality::Ogg640 | Quality::Ogg320 | Quality::Ogg192 | Quality::Ogg96 | Quality::Aac192 | Quality::Aac48
     )), "底层编码格式不应成为独立音质档位");
     println!("{}: playable quality tiers = {qualities:?}", song.name);
+}
+
+#[tokio::test]
+#[ignore = "仅只读；需要本地 HAR 及 QQMUSIC_TEST_ASSET_TARGETS 指定的公开视频用户样本"]
+async fn desktop_user_liked_songs_and_videos() {
+    use rust_lib_kanade::{api::types::UserAssetKind, qq::user};
+    use_desktop_test_login();
+    let har = desktop_test_har();
+    let target = har["log"]["entries"].as_array().unwrap().iter().find_map(|e| {
+        if !e["request"]["url"].as_str()?.contains("fcg_get_profile_homepage") { return None; }
+        let r: serde_json::Value = serde_json::from_str(e["response"]["content"]["text"].as_str()?).ok()?;
+        let liked = r["data"]["mymusic"].as_array()?.iter().find(|c| c["type"].as_u64() == Some(1))?;
+        (liked["num0"].as_u64()? > 0).then(|| r["data"]["creator"]["encrypt_uin"].as_str().unwrap().to_string())
+    }).expect("HAR 中需要非空的我喜欢歌曲样本");
+    let first = user::user_assets(&target, UserAssetKind::Song, 0, 3).await.unwrap();
+    let next = user::user_assets(&target, UserAssetKind::Song, 1, 3).await.unwrap();
+    assert_eq!((first.songs.len(), next.songs.len()), (3, 3));
+    assert!(first.has_more && !first.hidden);
+    assert!(first.songs.iter().all(|s| !s.mid.is_empty() && !s.name.is_empty()));
+    assert!(next.songs.iter().all(|s| first.songs.iter().all(|p| p.mid != s.mid)));
+    let beyond_thousand = user::user_assets(&target, UserAssetKind::Song, 400, 3).await.unwrap();
+    assert_eq!(beyond_thousand.songs.len(), 3, "喜欢歌曲不能被原歌单详情的 1000 首范围截断");
+    let path = std::env::var_os("QQMUSIC_TEST_ASSET_TARGETS").expect("需要本地公开视频用户样本文件");
+    let targets: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let target = targets["video_user"].as_str().unwrap();
+    let first = user::user_assets(target, UserAssetKind::Video, 0, 2).await.unwrap();
+    let next = user::user_assets(target, UserAssetKind::Video, 1, 2).await.unwrap();
+    assert_eq!((first.videos.len(), next.videos.len()), (2, 1));
+    assert!(first.has_more && !next.has_more && !first.hidden);
+    assert!(first.videos.iter().all(|v| !v.vid.is_empty() && !v.name.is_empty()));
+    // 旧收藏可能已失效，实际样本存在 status=0、封面为空但标题和 VID 仍保留的条目。
+    assert!(first.videos.iter().any(|v| !v.cover_url.is_empty()));
+    assert!(next.videos.iter().all(|v| first.videos.iter().all(|p| p.vid != v.vid)));
+    println!("Nonempty liked songs and videos, pagination and media identifiers verified read-only.");
 }
 
 #[tokio::test]

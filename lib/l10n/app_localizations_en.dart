@@ -692,4 +692,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String userFans(String fans) {
     return '$fans followers';
   }
+
+  @override
+  String get singerFeatured => 'Featured';
+
+  @override
+  String get singerSelectedAlbums => 'Selected albums';
+
+  @override
+  String get follow => 'Follow';
+
+  @override
+  String get followed => 'Following';
+
+  @override
+  String get createPlaylist => 'Create playlist';
+
+  @override
+  String get playlistCreated => 'Playlist created';
+
+  @override
+  String get savedPlaylists => 'Saved playlists';
+
+  @override
+  String get savedAlbums => 'Saved albums';
+
+  @override
+  String get userPrivate => 'This content is private';
+
+  @override
+  String get noItems => 'No items';
+
+  @override
+  String get newest => 'Newest';
+
+  @override
+  String get hottest => 'Most popular';
+
+  @override
+  String get userLikes => 'Liked';
 }

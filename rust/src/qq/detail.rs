@@ -1,9 +1,10 @@
 //! 歌手页、专辑页和评论。都是 Windows 客户端内嵌页（ct=20）的接口。
 
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 
 use super::client::core;
+use super::error::ApiError;
 use super::music::webkit_comm;
 use super::parse::{self, album_cover, first_s, n, s, singer_cover};
 use crate::api::types::*;
@@ -16,8 +17,8 @@ async fn webkit(module: &str, method: &str, param: Value) -> Result<Value> {
 pub async fn singer_detail(mid: &str) -> Result<SingerDetail> {
     let c = core();
     let data = c
-        .cached(&format!("singer:{mid}"), 3600, || async {
-            let (info, songs, albums) = tokio::join!(
+        .cached(&format!("singer:selected:{mid}"), 3600, || async {
+            let (info, songs, albums, selected) = tokio::join!(
                 webkit(
                     "music.musichallSinger.SingerInfoInter",
                     "GetSingerDetail",
@@ -25,8 +26,9 @@ pub async fn singer_detail(mid: &str) -> Result<SingerDetail> {
                 ),
                 singer_songs_raw(mid, 0, 30),
                 singer_albums_raw(mid, 0, 30),
+                webkit("music.musichallAlbum.SelectedAlbumServer", "SelectedAlbumList", json!({"singerMid": mid})),
             );
-            Ok(json!({ "info": info?, "songs": songs?, "albums": albums? }))
+            Ok(json!({ "info": info?, "songs": songs?, "albums": albums?, "selected": selected? }))
         })
         .await?;
     let singer = &data["info"]["singer_list"][0];
@@ -41,7 +43,54 @@ pub async fn singer_detail(mid: &str) -> Result<SingerDetail> {
         song_total: n(&data["songs"]["totalNum"]) as u32,
         albums: albums(&data["albums"]["albumList"]),
         album_total: n(&data["albums"]["total"]) as u32,
+        selected_albums: albums(&data["selected"]["albumList"]),
     })
+}
+
+pub async fn singer_social(mid: &str) -> Result<SingerSocial> {
+    let c = core();
+    let query = [("singermid", mid.into()), ("utf8", "1".into()), ("format", "json".into())];
+    let (fans, guard, followed) = tokio::join!(
+        c.get_json("https://c6.y.qq.com/rsc/fcgi-bin/fcg_order_singer_getnum.fcg", &query),
+        webkit("music.UnifiedHomepage.UnifiedHomepageSrv", "GetHomepageIconForMedal",
+            json!({"SingerMid": mid, "Uin": c.uin()})),
+        super::social::singer_followed(mid),
+    );
+    let fans = fans?;
+    for field in ["code", "subcode"] {
+        let code = fans[field].as_i64().context(ApiError::bad_response("singer fans result code is missing"))?;
+        if code != 0 { bail!(ApiError::ServerError {api: "fcg_order_singer_getnum".into(), code: code.to_string()}); }
+    }
+    Ok(SingerSocial {
+        fans_count: fans["num"].as_u64().context(ApiError::bad_response("singer fans count is missing"))?,
+        guard_title: guard_title(&guard?),
+        followed: followed?,
+    })
+}
+
+fn guard_title(data: &Value) -> String {
+    data["NumButtonList"].as_array().into_iter().flatten()
+        .find(|item| n(&item["ButtonType"]) == 9)
+        .map(|item| s(&item["ButtonInfo"]["Title"])).unwrap_or_default()
+}
+
+pub async fn singer_video_tags(mid: &str) -> Result<Vec<VideoTag>> {
+    let data = webkit("MvService.MvInfoProServer", "GetSingerMvTag", json!({"singermid": mid})).await?;
+    Ok(data["list"].as_array().into_iter().flatten().map(|x| VideoTag { id: n(&x["id"]), name: s(&x["name"]) }).collect())
+}
+
+pub async fn singer_videos(mid: &str, name: &str, tag: i64, order: u32, begin: u32, num: u32) -> Result<SingerVideoPage> {
+    let data = webkit("MvService.MvInfoProServer", "GetSingerMvList",
+        json!({"singermid": mid, "tagid": tag, "start": begin, "count": num, "order": order})).await?;
+    Ok(SingerVideoPage { videos: singer_video_list(&data["list"], name), total: n(&data["total"]) as u32 })
+}
+
+fn singer_video_list(list: &Value, name: &str) -> Vec<VideoBrief> {
+    list.as_array().into_iter().flatten().filter(|x| !s(&x["vid"]).is_empty()).map(|x| VideoBrief {
+        vid: s(&x["vid"]), name: s(&x["title"]), cover_url: s(&x["picurl"]),
+        duration_secs: n(&x["duration"]) as u32, play_count: n(&x["playcnt"]) as u64,
+        creator: name.into(), uploaded: false,
+    }).collect()
 }
 
 async fn singer_songs_raw(mid: &str, begin: u32, num: u32) -> Result<Value> {
@@ -237,6 +286,26 @@ pub async fn comment_replies(root_id: &str, page: u32, last_seq_no: &str) -> Res
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn guard_uses_display_title_instead_of_unrelated_zero_count() {
+        let data = json!({"cnt": 0, "NumButtonList": [
+            {"ButtonType": 1, "ButtonInfo": {"Title": "other"}},
+            {"ButtonType": 9, "ButtonInfo": {"Title": "38万乐迷守护"}},
+        ]});
+        assert_eq!(guard_title(&data), "38万乐迷守护");
+        assert_eq!(guard_title(&json!({"cnt": 380000})), "");
+    }
+
+    #[test]
+    fn singer_video_list_uses_singer_fields_and_vid() {
+        let videos = singer_video_list(&json!([
+            {"vid": "video-id", "mvid": 123, "title": "MV", "picurl": "https://example.test/cover", "playcnt": 42, "duration": 169},
+            {"mvid": 456, "title": "no VID"},
+        ]), "singer");
+        assert_eq!(videos.len(), 1);
+        assert_eq!((videos[0].vid.as_str(), videos[0].name.as_str(), videos[0].play_count), ("video-id", "MV", 42));
+    }
 
     #[test]
     fn strips_emoji_codes() {

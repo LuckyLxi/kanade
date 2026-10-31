@@ -469,5 +469,18 @@
         "type": "String"
       }
     }
-  }
+  },
+  "singerFeatured": "精选",
+  "singerSelectedAlbums": "精选专辑",
+  "follow": "关注",
+  "followed": "已关注",
+  "createPlaylist": "新建歌单",
+  "playlistCreated": "已新建歌单",
+  "savedPlaylists": "收藏歌单",
+  "savedAlbums": "收藏专辑",
+  "userPrivate": "内容未公开",
+  "noItems": "暂无内容",
+  "newest": "最新",
+  "hottest": "最热",
+  "userLikes": "我喜欢"
 }

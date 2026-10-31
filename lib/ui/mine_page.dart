@@ -20,6 +20,7 @@ import 'settings_page.dart';
 import 'smooth_scroll.dart';
 import 'song_list_page.dart';
 import 'toast.dart';
+import 'user_page.dart';
 import 'widgets.dart';
 
 class MinePage extends StatelessWidget {
@@ -122,7 +123,10 @@ typedef _Playlists = (List<PlaylistBrief>, Map<String, MyPlaylist>);
 
 /// 自建歌单的可写信息拿不到时，只是没有改名/删除入口，列表照常显示。
 Future<_Playlists> _loadPlaylists(LibraryController library) async {
-  final own = library.myPlaylists().then((l) => {for (final p in l) p.tid.toString(): p}, onError: (_) => <String, MyPlaylist>{});
+  final own = library.myPlaylists().then(
+    (l) => {for (final p in l) p.tid.toString(): p},
+    onError: (_) => <String, MyPlaylist>{},
+  );
   final all = await api.getUserPlaylists();
   return (all, await own);
 }
@@ -130,6 +134,7 @@ Future<_Playlists> _loadPlaylists(LibraryController library) async {
 class _LoggedInState extends State<_LoggedIn> {
   /// false：自己创建的；true：收藏别人的。
   bool _collected = false;
+  bool _creating = false;
   final _scroll = SmoothScrollController();
 
   @override
@@ -167,17 +172,20 @@ class _LoggedInState extends State<_LoggedIn> {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: scheme.primary, width: 2),
-                ),
-                child: CircleAvatar(
-                  radius: 27,
-                  backgroundColor: scheme.surfaceContainerHigh,
-                  backgroundImage: user.avatarUrl.isEmpty ? null : NetworkImage(httpsUrl(user.avatarUrl)),
-                  child: user.avatarUrl.isEmpty ? const Icon(Icons.person) : null,
+              GestureDetector(
+                onTap: () => Navigator.of(context).push(UserPage.route(user.uin, user.nickname)),
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: scheme.primary, width: 2),
+                  ),
+                  child: CircleAvatar(
+                    radius: 27,
+                    backgroundColor: scheme.surfaceContainerHigh,
+                    backgroundImage: user.avatarUrl.isEmpty ? null : NetworkImage(httpsUrl(user.avatarUrl)),
+                    child: user.avatarUrl.isEmpty ? const Icon(Icons.person) : null,
+                  ),
                 ),
               ),
               const SizedBox(width: 14),
@@ -228,6 +236,20 @@ class _LoggedInState extends State<_LoggedIn> {
             children: [
               Expanded(
                 child: Text(l.myPlaylists, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+              ),
+              IconButton(
+                tooltip: l.createPlaylist,
+                icon: const Icon(Icons.add_rounded),
+                onPressed: _creating
+                    ? null
+                    : () async {
+                        setState(() => _creating = true);
+                        try {
+                          await createPlaylist(context);
+                        } finally {
+                          if (mounted) setState(() => _creating = false);
+                        }
+                      },
               ),
               Pill(label: l.playlistsCreated, selected: !_collected, onTap: () => setState(() => _collected = false)),
               const SizedBox(width: 6),

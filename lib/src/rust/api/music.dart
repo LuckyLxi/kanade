@@ -158,6 +158,40 @@ Future<List<AlbumBrief>> getSingerAlbums({
   num: num,
 );
 
+Future<SingerSocial> getSingerSocial({required String mid}) =>
+    RustLib.instance.api.crateApiMusicGetSingerSocial(mid: mid);
+
+Future<List<VideoTag>> getSingerVideoTags({required String mid}) =>
+    RustLib.instance.api.crateApiMusicGetSingerVideoTags(mid: mid);
+
+Future<SingerVideoPage> getSingerVideos({
+  required String mid,
+  required String name,
+  required PlatformInt64 tag,
+  required int order,
+  required int begin,
+  required int num,
+}) => RustLib.instance.api.crateApiMusicGetSingerVideos(
+  mid: mid,
+  name: name,
+  tag: tag,
+  order: order,
+  begin: begin,
+  num: num,
+);
+
+Future<void> setSingerFollowed({required String mid, required bool followed}) =>
+    RustLib.instance.api.crateApiMusicSetSingerFollowed(
+      mid: mid,
+      followed: followed,
+    );
+
+Future<void> setUserFollowed({required String euin, required bool followed}) =>
+    RustLib.instance.api.crateApiMusicSetUserFollowed(
+      euin: euin,
+      followed: followed,
+    );
+
 Future<AlbumDetail> getAlbumDetail({required String mid}) =>
     RustLib.instance.api.crateApiMusicGetAlbumDetail(mid: mid);
 
@@ -178,6 +212,18 @@ Future<UserPlaylistPage> getUserPublicPlaylists({
 }) => RustLib.instance.api.crateApiMusicGetUserPublicPlaylists(
   euin: euin,
   creator: creator,
+  page: page,
+  pageSize: pageSize,
+);
+
+Future<UserAssetPage> getUserAssets({
+  required String euin,
+  required UserAssetKind kind,
+  required int page,
+  required int pageSize,
+}) => RustLib.instance.api.crateApiMusicGetUserAssets(
+  euin: euin,
+  kind: kind,
   page: page,
   pageSize: pageSize,
 );
@@ -208,6 +254,9 @@ Future<CommentPage> getCommentReplies({
 /// 自己创建的歌单（需要登录），加入歌单时选择用。
 Future<List<MyPlaylist>> getMyPlaylists() =>
     RustLib.instance.api.crateApiMusicGetMyPlaylists();
+
+Future<MyPlaylist> createPlaylist({required String name}) =>
+    RustLib.instance.api.crateApiMusicCreatePlaylist(name: name);
 
 /// “我喜欢”里的歌曲 id（需要登录）。
 Future<Int64List> getLikedSongIds() =>

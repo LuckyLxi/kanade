@@ -12,5 +12,6 @@ pub mod mv;
 pub mod parse;
 pub mod quality;
 pub mod sign;
+pub mod social;
 pub mod store;
 pub mod user;

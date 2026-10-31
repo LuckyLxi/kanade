@@ -1,10 +1,10 @@
 # QQ 音乐接口参考（Kanade）
 
-整理日期：2026-10-30（北京时间）。代码基线：`6f1deb8`。
+整理日期：2026-10-31（北京时间）。代码基线：`820b61d`，包含本轮尚未提交的接口与页面更新。
 
 本文记录 Kanade 当前使用的 QQ 音乐上游 HTTP / MQTT 接口，并列出项目内对应的 Rust / Dart 调用入口。它是基于本仓库实现的开发参考，不是腾讯官方开放平台文档，也不代表 QQ 音乐全部接口。
 
-本文通过阅读源码和已有抓包笔记整理，未在本次编写时发起联网验证。参数默认值、缓存时长和回退顺序描述的是当前代码行为；历史抓包成功不等于当前所有账号、平台和凭据均可调用成功。所有示例使用占位值或人工构造的数据，不包含真实登录凭据。
+本文结合源码与抓包笔记整理。本轮另执行了歌手精选、视频分页、社交信息及用户主页、收藏资产的只读联网验证；没有重放关注或创建歌单写请求。参数默认值、缓存时长和回退顺序描述的是当前代码行为；历史抓包成功不等于当前所有账号、平台和凭据均可调用成功。所有示例使用占位值或人工构造的数据，不包含真实登录凭据。
 
 ## 目录
 
@@ -35,6 +35,7 @@
 | --- | --- | --- | --- |
 | 通用 | `Core::musicu`；先 `https://u.y.qq.com/cgi-bin/musics.fcg`，失败后 `https://u.y.qq.com/cgi-bin/musicu.fcg` | `req_0` | 有会话时带 Cookie；首个请求带 `sign=zzc…`，当前实现可能回退重发 |
 | 内嵌页 | `Core::musicu_with_comm(..., webkit_comm())`；网关同通用 | `req_0` | 合并内嵌页公参；Cookie 和回退行为同通用 |
+| 内嵌页写入 | `Core::musicu_write_with_comm(..., webkit_comm())`；`https://u.y.qq.com/cgi-bin/musicu.fcg` | `req_0` | 要求登录、带 Cookie；单次提交，无签名回退；关注操作使用 |
 | PC 公共 | `Core::desktop_musicu`；`https://u6.y.qq.com/cgi-bin/musicu.fcg` | `module` 原文 | 不附加 Cookie；有会话时仍在 `comm` 中带登录信息 |
 | PC 私有 | `Core::desktop_private`；`https://u6.y.qq.com/cgi-bin/musicu.fcg` | `module.method` | 有会话时附加 Cookie；单次业务请求，不做签名回退 |
 | Android 写入 | `Core::mobile_write`；`https://u.y.qq.com/cgi-bin/musicu.fcg` | `req_0` | 要求登录并附加 Cookie；单次业务请求，用于当前红心实现 |
@@ -306,7 +307,17 @@ songmid=<SONG_MID>&format=json&nobase64=1&g_tk=5381
 
 当前封装禁止重命名或删除 `dir_id=201`，并且只允许从当前账号自建列表找到的目录。结果同样检查数字型 `retCode=0`，成功后清除相关缓存。删除所需名称可能来自 600 秒有效的歌单列表缓存，并非保证每次重新联网读取。
 
-本仓库当前没有创建新歌单、收藏 / 取消收藏整个他人歌单的业务实现。不要把“向歌单加歌”误写为“创建歌单”。
+### 创建空歌单
+
+`music.musicasset.PlaylistBaseWrite.AddPlaylist` 使用 PC 私有通道，参数仅为
+`{"bFmtUtf8":true,"dirName":"<NEW_NAME>"}`，请求键为完整 `module.method`。
+调用入口 `create_playlist(name)` 要求登录、拒绝空白名称；检查业务 `retCode=0`，并要求
+`result.dirId`、`result.tid` 为正整数，返回 `MyPlaylist`。成功后清除 `my_playlists` 缓存，
+由 `LibraryController` 通知“我的”与桌面侧栏刷新。
+
+原生 PC 抓包在带 Sign / Mask 的 `musics.fcg` 成功创建。本实现复用已有 PC 私有
+`musicu.fcg` 通道；本轮仅核对请求结构与失败结果处理，尚未在应用内真实提交创建。
+收藏 / 取消收藏整个他人歌单仍未实现；创建空歌单与向已有歌单加歌是两个操作。
 
 ## 最近播放
 
@@ -361,10 +372,42 @@ songmid=<SONG_MID>&format=json&nobase64=1&g_tk=5381
 | 歌手资料：`music.musichallSinger.SingerInfoInter.GetSingerDetail` | `singer_mids=[mid]`、`pic=1`、`group_singer=1`、`wiki_singer=1`、`ex_singer=1` | `singer_list[0].basic_info`、`pic.pic`、`ex_info.desc` |
 | 歌手歌曲：`music.musichallSong.SongListInter.GetSingerSongList` | `singerMid`、`begin`、`num`、`order=1` | `songList[]`、`totalNum` |
 | 歌手专辑：`music.musichallAlbum.AlbumListServer.GetAlbumList` | `singerMid`、`order=1`、`num`、`begin` | `albumList[]`、`total` |
+| 精选专辑：`music.musichallAlbum.SelectedAlbumServer.SelectedAlbumList` | `singerMid` | `albumList[]`；元素 `albumMid/albumName/publishDate` |
+| 视频分类：`MvService.MvInfoProServer.GetSingerMvTag` | `singermid` | `list[].id/name`；标签由接口返回 |
+| 歌手视频：`MvService.MvInfoProServer.GetSingerMvList` | `singermid/tagid/start/count/order`；最新 0 / 最热 1 | `list[]/total`；读取 `vid/title/picurl/duration/playcnt` |
 | 专辑资料：`music.musichallAlbum.AlbumInfoServer.GetAlbumDetail` | `albumMid` | `basicInfo`、`company.name`、`singer.singerList[]` |
 | 专辑歌曲：`music.musichallAlbum.AlbumSongList.GetAlbumSongList` | `albumMid`、`begin=0`、`num=1000`、`order=2` | `songList[]` |
 
-歌手分页的 `begin` 为从 `0` 开始的偏移量。`get_singer_detail` 并发请求资料、首批 30 首歌曲和首批 30 张专辑；`get_singer_songs/get_singer_albums` 支持传入偏移和条数。专辑详情并发请求资料和歌曲，当前不提供专辑歌曲继续翻页的公开入口。
+歌手分页的 `begin` 为从 `0` 开始的偏移量。`get_singer_detail` 并发请求资料、首批 30 首歌曲、首批 30 张专辑和精选专辑；`get_singer_songs/get_singer_albums` 支持传入偏移和条数。精选页展示首批 10 首歌曲和精选专辑；视频每页 40 条，`start` 使用已加载条数，支持最新 / 最热切换。切换分类或排序后从头加载，后续分页沿用当前分类和排序。本轮只读验证了两种排序的顺序不同及 `start=0/5` 两批没有重复。最热由上游排序，不能自行按累计播放量替代。专辑详情并发请求资料和歌曲，当前不提供专辑歌曲继续翻页的公开入口。
+
+### 歌手粉丝与守护信息
+
+`get_singer_social(mid)` 并发读取粉丝 CGI、守护入口与关注状态，不缓存社交结果。
+`GET https://c6.y.qq.com/rsc/fcgi-bin/fcg_order_singer_getnum.fcg` 使用 `singermid/utf8=1/format=json`，
+严格检查 `code/subcode=0`，读取 `num` 的原始计数。本次样本返回 `339101`。
+
+守护入口为 `music.UnifiedHomepage.UnifiedHomepageSrv.GetHomepageIconForMedal`，
+参数 `SingerMid` 与当前登录上下文的 `Uin`。读取 `NumButtonList` 中 `ButtonType=9` 的
+`ButtonInfo.Title`，样本为 `38万乐迷守护`。保留服务端文案；`cnt=0` 与这个人数无关，
+不反推精确人数。界面仅展示守护信息，未实现勋章详情、任务或付费行为。
+
+### 关注歌手与用户
+
+实现：[social.rs](../rust/src/qq/social.rs)。查询歌手状态使用内嵌页读通道：
+`Concern.ConcernSystemServer.cgi_qry_concern_status`，参数
+`vec_userinfo=[{usertype:1,userid:<SINGER_MID>}],opertype=5,encrypt_singerid=1`；
+读取 `map_singer_status[MID]`。未登录时不查询私有关注关系。
+
+写入统一使用 `Concern.ConcernSystemServer.cgi_concern_user_v2` 和内嵌页写通道：
+
+| 对象 | 参数 |
+| --- | --- |
+| 歌手 | `opertype=关注0/取消1`、`source=0`、`encrypt_singerid=1`、`userinfo={usertype:1,userid:<SINGER_MID>}` |
+| 用户 | `opertype=关注0/取消1`、`userinfo={usertype:0,userid:<encrypt_uin>}`；不带歌手专属字段 |
+
+两者都要求网关与业务外壳 `code=0`，且业务 `data.code` 明确为数字 0。
+写请求不自动回退或重试，成功后失效目标用户的主页缓存。关注按钮在请求期间禁用，
+只有成功后更新状态；失败保留原状态并显示错误。本轮未从应用重放真实关注 / 取消关注。
 
 专辑列表读取 `albumMid/albumName/publishDate/singerName`；专辑详情数字 ID 读取 `basicInfo.albumID`，评论查询需要这个 ID，不是 MID。
 
@@ -395,16 +438,42 @@ songmid=<SONG_MID>&format=json&nobase64=1&g_tk=5381
 
 ## 其他用户主页
 
-实现：[user.rs](../rust/src/qq/user.rs)。只接受用户搜索结果里的 `encrypt_uin`。PC 通道对这两个方法返回 `10000`，走通用 `musicu`。
+实现：[user.rs](../rust/src/qq/user.rs)。主页资料要求登录；本轮旧 CGI 与原统一主页的匿名调用均返回 1000，当前明确返回 `NotLoggedIn`，不伪装为零条内容。从用户搜索结果传 `encrypt_uin`；自己的主页可传当前账号编号，响应仍保留 `creator.encrypt_uin` 用于后续请求。
 
 | 功能 / 上游方法 | `param` | 返回路径 |
 | --- | --- | --- |
-| 资料：`music.UnifiedHomepage.UnifiedHomepageSrv.GetHomepageHeader` | `uin=<encrypt_uin>`、`IsQueryTabDetail=1` | `Info.BaseInfo.Name/BigAvatar/Avatar`、`Info.FansNum.Num`、`Info.FollowNum.Num`；`TabDetail.TabList[]` 的 `TabID/TabName/Count/PageSize` |
+| 资料：GET `https://c6.y.qq.com/rsc/fcgi-bin/fcg_get_profile_homepage.fcg` | `userid/cid=205360838/ct=20/cv=2276/reqfrom=1/reqtype=0/format=json`，以及 `uin/g_tk/g_tk_new_20200303/platform` | `data.creator.nick/headpic/encrypt_uin/nums/isfollow/ishost/diss_lock`；`data.mydiss.num` |
 | 歌单：`…UnifiedHomepageSrv.GetHomepageTabDetail` | `uin`、`IsQueryTabDetail=1`、`TabID="disc"`、`PageNum`、`PageSize`、`Order=0` | `DiscTab.List[]` 的 `Dissid/Title/Picurl/Subtitle`，`HasMore` |
+| 喜欢歌曲：`music.srfDissInfo.DissInfo.CgiGetDiss` | `optype=0,disstid=<目标用户喜欢歌单ID>,onlysonglist=1,song_begin=page*page_size,song_num=page_size` | `songlist[]/hasmore`；复用歌曲解析与播放组件 |
+| 收藏歌单：`music.musicasset.PlaylistFavRead.GetPlaylistFavInfo_v2` | `uin=<encrypt_uin>,offset=page*page_size,size=page_size` | `v_list[].tid/name/logo/songnum/nickname`、`hasmore/hide` |
+| 收藏专辑：`music.musicasset.AlbumFavRead.GetAlbumFavInfo_v2` | `euin=<encrypt_uin>,offset=page*page_size,size=page_size` | `v_list[].mid/name/logo/pubtime/v_singer`、`hasmore/hide` |
+| 收藏视频：`music.musicasset.MVFavRead.getMyFavMV_v2` | `encuin=<encrypt_uin>,cid=205361447,support=1,num=page*page_size,pagesize=page_size` | `mvlist[].vid/mv_name/mv_picurl/duration/playcount/singer_name/uploader_nick`、`hasmore` |
 
-主页标签因账号而异：普通用户是 `disc`（歌单），歌手账号是 `song_sing/album/video` 等，只发动态的是 `moment`；
-项目只读取 `disc`，没有这个标签时显示“没有公开的歌单”。`PageNum` 从 `0` 开始，实测 0、1 两页不重复。
-歌曲数从副标题“62首    1260.8万次播放 …”开头解析，播放量不单独返回。歌单 ID 可直接用于 `get_playlist_detail`。
+资料 CGI 严格检查 `code/subcode=0`，缓存 600 秒。`creator.nums.fansnum/follownum` 为粉丝及关注计数；
+`ishost=1` 时隐藏关注按钮。非本人且 `diss_lock=1` 时展示未公开，不请求自建歌单。
+自己的主页由“我的”头像进入。
+
+若 CGI 的 `mydiss.list` 条数等于 `mydiss.num`，说明已返回完整快照，公开歌单直接对该快照分页。
+本轮实测有 5 个公开歌单的旧账号，在统一主页只有 `about` 标签，强行读取 `disc` 会返回空；
+使用完整快照后页面正常显示。快照不完整时保留统一主页分页；若首页仍为空但资料声明有歌单，
+返回明确的响应错误，不显示“没有公开的歌单”。统一主页的 `PageNum` 从 `0` 开始。
+歌曲数从副标题
+“62首    1260.8万次播放 …”开头解析，播放量不单独返回。歌单 ID 可用于 `get_playlist_detail`。
+收藏资产不缓存，界面按 `hasmore` 继续翻页，`hide=true` 展示未公开；不能把隐私结果当成空收藏。
+收藏专辑的 `pubtime` 为 Unix 秒，复用北京时间日期转换。本轮确认了非空歌单 / 专辑和收藏歌单两页不重复。
+
+页面分为「创建的」与「我喜欢」；后者包含歌曲、歌单、专辑、视频四个子分类。
+喜欢歌曲的目录 ID 来自目标主页 `data.mymusic` 中 `type=1` 卡片的 `id`，按数字传入 `disstid`，
+不复用当前登录用户的目录。`num0` 为歌曲数；没有歌曲时返回空列表，有歌曲却缺少目录 ID 则报错。
+四类资产均尊重目标主页的 `fav_lock/islock`；他人未公开时显示隐私状态，本人不受该显示限制。
+歌曲和视频进一步严格检查业务 `data.code/subcode=0`。
+
+只读验证了 1400 首喜欢歌曲样本的前两页不重复，以及非空收藏视频样本的偏移 0 / 2 两批
+分别返回 2 / 1 条、`hasmore` 从 1 变为 0。部分旧收藏视频 `status=0`，封面为空、时长为零；
+仍保留标题与 VID，由既有封面占位图及 MV 播放页处理。视频点击复用 `MvPage`。
+
+另有 GET `https://c6.y.qq.com/rsc/fcgi-bin/fcg_get_my_vedio.fcg`（原接口拼写为 vedio，
+`userid/reqtype=1/cid=205361746/sin/pagesize`）用于上传视频，属于不同资产，本轮不混入喜欢的视频。
 
 ## 评论与回复
 
@@ -526,11 +595,15 @@ QQ / 微信会话交换前，当前实现会先清空旧会话；Cookie 登录�
 | 推荐 | `get_recommend_feed()` / `get_guess_you_like()` / `get_radar_songs(seed,page)` / `get_new_songs()` | `RecommendFeed` / 后三项为 `Vec<Song>` |
 | 歌单读取 | `get_playlist_detail(id)` / `get_user_playlists()` / `get_my_playlists()` / `get_liked_song_ids()` | `PlaylistDetail` / `Vec<PlaylistBrief>` / `Vec<MyPlaylist>` / `Vec<i64>` |
 | 歌单写入 | `set_song_liked(song_id,liked)` / `add_song_to_playlist(dir_id,song_id)` / `remove_song_from_playlist(dir_id,song_id)` / `rename_playlist(dir_id,name)` / `delete_playlist(dir_id)` | 成功为空，失败为 `ApiError` |
+| 新建歌单 | `create_playlist(name)` | `MyPlaylist` |
 | 最近播放 | `get_recent_plays()` / `report_play(song_id)` | `Vec<Song>` / 成功为空 |
 | 歌手 | `get_singer_detail(mid)` / `get_singer_songs(mid,begin,num)` / `get_singer_albums(mid,begin,num)` | `SingerDetail` / `Vec<Song>` / `Vec<AlbumBrief>` |
+| 歌手社交 / 视频 | `get_singer_social(mid)` / `get_singer_video_tags(mid)` / `get_singer_videos(mid,name,tag,order,begin,num)` | `SingerSocial` / `Vec<VideoTag>` / `SingerVideoPage` |
+| 关注关系 | `set_singer_followed(mid,followed)` / `set_user_followed(euin,followed)` | 成功为空，失败为 `ApiError` |
 | 专辑 | `get_album_detail(mid)` | `AlbumDetail` |
 | MV | `get_mv_detail(vid)` | `MvDetail` |
 | 其他用户 | `get_user_profile(euin)` / `get_user_public_playlists(euin,creator,page,page_size)` | `UserProfile` / `UserPlaylistPage` |
+| 用户收藏 | `get_user_assets(euin,kind,page,page_size)` | `UserAssetPage`；kind 为 `Song/Playlist/Album/Video` |
 | 评论 | `get_comments(target,id,page,last_seq_no)` / `get_comment_replies(root_id,page,last_seq_no)` | `CommentPage` |
 | 登录 | `create_login_qr(kind)` / `create_qq_app_login()` / `poll_login_qr(kind,qrsig)` / `login_with_cookie(cookie)` | `QrCode` / `QrCode` / `QrStatus` / `UserInfo` |
 | 本地用户状态 | `current_user()` / `logout()` | `Option<UserInfo>` / 成功为空 |
@@ -545,6 +618,11 @@ QQ / 微信会话交换前，当前实现会先清空旧会话；Cookie 登录�
 | `QualityOption` | `quality/available/reason` |
 | `PlaylistBrief` / `PlaylistDetail` | 列表摘要含 `id/title/cover_url/song_count/play_count/creator`；详情含描述和 `songs` |
 | `MyPlaylist` | `dir_id/tid/name/cover_url/song_count` |
+| `SingerDetail` | 原资料、首批歌曲与专辑，新增 `selected_albums` |
+| `SingerSocial` | `fans_count/guard_title/followed` |
+| `SingerVideoPage` | `videos/total`；视频复用 `VideoBrief` |
+| `UserProfile` | `euin/name/avatar_url/fans_count/follow_count/playlist_count/followed/is_self/playlists_hidden` |
+| `UserAssetPage` | `songs/playlists/albums/videos/has_more/hidden` |
 | `RecommendFeed` | `sections/radar_seed/radar_cover`，区块含 `title/songs/playlists` |
 | `CommentPage` | `hot/latest/total/has_more` |
 | `Lyric` | `lines[{time_ms,text,trans}]/plain` |
@@ -569,11 +647,12 @@ QQ / 微信会话交换前，当前实现会先清空旧会话；Cookie 登录�
 | 榜单目录、新歌、歌手资料及其分页、专辑详情 | 3600 秒 |
 | 歌词 | 7 天 |
 | 最近播放 | 300 秒 |
-| 猜你喜欢、雷达、评论、回复、播放授权 / URL | 无上述持久化数据缓存 |
+| 用户主页资料 / 公开自建歌单分页 | 600 秒 |
+| 猜你喜欢、雷达、评论、回复、播放授权 / URL、歌手社交及视频、用户收藏资产 | 无上述持久化数据缓存 |
 
 `get_user_playlists` 的合并列表不通过 `Core::cached`；其自建列表请求与 `get_my_playlists` 的缓存封装不同。音质检查只缓存歌曲文件元数据，实时授权和 CDN 检查每次执行。
 
-歌单写入成功后清除该歌单详情及 `my_playlists`；播放上报成功后清除 `recent_plays`。`clear_cache` 清除接口 JSON 缓存，不等于退出登录或清除音频文件。
+歌单写入成功后清除该歌单详情及 `my_playlists`，创建成功后清除 `my_playlists`；播放上报成功后清除 `recent_plays`；关注成功后失效目标用户资料缓存。`clear_cache` 清除接口 JSON 缓存，不等于退出登录或清除音频文件。
 
 ### 结果码与错误模型
 
@@ -582,9 +661,11 @@ QQ / 微信会话交换前，当前实现会先清空旧会话；Cookie 登录�
 | 通用 / 内嵌页 | 必须业务请求 `code=0`；没有独立严格校验外层网关 `code`，签名请求失败可能回退一次 |
 | PC 公共 / 私有 | 外层 `code` 存在且非零时失败；业务请求 `code` 必须为数字 `0`，外层缺失不单独拒绝 |
 | Android 写入 / 网页签名加密 / App 授权独立客户端 | 外层与业务 `code` 都必须明确为数字 `0` |
+| 内嵌页关注写入 | 外层、业务及业务 `data.code` 都必须明确为数字 `0` |
 | 歌单写入 | 在传输检查后，再要求 `retCode=0` |
 | 最近播放读取 / 写入 | 在传输检查后，再要求内层 `code=0` / `ret=0` |
 | 旧 CGI | 通用 GET 封装只处理 HTTP 状态与 JSON / JSONP 解析，各调用点未统一严格核对业务码 |
+| 本轮粉丝 / 用户资料 CGI | 调用点额外严格核对 `code/subcode=0` |
 
 对外 `ApiError` 包括：`NotLoggedIn`、`NoPlayableUrl`、`UnsupportedFormat`、`UnverifiedFormat`、`LoginFailed{detail}`、`InvalidCookie{missing}`、`ServerError{api,code}`、`BadResponse{detail}`、`Network{detail}`、`Internal{detail}`。错误码以字符串保留给应用层，界面翻译由 Dart 处理。
 
@@ -594,7 +675,13 @@ QQ / 微信会话交换前，当前实现会先清空旧会话；Cookie 登录�
 
 ## 验证方式与已知边界
 
-本文描述的是静态核对结果。本次没有重放 HAR / SAZ，没有登录真实账号，也没有执行收藏、删除、改名或播放上报。
+本轮静态检查、Rust 单元测试与关注按钮控件测试通过。只读联网测试 `desktop_singer_social_and_user_assets`
+将显式指定的本地 HAR 登录态放入测试进程的内存数据库，验证精选专辑、粉丝 / 守护、视频两批、
+本人 / 他人主页和收藏歌单分页及非空收藏专辑。没有执行真实关注、创建、删除、改名或播放上报。
+
+`desktop_user_liked_songs_and_videos` 单独验证“我喜欢”的歌曲与视频：歌曲两页及第 1200 首之后的分页、
+非空视频两页及最后一页的 `hasmore`。视频用户从本次既有搜索结果中只读选取；其加密标识只保存在
+本地 `QQMUSIC_TEST_ASSET_TARGETS` 指向的 JSON 文件中（格式 `{"video_user":"<ENCRYPT_UIN>"}`），不写入测试源码。
 
 已有笔记记录过歌手 / 专辑读取、评论及回复后续页验证，也记录过指定歌曲红心的受控写入与恢复。原始笔记保留当时的请求、结果和限制；它们不能替代今天的在线验证。部分笔记中的旧函数名 `desktop_write`、未接入描述或早期红心通道已落后于源码，应以本文对应的当前函数为准。
 
@@ -606,13 +693,14 @@ $env:QQMUSIC_TEST_HAR = 'D:\private\qqmusic.har'
 cargo test --test live desktop_search_pagination -- --ignored --test-threads=1
 cargo test --test live desktop_my_playlists_include_liked -- --ignored --test-threads=1
 cargo test --test live desktop_recent_plays -- --ignored --test-threads=1
+cargo test --test live desktop_singer_social_and_user_assets -- --ignored --exact --test-threads=1
 ```
 
 HAR 凭据辅助函数依赖该文件内存在可解析的 `comm.uin/authst/tmeLoginType`；不是任意抓包都能用。联网测试共享进程级会话，按串行执行。只运行上面指定的测试不会包含红心恢复测试；不要在文档验证时笼统运行所有 ignored 测试。
 
 `desktop_like_iris_and_restore` 会真实更改固定歌曲的收藏状态，需要另外明确授权，并显式设置 `QQMUSIC_TEST_SESSION_DB` 和 `QQMUSIC_TEST_ALLOW_LIKE_IRIS=1`。本次编写未执行该测试，也未执行任何其他账号写入。
 
-当前没有提供或完整验证的能力包括：创建歌单、收藏整个歌单、歌单及专辑完整大列表分页、最近播放增量同步与删除、推荐区块持续翻页、MV 播放、评论写入、QRC 逐字歌词、加密音频解码，以及全账号 / 全平台兼容性。
+本轮新建歌单及关注操作已实现，真实应用写入尚待用户触发验证；原生签名与当前应用通道的差异没有被抓包成功替代。其余未提供或未完整验证的能力包括：收藏整个歌单、歌单及专辑完整大列表分页、最近播放增量同步与删除、推荐区块持续翻页、上传视频列表、评论写入、QRC 逐字歌词、加密音频解码，以及全账号 / 全平台兼容性。
 
 ## 源码与抓包笔记
 
@@ -622,11 +710,13 @@ HAR 凭据辅助函数依赖该文件内存在可解析的 `comm.uin/authst/tmeL
 | [music.rs](../rust/src/qq/music.rs) / [quality.rs](../rust/src/qq/quality.rs) | 搜索、授权、歌词、推荐、榜单、歌单读取、音质映射 |
 | [library.rs](../rust/src/qq/library.rs) / [history.rs](../rust/src/qq/history.rs) | 歌单写入、红心、最近播放 |
 | [detail.rs](../rust/src/qq/detail.rs) | 歌手、专辑、评论与回复 |
+| [social.rs](../rust/src/qq/social.rs) / [user.rs](../rust/src/qq/user.rs) | 关注关系、用户主页及收藏资产 |
 | [login.rs](../rust/src/qq/login.rs) / [mqtt.rs](../rust/src/qq/mqtt.rs) / [sign.rs](../rust/src/qq/sign.rs) | 登录、推送、签名编码 |
 | [parse.rs](../rust/src/qq/parse.rs) / [lyric.rs](../rust/src/qq/lyric.rs) | 上游数据与歌词解析 |
 | [api/music.rs](../rust/src/api/music.rs) / [api/types.rs](../rust/src/api/types.rs) / [api/error.rs](../rust/src/api/error.rs) | 应用层入口、模型、错误枚举 |
 | [真实接口测试](../rust/tests/live.rs) | 手动联网验证入口及其前置条件 |
 | [分类搜索与 MV 抓包](qqmusic-search-mv-capture.md) | 七类搜索参数、MV 元数据、取流与清晰度切换及未验证边界 |
+| [歌手、关注与用户主页抓包](qqmusic-singer-user-create-capture.md) | 精选、视频、计数、关注、新建歌单与用户主页原始证据 |
 | [播放器关联操作抓包](qqmusic-player-actions-capture.md) | 歌手、专辑、评论、红心、加歌、80105 排查 |
 | [歌单管理抓包](qqmusic-playlist-management-capture.md) | 改名与删除的官方请求样本 |
 | [最近播放抓包](qqmusic-recent-plays-capture.md) | 云端记录读取、播放上报 |

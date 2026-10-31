@@ -80,7 +80,7 @@ fn build(vid: &str, info: &Value, urls: &Value) -> MvDetail {
 }
 
 /// Unix 秒 → 北京时间的 yyyy-mm-dd；0 为空。
-fn beijing_date(secs: i64) -> String {
+pub(crate) fn beijing_date(secs: i64) -> String {
     if secs <= 0 {
         return String::new();
     }

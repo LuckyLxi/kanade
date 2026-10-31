@@ -105,6 +105,28 @@ pub async fn add_to_playlist(dir_id: i64, song_id: i64) -> Result<()> {
     write(&own_dir(dir_id).await?, song_id, true).await
 }
 
+pub async fn create_playlist(name: &str) -> Result<MyPlaylist> {
+    let name = name.trim();
+    if name.is_empty() { bail!(ApiError::bad_response("playlist name is empty")); }
+    let c = core();
+    if c.session().is_none() { bail!(ApiError::NotLoggedIn); }
+    let data = c.desktop_private("music.musicasset.PlaylistBaseWrite", "AddPlaylist",
+        json!({"bFmtUtf8": true, "dirName": name})).await?;
+    let playlist = created_playlist(&data)?;
+    c.uncache("my_playlists");
+    Ok(playlist)
+}
+
+fn created_playlist(data: &Value) -> Result<MyPlaylist> {
+    check_write_result(data, "PlaylistBaseWrite.AddPlaylist")?;
+    let result = &data["result"];
+    let dir_id = result["dirId"].as_i64().filter(|id| *id > 0)
+        .context(ApiError::bad_response("new playlist directory is missing"))?;
+    let tid = result["tid"].as_i64().filter(|id| *id > 0)
+        .context(ApiError::bad_response("new playlist id is missing"))?;
+    Ok(MyPlaylist {dir_id, tid, name: s(&result["dirName"]), cover_url: s(&result["dirPicUrl"]), song_count: 0})
+}
+
 pub async fn remove_from_playlist(dir_id: i64, song_id: i64) -> Result<()> {
     write(&own_dir(dir_id).await?, song_id, false).await
 }
@@ -141,6 +163,17 @@ fn delete_param(dir: &MyPlaylist) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn created_playlist_requires_success_and_both_identifiers() {
+        let good = json!({"retCode": 0, "result": {"dirId": 12, "tid": 9876543210i64, "dirName": "new"}});
+        let p = created_playlist(&good).unwrap();
+        assert_eq!((p.dir_id, p.tid, p.name.as_str()), (12, 9876543210, "new"));
+        for invalid in [json!({"result": good["result"]}), json!({"retCode": 2000, "result": good["result"]}),
+            json!({"retCode": 0, "result": {"dirId": 12}}), json!({"retCode": 0, "result": {"dirId": 0, "tid": 42}})] {
+            assert!(created_playlist(&invalid).is_err());
+        }
+    }
 
     #[test]
     fn liked_and_normal_params_use_captured_pc_shape() {

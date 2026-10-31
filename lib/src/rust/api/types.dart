@@ -9,7 +9,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'types.freezed.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 class AlbumBrief {
   final String mid;
@@ -846,6 +846,7 @@ class SingerDetail {
   final int songTotal;
   final List<AlbumBrief> albums;
   final int albumTotal;
+  final List<AlbumBrief> selectedAlbums;
 
   const SingerDetail({
     required this.mid,
@@ -856,6 +857,7 @@ class SingerDetail {
     required this.songTotal,
     required this.albums,
     required this.albumTotal,
+    required this.selectedAlbums,
   });
 
   @override
@@ -867,7 +869,8 @@ class SingerDetail {
       songs.hashCode ^
       songTotal.hashCode ^
       albums.hashCode ^
-      albumTotal.hashCode;
+      albumTotal.hashCode ^
+      selectedAlbums.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -881,7 +884,53 @@ class SingerDetail {
           songs == other.songs &&
           songTotal == other.songTotal &&
           albums == other.albums &&
-          albumTotal == other.albumTotal;
+          albumTotal == other.albumTotal &&
+          selectedAlbums == other.selectedAlbums;
+}
+
+class SingerSocial {
+  final BigInt fansCount;
+
+  /// 服务端展示文案，不能由文案反推精确守护人数。
+  final String guardTitle;
+  final bool followed;
+
+  const SingerSocial({
+    required this.fansCount,
+    required this.guardTitle,
+    required this.followed,
+  });
+
+  @override
+  int get hashCode =>
+      fansCount.hashCode ^ guardTitle.hashCode ^ followed.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SingerSocial &&
+          runtimeType == other.runtimeType &&
+          fansCount == other.fansCount &&
+          guardTitle == other.guardTitle &&
+          followed == other.followed;
+}
+
+class SingerVideoPage {
+  final List<VideoBrief> videos;
+  final int total;
+
+  const SingerVideoPage({required this.videos, required this.total});
+
+  @override
+  int get hashCode => videos.hashCode ^ total.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SingerVideoPage &&
+          runtimeType == other.runtimeType &&
+          videos == other.videos &&
+          total == other.total;
 }
 
 class Song {
@@ -1067,6 +1116,50 @@ class TopListGroup {
           lists == other.lists;
 }
 
+enum UserAssetKind { song, playlist, album, video }
+
+class UserAssetPage {
+  final List<Song> songs;
+  final List<PlaylistBrief> playlists;
+  final List<AlbumBrief> albums;
+  final List<VideoBrief> videos;
+  final bool hasMore;
+  final bool hidden;
+
+  const UserAssetPage({
+    required this.songs,
+    required this.playlists,
+    required this.albums,
+    required this.videos,
+    required this.hasMore,
+    required this.hidden,
+  });
+
+  static Future<UserAssetPage> default_() =>
+      RustLib.instance.api.crateApiTypesUserAssetPageDefault();
+
+  @override
+  int get hashCode =>
+      songs.hashCode ^
+      playlists.hashCode ^
+      albums.hashCode ^
+      videos.hashCode ^
+      hasMore.hashCode ^
+      hidden.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UserAssetPage &&
+          runtimeType == other.runtimeType &&
+          songs == other.songs &&
+          playlists == other.playlists &&
+          albums == other.albums &&
+          videos == other.videos &&
+          hasMore == other.hasMore &&
+          hidden == other.hidden;
+}
+
 class UserBrief {
   /// 加密的账号编号（encrypt_uin），打开用户主页用；搜索结果里没有明文账号。
   final String euin;
@@ -1160,6 +1253,9 @@ class UserProfile {
 
   /// 公开歌单数；主页没有歌单标签时为 0。
   final int playlistCount;
+  final bool followed;
+  final bool isSelf;
+  final bool playlistsHidden;
 
   const UserProfile({
     required this.euin,
@@ -1168,6 +1264,9 @@ class UserProfile {
     required this.fansCount,
     required this.followCount,
     required this.playlistCount,
+    required this.followed,
+    required this.isSelf,
+    required this.playlistsHidden,
   });
 
   @override
@@ -1177,7 +1276,10 @@ class UserProfile {
       avatarUrl.hashCode ^
       fansCount.hashCode ^
       followCount.hashCode ^
-      playlistCount.hashCode;
+      playlistCount.hashCode ^
+      followed.hashCode ^
+      isSelf.hashCode ^
+      playlistsHidden.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1189,7 +1291,10 @@ class UserProfile {
           avatarUrl == other.avatarUrl &&
           fansCount == other.fansCount &&
           followCount == other.followCount &&
-          playlistCount == other.playlistCount;
+          playlistCount == other.playlistCount &&
+          followed == other.followed &&
+          isSelf == other.isSelf &&
+          playlistsHidden == other.playlistsHidden;
 }
 
 class VideoBrief {
@@ -1238,4 +1343,22 @@ class VideoBrief {
           playCount == other.playCount &&
           creator == other.creator &&
           uploaded == other.uploaded;
+}
+
+class VideoTag {
+  final PlatformInt64 id;
+  final String name;
+
+  const VideoTag({required this.id, required this.name});
+
+  @override
+  int get hashCode => id.hashCode ^ name.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VideoTag &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          name == other.name;
 }

@@ -4,7 +4,7 @@
 use crate::api::error::ApiError;
 use crate::api::types::*;
 use crate::qq::audio_cache::cache;
-use crate::qq::{client, detail, history, library, login, music, mv, quality, user};
+use crate::qq::{client, detail, history, library, login, music, mv, quality, social, user};
 
 #[flutter_rust_bridge::frb(init)]
 pub fn init_app() {
@@ -144,6 +144,26 @@ pub async fn get_singer_albums(mid: String, begin: u32, num: u32) -> Result<Vec<
     Ok(detail::singer_albums(&mid, begin, num).await?)
 }
 
+pub async fn get_singer_social(mid: String) -> Result<SingerSocial, ApiError> {
+    Ok(detail::singer_social(&mid).await?)
+}
+
+pub async fn get_singer_video_tags(mid: String) -> Result<Vec<VideoTag>, ApiError> {
+    Ok(detail::singer_video_tags(&mid).await?)
+}
+
+pub async fn get_singer_videos(mid: String, name: String, tag: i64, order: u32, begin: u32, num: u32) -> Result<SingerVideoPage, ApiError> {
+    Ok(detail::singer_videos(&mid, &name, tag, order, begin, num).await?)
+}
+
+pub async fn set_singer_followed(mid: String, followed: bool) -> Result<(), ApiError> {
+    Ok(social::set_followed(&mid, true, followed).await?)
+}
+
+pub async fn set_user_followed(euin: String, followed: bool) -> Result<(), ApiError> {
+    Ok(social::set_followed(&euin, false, followed).await?)
+}
+
 pub async fn get_album_detail(mid: String) -> Result<AlbumDetail, ApiError> {
     Ok(detail::album_detail(&mid).await?)
 }
@@ -163,6 +183,10 @@ pub async fn get_user_public_playlists(euin: String, creator: String, page: u32,
     Ok(user::user_playlists(&euin, &creator, page, page_size).await?)
 }
 
+pub async fn get_user_assets(euin: String, kind: UserAssetKind, page: u32, page_size: u32) -> Result<UserAssetPage, ApiError> {
+    Ok(user::user_assets(&euin, kind, page, page_size).await?)
+}
+
 /// 评论第 `page` 页（从 0 开始），`last_seq_no` 是上一页最后一条的 `seq_no`，第一页传空。
 pub async fn get_comments(target: CommentTarget, id: i64, page: u32, last_seq_no: String) -> Result<CommentPage, ApiError> {
     Ok(detail::comments_page(target, id, page, &last_seq_no).await?)
@@ -175,6 +199,10 @@ pub async fn get_comment_replies(root_id: String, page: u32, last_seq_no: String
 /// 自己创建的歌单（需要登录），加入歌单时选择用。
 pub async fn get_my_playlists() -> Result<Vec<MyPlaylist>, ApiError> {
     Ok(library::my_playlists().await?)
+}
+
+pub async fn create_playlist(name: String) -> Result<MyPlaylist, ApiError> {
+    Ok(library::create_playlist(&name).await?)
 }
 
 /// “我喜欢”里的歌曲 id（需要登录）。

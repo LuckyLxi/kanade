@@ -188,6 +188,27 @@ pub struct UserProfile {
     pub follow_count: u64,
     /// 公开歌单数；主页没有歌单标签时为 0。
     pub playlist_count: u32,
+    pub followed: bool,
+    pub is_self: bool,
+    pub playlists_hidden: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UserAssetKind {
+    Song,
+    Playlist,
+    Album,
+    Video,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct UserAssetPage {
+    pub songs: Vec<Song>,
+    pub playlists: Vec<PlaylistBrief>,
+    pub albums: Vec<AlbumBrief>,
+    pub videos: Vec<VideoBrief>,
+    pub has_more: bool,
+    pub hidden: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -365,6 +386,27 @@ pub struct SingerDetail {
     pub song_total: u32,
     pub albums: Vec<AlbumBrief>,
     pub album_total: u32,
+    pub selected_albums: Vec<AlbumBrief>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SingerSocial {
+    pub fans_count: u64,
+    /// 服务端展示文案，不能由文案反推精确守护人数。
+    pub guard_title: String,
+    pub followed: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct VideoTag {
+    pub id: i64,
+    pub name: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct SingerVideoPage {
+    pub videos: Vec<VideoBrief>,
+    pub total: u32,
 }
 
 #[derive(Debug, Clone)]

@@ -65,37 +65,7 @@ Future<PlaylistEdit?> showPlaylistActions(BuildContext context, MyPlaylist playl
 Future<PlaylistEdit?> _rename(BuildContext context, MyPlaylist playlist) async {
   final l = AppLocalizations.of(context);
   final library = context.read<LibraryController>();
-  final controller = TextEditingController(text: playlist.name);
-  final name = await showDialog<String>(
-    context: context,
-    builder: (context) {
-      void submit() {
-        final v = controller.text.trim();
-        if (v.isNotEmpty) Navigator.of(context).pop(v);
-      }
-
-      return AlertDialog(
-        title: Text(l.renamePlaylist),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLength: 40,
-          decoration: InputDecoration(hintText: l.playlistNameHint),
-          onSubmitted: (_) => submit(),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(l.cancel)),
-          ValueListenableBuilder(
-            valueListenable: controller,
-            builder: (context, v, _) => FilledButton(
-              onPressed: v.text.trim().isEmpty ? null : submit,
-              child: Text(l.ok),
-            ),
-          ),
-        ],
-      );
-    },
-  ).whenComplete(controller.dispose);
+  final name = await _playlistName(context, l.renamePlaylist, initial: playlist.name);
   if (name == null || name == playlist.name || !context.mounted) return null;
   try {
     await library.renamePlaylist(playlist, name);
@@ -129,6 +99,74 @@ Future<PlaylistEdit?> _delete(BuildContext context, MyPlaylist playlist) async {
     await library.deletePlaylist(playlist);
     if (context.mounted) showToast(context, l.playlistDeleted, kind: ToastKind.success);
     return PlaylistDeleted();
+  } catch (e) {
+    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)), kind: ToastKind.error);
+    return null;
+  }
+}
+
+Future<String?> _playlistName(BuildContext context, String title, {String initial = ''}) => showDialog<String>(
+  context: context,
+  builder: (_) => _PlaylistNameDialog(title: title, initial: initial),
+);
+
+class _PlaylistNameDialog extends StatefulWidget {
+  const _PlaylistNameDialog({required this.title, required this.initial});
+
+  final String title;
+  final String initial;
+
+  @override
+  State<_PlaylistNameDialog> createState() => _PlaylistNameDialogState();
+}
+
+class _PlaylistNameDialogState extends State<_PlaylistNameDialog> {
+  late final _controller = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = _controller.text.trim();
+    if (value.isNotEmpty) Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLength: 40,
+        decoration: InputDecoration(hintText: l.playlistNameHint),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(l.cancel)),
+        ValueListenableBuilder(
+          valueListenable: _controller,
+          builder: (_, value, _) =>
+              FilledButton(onPressed: value.text.trim().isEmpty ? null : _submit, child: Text(l.ok)),
+        ),
+      ],
+    );
+  }
+}
+
+Future<MyPlaylist?> createPlaylist(BuildContext context) async {
+  final l = AppLocalizations.of(context);
+  final library = context.read<LibraryController>();
+  final name = await _playlistName(context, l.createPlaylist);
+  if (name == null || !context.mounted) return null;
+  try {
+    final playlist = await library.createPlaylist(name);
+    if (context.mounted) showToast(context, l.playlistCreated, kind: ToastKind.success);
+    return playlist;
   } catch (e) {
     if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)), kind: ToastKind.error);
     return null;

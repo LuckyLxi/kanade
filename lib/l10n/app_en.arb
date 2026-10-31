@@ -187,5 +187,18 @@
   "userBriefStats": "{fans} followers · {count, plural, =1{1 playlist} other{{count} playlists}}",
   "userPlaylists": "{count, plural, =1{1 playlist} other{{count} playlists}}",
   "userNoPlaylists": "No public playlists",
-  "userFans": "{fans} followers"
+  "userFans": "{fans} followers",
+  "singerFeatured": "Featured",
+  "singerSelectedAlbums": "Selected albums",
+  "follow": "Follow",
+  "followed": "Following",
+  "createPlaylist": "Create playlist",
+  "playlistCreated": "Playlist created",
+  "savedPlaylists": "Saved playlists",
+  "savedAlbums": "Saved albums",
+  "userPrivate": "This content is private",
+  "noItems": "No items",
+  "newest": "Newest",
+  "hottest": "Most popular",
+  "userLikes": "Liked"
 }
