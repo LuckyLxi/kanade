@@ -10,6 +10,7 @@ import 'album_page.dart';
 import 'comments_page.dart';
 import 'singer_page.dart';
 import 'smooth_scroll.dart';
+import 'toast.dart';
 import 'widgets.dart';
 
 bool _requireLogin(BuildContext context) {
@@ -23,9 +24,11 @@ Future<void> toggleLike(BuildContext context, Song song) async {
   final l = AppLocalizations.of(context);
   try {
     final liked = await context.read<LibraryController>().toggleLike(song);
-    if (context.mounted) showToast(context, liked ? l.liked : l.unliked);
+    if (context.mounted) {
+      showToast(context, liked ? l.liked : l.unliked, kind: liked ? ToastKind.liked : ToastKind.info);
+    }
   } catch (e) {
-    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)));
+    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)), kind: ToastKind.error);
   }
 }
 
@@ -63,9 +66,9 @@ Future<void> addToPlaylist(BuildContext context, Song song) async {
   if (picked == null || !context.mounted) return;
   try {
     await library.addToPlaylist(picked, song);
-    if (context.mounted) showToast(context, l.addedToPlaylist(picked.name));
+    if (context.mounted) showToast(context, l.addedToPlaylist(picked.name), kind: ToastKind.success);
   } catch (e) {
-    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)));
+    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)), kind: ToastKind.error);
   }
 }
 
@@ -75,10 +78,10 @@ Future<bool> removeFromPlaylist(BuildContext context, MyPlaylist playlist, Song 
   final l = AppLocalizations.of(context);
   try {
     await context.read<LibraryController>().removeFromPlaylist(playlist, song);
-    if (context.mounted) showToast(context, l.removedFromPlaylist(playlist.name));
+    if (context.mounted) showToast(context, l.removedFromPlaylist(playlist.name), kind: ToastKind.success);
     return true;
   } catch (e) {
-    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)));
+    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)), kind: ToastKind.error);
     return false;
   }
 }

@@ -16,6 +16,7 @@ import 'mine_page.dart';
 import 'mini_player.dart';
 import 'search_page.dart';
 import 'song_list_page.dart';
+import 'toast.dart';
 import 'widgets.dart';
 
 /// 底部（窄屏）或侧边（宽屏）导航。每个标签页有自己的 Navigator，
@@ -167,6 +168,12 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
     return false;
   }
 
+  /// 告诉提示浮在哪：在导航栏和播放条之外。构建期间不能通知监听者，推到这一帧之后。
+  void _reportChrome(EdgeInsets insets) {
+    if (Toast.chrome.value == insets) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => Toast.chrome.value = insets);
+  }
+
   /// 玻璃条浮在内容上方，内容本身铺满全屏；把被遮住的高度加进 padding，
   /// 列表滚到底时最后一项才不会藏在玻璃条下面。
   Widget _insetBottom(BuildContext context, double inset, Widget child) {
@@ -201,6 +208,8 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
       final mq = MediaQuery.of(context);
       // 桌面播放栏常驻，还没放过歌时显示空状态
       const barSpace = DesktopPlayerBar.height + gap * 2;
+      // 播放栏和窗口一样宽，提示在整个窗口居中，正好对着中间的播放键
+      _reportChrome(EdgeInsets.only(bottom: mq.padding.bottom + barSpace));
       content = Material(
         color: scheme.surface,
         child: KanadeGlass.backdropScope(
@@ -298,6 +307,10 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
       // 二级页面里导航栏和播放条融成一块，落到底部变成胶囊
       final navSpace = _nested ? 8.0 : navHeight;
       final inset = navSpace + (hasSong ? MiniPlayer.height + miniGap : 0) + 8;
+      // 播放条收成导航栏旁边的圆球时，提示只要躲开导航栏
+      _reportChrome(
+        EdgeInsets.only(bottom: safeBottom + (hasSong && _collapsed && !_nested ? navHeight + 6 : inset + 4)),
+      );
       final chrome = AnimatedBuilder(
         animation: Listenable.merge([_shape, _fuse, _drop, _appear]),
         builder: (context, _) {

@@ -5,7 +5,7 @@ import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
 import '../src/rust/api/types.dart';
-import 'widgets.dart';
+import 'toast.dart';
 
 /// 歌单菜单做了什么，详情页据此改标题或退出。
 sealed class PlaylistEdit {}
@@ -93,10 +93,10 @@ Future<PlaylistEdit?> _rename(BuildContext context, MyPlaylist playlist) async {
   if (name == null || name == playlist.name || !context.mounted) return null;
   try {
     await library.renamePlaylist(playlist, name);
-    if (context.mounted) showToast(context, l.playlistRenamed);
+    if (context.mounted) showToast(context, l.playlistRenamed, kind: ToastKind.success);
     return PlaylistRenamed(name);
   } catch (e) {
-    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)));
+    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)), kind: ToastKind.error);
     return null;
   }
 }
@@ -121,10 +121,10 @@ Future<PlaylistEdit?> _delete(BuildContext context, MyPlaylist playlist) async {
   if (ok != true || !context.mounted) return null;
   try {
     await library.deletePlaylist(playlist);
-    if (context.mounted) showToast(context, l.playlistDeleted);
+    if (context.mounted) showToast(context, l.playlistDeleted, kind: ToastKind.success);
     return PlaylistDeleted();
   } catch (e) {
-    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)));
+    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)), kind: ToastKind.error);
     return null;
   }
 }

@@ -16,10 +16,6 @@ String formatDuration(Duration d) {
   return '$m:${s.toString().padLeft(2, '0')}';
 }
 
-/// 提示条。页面已经关掉、找不到 ScaffoldMessenger 时什么都不做。
-void showToast(BuildContext context, String text) =>
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(text)));
-
 class Cover extends StatelessWidget {
   const Cover(this.url, {super.key, this.size, this.radius = 8});
 

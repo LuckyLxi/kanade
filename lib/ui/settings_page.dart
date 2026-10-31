@@ -9,7 +9,7 @@ import '../settings/locale_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'smooth_scroll.dart';
-import 'widgets.dart';
+import 'toast.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -176,7 +176,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!await _confirm(l.clearAudioCacheConfirm, l.clear)) return;
     await api.clearAudioCache();
     await _loadSizes();
-    if (mounted) showToast(context, l.cacheCleared);
+    if (mounted) showToast(context, l.cacheCleared, kind: ToastKind.success);
   }
 
   Future<void> _clearApi() async {
@@ -184,7 +184,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!await _confirm(l.clearApiCacheConfirm, l.clear)) return;
     await api.clearCache();
     await _loadSizes();
-    if (mounted) showToast(context, l.cacheCleared);
+    if (mounted) showToast(context, l.cacheCleared, kind: ToastKind.success);
   }
 
   Future<void> _logout() async {

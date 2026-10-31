@@ -9,6 +9,7 @@ import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'smooth_scroll.dart';
 import 'song_list_page.dart';
+import 'toast.dart';
 import 'widgets.dart';
 
 /// 发现页：顶上固定两颗胶囊切换“推荐”和“排行榜”，也可以左右滑。
@@ -378,13 +379,13 @@ class _RadioCardsState extends State<_RadioCards> {
 
   Future<void> _start(Future<List<Song>> Function() fetch, {Future<List<Song>>? first}) async {
     final l = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+    final overlay = Overlay.of(context, rootOverlay: true);
     final player = context.read<PlayerController>();
     try {
       final batch = await first?.then<List<Song>?>((s) => s.isEmpty ? null : s, onError: (_) => null);
       await player.playRadio(fetch, first: batch);
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(l.radioFailed(errorText(l, e)))));
+      Toast.show(overlay, l.radioFailed(errorText(l, e)), kind: ToastKind.error);
     }
   }
 

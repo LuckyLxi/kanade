@@ -19,6 +19,7 @@ import 'playlist_actions.dart';
 import 'settings_page.dart';
 import 'smooth_scroll.dart';
 import 'song_list_page.dart';
+import 'toast.dart';
 import 'widgets.dart';
 
 class MinePage extends StatelessWidget {
@@ -143,12 +144,12 @@ class _LoggedInState extends State<_LoggedIn> {
   Future<void> _openLiked() async {
     final l = AppLocalizations.of(context);
     final nav = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+    final overlay = Overlay.of(context, rootOverlay: true);
     try {
       final liked = (await context.read<LibraryController>().myPlaylists()).where(isLikedPlaylist).firstOrNull;
       if (liked != null) nav.push(SongListPage.playlist(liked.tid.toString(), liked.name));
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(l.loadFailed(errorText(l, e)))));
+      Toast.show(overlay, l.loadFailed(errorText(l, e)), kind: ToastKind.error);
     }
   }
 
@@ -466,7 +467,10 @@ class _QrLoginDialogState extends State<QrLoginDialog> {
     try {
       ticket = await api.createQqAppLogin();
     } catch (e) {
-      if (mounted) showToast(context, AppLocalizations.of(context).qrFailed(errorText(AppLocalizations.of(context), e)));
+      if (mounted) {
+        final l = AppLocalizations.of(context);
+        showToast(context, l.qrFailed(errorText(l, e)), kind: ToastKind.error);
+      }
       return;
     }
     if (!mounted) return;
@@ -508,9 +512,9 @@ class _QrLoginDialogState extends State<QrLoginDialog> {
     final l = AppLocalizations.of(context);
     try {
       await Gal.putImageBytes(qr.image, name: 'kanade_login_${DateTime.now().millisecondsSinceEpoch}');
-      if (mounted) showToast(context, l.qrSavedQq);
+      if (mounted) showToast(context, l.qrSavedQq, kind: ToastKind.success);
     } catch (e) {
-      if (mounted) showToast(context, l.qrSaveFailed('$e'));
+      if (mounted) showToast(context, l.qrSaveFailed('$e'), kind: ToastKind.error);
     }
   }
 
