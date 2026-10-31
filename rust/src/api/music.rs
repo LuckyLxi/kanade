@@ -29,6 +29,11 @@ pub async fn get_search_suggestions(query: String) -> Result<Vec<SearchSuggestio
     Ok(music::search_suggestions(&query).await?)
 }
 
+/// 歌曲的相似推荐，`song_id` 是歌曲数字 ID。
+pub async fn get_similar_songs(song_id: i64) -> Result<Vec<Song>, ApiError> {
+    Ok(music::similar_songs(song_id).await?)
+}
+
 pub async fn get_song_url(mid: String, media_mid: String, quality: Quality) -> Result<SongUrl, ApiError> {
     Ok(music::song_url(&mid, &media_mid, quality).await?)
 }

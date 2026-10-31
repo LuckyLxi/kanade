@@ -22,6 +22,8 @@ pub struct Song {
     pub vip: bool,
     pub has_hq: bool,
     pub has_flac: bool,
+    /// 歌曲关联的视频 VID；数字 mv.id 为 0 时也可能有值。
+    pub mv_vid: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

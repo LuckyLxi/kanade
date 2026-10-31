@@ -654,6 +654,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mvUnavailable => 'This video can\'t be played right now';
 
   @override
+  String get watchMv => 'Watch MV';
+
+  @override
+  String get findSimilarSongs => 'Find similar songs';
+
+  @override
+  String similarSongsTitle(String name) {
+    return 'Songs similar to $name';
+  }
+
+  @override
   String userFansFollows(String fans, String follows) {
     return '$fans followers · $follows following';
   }

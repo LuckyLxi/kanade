@@ -422,6 +422,13 @@ songmid=<SONG_MID>&format=json&nobase64=1&g_tk=5381
 
 ## MV
 
+2026-10-31 从歌曲入口实抓确认：歌曲搜索结果的 `song.mv.vid` 直接用于 MV 详情和取流；
+`mv.id=0` 时也可能有有效 VID。`Song.mv_vid` 保留该字段，播放队列持久化也一并保存。
+同轮捕获了 `music.recommend.TrackRelationServer.GetSimilarSongs`（参数 `songid`，返回 `data.vecSong[].track`），
+已通过 `get_similar_songs(song_id)` 接入，检查 `data.retcode=0` 后按顺序解析 `vecSong[].track`。
+长按歌曲和更多按钮的共用弹窗提供「观看 MV」（VID 非空时）和「查找相似歌曲」，
+分别复用 MV 播放页与歌曲列表页。参数、样本及证据见[歌曲进入 MV 与相似歌曲抓包](qqmusic-song-mv-capture.md)。
+
 实现：[mv.rs](../rust/src/qq/mv.rs)。两项都走通用 `musicu`（带签名的 `musics.fcg`，失败回退 `musicu.fcg`）。
 
 | 功能 / 上游方法 | `param` | 返回路径与项目处理 |
@@ -604,6 +611,7 @@ QQ / 微信会话交换前，当前实现会先清空旧会话；Cookie 登录�
 | 关注关系 | `set_singer_followed(mid,followed)` / `set_user_followed(euin,followed)` | 成功为空，失败为 `ApiError` |
 | 专辑 | `get_album_detail(mid)` | `AlbumDetail` |
 | MV | `get_mv_detail(vid)` | `MvDetail` |
+| 相似歌曲 | `get_similar_songs(song_id)` | `Vec<Song>` |
 | 其他用户 | `get_user_profile(euin)` / `get_user_public_playlists(euin,creator,page,page_size)` | `UserProfile` / `UserPlaylistPage` |
 | 用户收藏 | `get_user_assets(euin,kind,page,page_size)` | `UserAssetPage`；kind 为 `Song/Playlist/Album/Video` |
 | 评论 | `get_comments(target,id,page,last_seq_no)` / `get_comment_replies(root_id,page,last_seq_no)` | `CommentPage` |

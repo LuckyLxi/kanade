@@ -77,6 +77,21 @@ class SongListPage extends StatelessWidget {
     ),
   );
 
+  /// 当前歌曲的相似推荐，加载与重试复用歌曲列表页。
+  static Route<void> similar(Song song, String title) => MaterialPageRoute(
+    builder: (_) => SongListPage(
+      title: title,
+      load: () async => (
+        title: title,
+        cover: song.coverUrl,
+        period: '',
+        description: '',
+        songs: await api.getSimilarSongs(songId: song.id),
+        owned: null,
+      ),
+    ),
+  );
+
   /// 云端最近播放，从新到旧。
   static Route<void> recent(String title) => MaterialPageRoute(
     builder: (_) => SongListPage(

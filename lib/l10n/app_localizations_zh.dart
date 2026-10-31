@@ -622,6 +622,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mvUnavailable => '这个视频暂时无法播放';
 
   @override
+  String get watchMv => '观看 MV';
+
+  @override
+  String get findSimilarSongs => '查找相似歌曲';
+
+  @override
+  String similarSongsTitle(String name) {
+    return '与《$name》相似的歌曲';
+  }
+
+  @override
   String userFansFollows(String fans, String follows) {
     return '粉丝 $fans · 关注 $follows';
   }

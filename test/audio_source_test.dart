@@ -70,6 +70,7 @@ const _song = Song(
   vip: false,
   hasHq: true,
   hasFlac: true,
+  mvVid: '',
 );
 
 bool _fresh() => false;

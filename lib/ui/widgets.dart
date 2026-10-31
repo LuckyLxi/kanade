@@ -73,7 +73,7 @@ class _AsyncViewState<T> extends State<AsyncView<T>> {
               children: [
                 Text(l.loadFailed(errorText(l, snap.error!)), textAlign: TextAlign.center),
                 const SizedBox(height: 12),
-                FilledButton.tonal(onPressed: () => setState(() => _future = widget.load()), child: Text(l.retry)),
+                FilledButton.tonal(onPressed: () => setState(() { _future = widget.load(); }), child: Text(l.retry)),
               ],
             ),
           );

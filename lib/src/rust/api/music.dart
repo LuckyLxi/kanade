@@ -33,6 +33,10 @@ Future<HotSearch> getHotSearch() =>
 Future<List<SearchSuggestion>> getSearchSuggestions({required String query}) =>
     RustLib.instance.api.crateApiMusicGetSearchSuggestions(query: query);
 
+/// 歌曲的相似推荐，`song_id` 是歌曲数字 ID。
+Future<List<Song>> getSimilarSongs({required PlatformInt64 songId}) =>
+    RustLib.instance.api.crateApiMusicGetSimilarSongs(songId: songId);
+
 Future<SongUrl> getSongUrl({
   required String mid,
   required String mediaMid,

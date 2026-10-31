@@ -419,6 +419,14 @@
   },
   "searchKindUser": "用户",
   "mvUnavailable": "这个视频暂时无法播放",
+  "watchMv": "观看 MV",
+  "findSimilarSongs": "查找相似歌曲",
+  "similarSongsTitle": "与《{name}》相似的歌曲",
+  "@similarSongsTitle": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
   "userFansFollows": "粉丝 {fans} · 关注 {follows}",
   "@userFansFollows": {
     "placeholders": {

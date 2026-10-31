@@ -79,9 +79,25 @@ pub fn song(v: &Value) -> Option<Song> {
         vip: n(&v["pay"]["pay_play"]) == 1 || n(&v["pay"]["payplay"]) == 1,
         has_hq: n(&file["size_320mp3"]) > 0 || n(&v["size320"]) > 0,
         has_flac: n(&file["size_flac"]) > 0 || n(&v["sizeflac"]) > 0,
+        mv_vid: s(&v["mv"]["vid"]),
     })
 }
 
 pub fn songs(arr: &Value) -> Vec<Song> {
     arr.as_array().map(|a| a.iter().filter_map(song).collect()).unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn song_keeps_video_vid_even_when_numeric_mv_id_is_zero() {
+        let track = json!({"mid": "song-mid", "mv": {"id": 0, "vid": "video-vid", "vt": 1}});
+        assert_eq!(song(&track).unwrap().mv_vid, "video-vid");
+        assert_eq!(song(&json!({"songInfo": track})).unwrap().mv_vid, "video-vid");
+        assert_eq!(song(&json!({"mid": "no-video"})).unwrap().mv_vid, "");
+        assert_eq!(song(&json!({"mid": "empty-video", "mv": {"id": 0, "vid": ""}})).unwrap().mv_vid, "");
+    }
 }

@@ -957,6 +957,9 @@ class Song {
   final bool hasHq;
   final bool hasFlac;
 
+  /// 歌曲关联的视频 VID；数字 mv.id 为 0 时也可能有值。
+  final String mvVid;
+
   const Song({
     required this.id,
     required this.mid,
@@ -970,6 +973,7 @@ class Song {
     required this.vip,
     required this.hasHq,
     required this.hasFlac,
+    required this.mvVid,
   });
 
   @override
@@ -985,7 +989,8 @@ class Song {
       coverUrl.hashCode ^
       vip.hashCode ^
       hasHq.hashCode ^
-      hasFlac.hashCode;
+      hasFlac.hashCode ^
+      mvVid.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1003,7 +1008,8 @@ class Song {
           coverUrl == other.coverUrl &&
           vip == other.vip &&
           hasHq == other.hasHq &&
-          hasFlac == other.hasFlac;
+          hasFlac == other.hasFlac &&
+          mvVid == other.mvVid;
 }
 
 class SongUrl {

@@ -498,6 +498,7 @@ class PlayerController extends ChangeNotifier {
         'vip': s.vip,
         'hasHq': s.hasHq,
         'hasFlac': s.hasFlac,
+        'mvVid': s.mvVid,
       };
 
   static Song _songFromJson(Map<String, dynamic> m) => Song(
@@ -516,6 +517,7 @@ class PlayerController extends ChangeNotifier {
         vip: m['vip'] as bool,
         hasHq: m['hasHq'] as bool,
         hasFlac: m['hasFlac'] as bool,
+        mvVid: m['mvVid'] as String? ?? '',
       );
 
   /// 当前应高亮的歌词行。

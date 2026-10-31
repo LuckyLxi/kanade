@@ -1,6 +1,6 @@
 //! 搜索、播放链接、歌词、榜单、歌单。
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use base64::Engine;
 use serde_json::{json, Value};
 
@@ -19,6 +19,21 @@ fn search_id() -> String {
 
 pub async fn search_songs(keyword: &str, page: u32, page_size: u32) -> Result<SearchResult> {
     search(keyword, SearchKind::Song, page, page_size).await
+}
+
+/// 歌曲更多菜单的“查找相似歌曲”，按上游顺序返回。
+pub async fn similar_songs(song_id: i64) -> Result<Vec<Song>> {
+    let data = core().musicu("music.recommend.TrackRelationServer", "GetSimilarSongs", json!({"songid": song_id})).await?;
+    similar_song_list(&data)
+}
+
+fn similar_song_list(data: &Value) -> Result<Vec<Song>> {
+    let code = data["retcode"].as_i64().context(ApiError::bad_response("similar songs response has no retcode"))?;
+    if code != 0 {
+        bail!(ApiError::ServerError { api: "music.recommend.TrackRelationServer.GetSimilarSongs".into(), code: code.to_string() });
+    }
+    let list = data["vecSong"].as_array().context(ApiError::bad_response("similar songs response has no vecSong"))?;
+    Ok(list.iter().filter_map(|item| parse::song(&item["track"])).collect())
 }
 
 /// 各分类在 Windows 客户端抓包中的 search_type、remoteplace，以及结果在 `body` 下的字段名。
@@ -656,6 +671,25 @@ pub async fn user_playlists() -> Result<Vec<PlaylistBrief>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn similar_songs_use_nested_tracks_and_preserve_order_and_mv() {
+        let data = json!({"retcode": 0, "vecSong": [
+            {"track": {"id": 11, "mid": "first", "mv": {"id": 0, "vid": "video"}}},
+            {"track": {"id": 22, "mid": "second"}},
+        ], "vecSongNew": null});
+        let songs = similar_song_list(&data).unwrap();
+        assert_eq!(songs.iter().map(|s| s.id).collect::<Vec<_>>(), vec![11, 22]);
+        assert_eq!(songs[0].mv_vid, "video");
+        assert!(similar_song_list(&json!({"retcode": 0, "vecSong": []})).unwrap().is_empty());
+    }
+
+    #[test]
+    fn similar_songs_reject_failed_or_malformed_results() {
+        for data in [json!({"retcode": 1000, "vecSong": []}), json!({"vecSong": []}), json!({"retcode": 0})] {
+            assert!(similar_song_list(&data).is_err());
+        }
+    }
 
     #[tokio::test]
     #[ignore = "需要联网"]

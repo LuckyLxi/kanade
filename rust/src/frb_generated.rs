@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1518928718;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1199119348;
 
 // Section: executor
 
@@ -1054,6 +1054,42 @@ fn wire__crate__api__music__get_search_suggestions_impl(
                     (move || async move {
                         let output_ok =
                             crate::api::music::get_search_suggestions(api_query).await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__music__get_similar_songs_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_similar_songs",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_song_id = <i64>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::api::error::ApiError>(
+                    (move || async move {
+                        let output_ok = crate::api::music::get_similar_songs(api_song_id).await?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -3199,6 +3235,7 @@ impl SseDecode for crate::api::types::Song {
         let mut var_vip = <bool>::sse_decode(deserializer);
         let mut var_hasHq = <bool>::sse_decode(deserializer);
         let mut var_hasFlac = <bool>::sse_decode(deserializer);
+        let mut var_mvVid = <String>::sse_decode(deserializer);
         return crate::api::types::Song {
             id: var_id,
             mid: var_mid,
@@ -3212,6 +3249,7 @@ impl SseDecode for crate::api::types::Song {
             vip: var_vip,
             has_hq: var_hasHq,
             has_flac: var_hasFlac,
+            mv_vid: var_mvVid,
         };
     }
 }
@@ -3494,45 +3532,46 @@ fn pde_ffi_dispatcher_primary_impl(
         29 => {
             wire__crate__api__music__get_search_suggestions_impl(port, ptr, rust_vec_len, data_len)
         }
-        30 => wire__crate__api__music__get_singer_albums_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__music__get_singer_detail_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__music__get_singer_social_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__music__get_singer_songs_impl(port, ptr, rust_vec_len, data_len),
-        34 => {
+        30 => wire__crate__api__music__get_similar_songs_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__music__get_singer_albums_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__music__get_singer_detail_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__music__get_singer_social_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__music__get_singer_songs_impl(port, ptr, rust_vec_len, data_len),
+        35 => {
             wire__crate__api__music__get_singer_video_tags_impl(port, ptr, rust_vec_len, data_len)
         }
-        35 => wire__crate__api__music__get_singer_videos_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__music__get_song_qualities_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__music__get_song_url_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__music__get_toplist_detail_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__music__get_toplists_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__music__get_user_assets_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__music__get_user_playlists_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__music__get_user_profile_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__music__get_user_public_playlists_impl(
+        36 => wire__crate__api__music__get_singer_videos_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__music__get_song_qualities_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__music__get_song_url_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__music__get_toplist_detail_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__music__get_toplists_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__music__get_user_assets_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__music__get_user_playlists_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__music__get_user_profile_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__music__get_user_public_playlists_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        44 => wire__crate__api__music__init_app_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__music__init_core_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__music__login_with_cookie_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__music__logout_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__music__poll_login_qr_impl(port, ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__music__remove_song_from_playlist_impl(
+        45 => wire__crate__api__music__init_app_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__music__init_core_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__music__login_with_cookie_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__music__logout_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__music__poll_login_qr_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__music__remove_song_from_playlist_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        52 => wire__crate__api__music__rename_playlist_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__music__report_play_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__music__search_impl(port, ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__music__set_singer_followed_impl(port, ptr, rust_vec_len, data_len),
-        58 => wire__crate__api__music__set_song_liked_impl(port, ptr, rust_vec_len, data_len),
-        59 => wire__crate__api__music__set_user_followed_impl(port, ptr, rust_vec_len, data_len),
-        61 => {
+        53 => wire__crate__api__music__rename_playlist_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__music__report_play_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__music__search_impl(port, ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__music__set_singer_followed_impl(port, ptr, rust_vec_len, data_len),
+        59 => wire__crate__api__music__set_song_liked_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__music__set_user_followed_impl(port, ptr, rust_vec_len, data_len),
+        62 => {
             wire__crate__api__types__user_asset_page_default_impl(port, ptr, rust_vec_len, data_len)
         }
         _ => unreachable!(),
@@ -3552,11 +3591,11 @@ fn pde_ffi_dispatcher_sync_impl(
         12 => wire__crate__api__music__get_audio_cache_limit_mb_impl(ptr, rust_vec_len, data_len),
         14 => wire__crate__api__music__get_cached_audio_impl(ptr, rust_vec_len, data_len),
         25 => wire__crate__api__music__get_pref_impl(ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__music__lower_quality_impl(ptr, rust_vec_len, data_len),
-        50 => wire__crate__api__music__remove_cached_audio_impl(ptr, rust_vec_len, data_len),
-        55 => wire__crate__api__music__set_audio_cache_limit_mb_impl(ptr, rust_vec_len, data_len),
-        56 => wire__crate__api__music__set_pref_impl(ptr, rust_vec_len, data_len),
-        60 => wire__crate__api__music__stream_audio_impl(ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__music__lower_quality_impl(ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__music__remove_cached_audio_impl(ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__music__set_audio_cache_limit_mb_impl(ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__music__set_pref_impl(ptr, rust_vec_len, data_len),
+        61 => wire__crate__api__music__stream_audio_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -4318,6 +4357,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::Song {
             self.vip.into_into_dart().into_dart(),
             self.has_hq.into_into_dart().into_dart(),
             self.has_flac.into_into_dart().into_dart(),
+            self.mv_vid.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -5363,6 +5403,7 @@ impl SseEncode for crate::api::types::Song {
         <bool>::sse_encode(self.vip, serializer);
         <bool>::sse_encode(self.has_hq, serializer);
         <bool>::sse_encode(self.has_flac, serializer);
+        <String>::sse_encode(self.mv_vid, serializer);
     }
 }
 

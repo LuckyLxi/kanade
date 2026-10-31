@@ -15,6 +15,7 @@ Song _song(String mid) => Song(
   vip: false,
   hasHq: false,
   hasFlac: false,
+  mvVid: '',
 );
 
 List<String> _mids(List<Song> q) => [for (final s in q) s.mid];

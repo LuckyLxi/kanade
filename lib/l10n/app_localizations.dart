@@ -1190,6 +1190,24 @@ abstract class AppLocalizations {
   /// **'这个视频暂时无法播放'**
   String get mvUnavailable;
 
+  /// No description provided for @watchMv.
+  ///
+  /// In zh, this message translates to:
+  /// **'观看 MV'**
+  String get watchMv;
+
+  /// No description provided for @findSimilarSongs.
+  ///
+  /// In zh, this message translates to:
+  /// **'查找相似歌曲'**
+  String get findSimilarSongs;
+
+  /// No description provided for @similarSongsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'与《{name}》相似的歌曲'**
+  String similarSongsTitle(String name);
+
   /// No description provided for @userFansFollows.
   ///
   /// In zh, this message translates to:

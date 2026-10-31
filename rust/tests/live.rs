@@ -254,6 +254,24 @@ async fn desktop_mv_streams() {
     }
 }
 
+/// 只读验证歌曲搜索的 VID 能打开 MV，并取得同一首歌的相似推荐。
+#[tokio::test]
+#[ignore = "需要本地 HAR 登录态和网络；只读"]
+async fn desktop_song_mv_and_similar_songs() {
+    use rust_lib_kanade::{api::music as api, qq::mv};
+    use_desktop_test_login();
+    let result = music::search_songs("Turning Around", 1, 40).await.unwrap();
+    let song = result.songs.iter().find(|song| song.id == 667137632).expect("没有找到抓包歌曲");
+    assert!(!song.mv_vid.is_empty());
+    let video = mv::mv_detail(&song.mv_vid).await.unwrap();
+    assert_eq!(video.vid, song.mv_vid);
+    assert!(!video.streams.is_empty(), "歌曲关联 MV 没有可播放的流");
+    let similar = api::get_similar_songs(song.id).await.unwrap();
+    assert!(!similar.is_empty());
+    assert!(similar.iter().all(|track| track.id > 0 && !track.mid.is_empty() && !track.name.is_empty()));
+    println!("Song MV and similar songs passed: {} streams, {} similar tracks", video.streams.len(), similar.len());
+}
+
 #[tokio::test]
 #[ignore]
 async fn desktop_search_and_stream() {

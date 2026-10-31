@@ -9,8 +9,10 @@ import '../player/player_controller.dart';
 import '../src/rust/api/types.dart';
 import 'album_page.dart';
 import 'comments_page.dart';
+import 'mv_page.dart';
 import 'sheet.dart';
 import 'singer_page.dart';
+import 'song_list_page.dart';
 import 'smooth_scroll.dart';
 import 'toast.dart';
 import 'widgets.dart';
@@ -102,7 +104,7 @@ void openSinger(BuildContext context, Song song) {
   );
 }
 
-/// 歌曲的更多操作：下一首播放、红心、加入歌单、评论放在上面一排，歌手、专辑在下面。
+/// 歌曲的更多操作：上排快捷操作，下方为 MV、相似歌曲、歌手和专辑。
 /// 在自己的歌单里打开时传入 [onRemove]，多出“从歌单中删除”。
 Future<void> showSongActions(BuildContext context, Song song, {VoidCallback? onRemove}) {
   final l = AppLocalizations.of(context);
@@ -153,32 +155,44 @@ Future<void> showSongActions(BuildContext context, Song song, {VoidCallback? onR
               ),
             ],
           ),
-          if (hasSinger || song.albumMid.isNotEmpty || onRemove != null)
-            SheetGroup(
-              children: [
-                if (hasSinger)
-                  SheetRow(
-                    leading: const Icon(Icons.person_outline_rounded),
-                    title: l.singerNamed(singerNames(song)),
-                    chevron: true,
-                    onTap: () => run(() => openSinger(context, song)),
-                  ),
-                if (song.albumMid.isNotEmpty)
-                  SheetRow(
-                    leading: const Icon(Icons.album_outlined),
-                    title: l.albumNamed(song.albumName),
-                    chevron: true,
-                    onTap: () => run(() => Navigator.of(context).push(AlbumPage.route(song.albumMid, song.albumName))),
-                  ),
-                if (onRemove != null)
-                  SheetRow(
-                    leading: const Icon(Icons.playlist_remove_rounded),
-                    title: l.removeFromPlaylist,
-                    destructive: true,
-                    onTap: () => run(onRemove),
-                  ),
-              ],
-            ),
+          SheetGroup(
+            children: [
+              if (song.mvVid.isNotEmpty)
+                SheetRow(
+                  leading: const Icon(Icons.music_video_rounded),
+                  title: l.watchMv,
+                  chevron: true,
+                  onTap: () => run(() => Navigator.of(context).push(MvPage.route(song.mvVid, song.name))),
+                ),
+              SheetRow(
+                leading: const Icon(Icons.manage_search_rounded),
+                title: l.findSimilarSongs,
+                chevron: true,
+                onTap: () => run(() => Navigator.of(context).push(SongListPage.similar(song, l.similarSongsTitle(song.name)))),
+              ),
+              if (hasSinger)
+                SheetRow(
+                  leading: const Icon(Icons.person_outline_rounded),
+                  title: l.singerNamed(singerNames(song)),
+                  chevron: true,
+                  onTap: () => run(() => openSinger(context, song)),
+                ),
+              if (song.albumMid.isNotEmpty)
+                SheetRow(
+                  leading: const Icon(Icons.album_outlined),
+                  title: l.albumNamed(song.albumName),
+                  chevron: true,
+                  onTap: () => run(() => Navigator.of(context).push(AlbumPage.route(song.albumMid, song.albumName))),
+                ),
+              if (onRemove != null)
+                SheetRow(
+                  leading: const Icon(Icons.playlist_remove_rounded),
+                  title: l.removeFromPlaylist,
+                  destructive: true,
+                  onTap: () => run(onRemove),
+                ),
+            ],
+          ),
         ],
       );
     },
