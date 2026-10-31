@@ -13,12 +13,13 @@ const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${s
 const proxyName = 'Kanade-QQMusic-Fiddler';
 const recommendations = process.argv.includes('--recommendations');
 const player = process.argv.includes('--player');
-const expandedScope = recommendations || player;
+const search = process.argv.includes('--search');
+const expandedScope = recommendations || player || search;
 // 当前 PC 客户端既有 qmbrowser 网页请求，也有主进程到该 API IP 的 HTTP 直连。
 const rule = expandedScope
   ? `AND,((OR,((PROCESS-NAME,QQMusic.exe),(PROCESS-NAME,QQMusicExternal.exe),(PROCESS-NAME,qmbrowser.exe))),(OR,((DOMAIN-SUFFIX,y.qq.com),(AND,((IP-CIDR,157.148.63.240/32,no-resolve),(DST-PORT,80)))))),${proxyName}`
   : `AND,((PROCESS-NAME,QQMusic.exe),(DOMAIN,u6.y.qq.com)),${proxyName}`;
-const captureSeconds = player ? 300 : recommendations ? 180 : 45;
+const captureSeconds = player || search ? 300 : recommendations ? 180 : 45;
 
 function matchesTarget(metadata) {
   const host = metadata?.host?.toLowerCase() ?? '';
@@ -59,7 +60,7 @@ const temporary = prependList(prependList(original, 'proxies', [
 
 const mode = process.argv[2] ?? '--check';
 if (!['--check', '--capture', '--restore'].includes(mode)) throw new Error('Use --check, --capture or --restore.');
-if (process.argv.slice(3).some(arg => !['--recommendations', '--player'].includes(arg))) throw new Error('Unknown option. Use --capture --recommendations or --capture --player.');
+if (process.argv.slice(3).some(arg => !['--recommendations', '--player', '--search'].includes(arg))) throw new Error('Unknown option. Use --capture --recommendations, --capture --player or --capture --search.');
 const current = await api('/configs');
 if (mode === '--restore') {
   await api('/configs?force=true', 'PUT', { payload: original });
@@ -103,7 +104,9 @@ if (mode === '--restore') {
           await api(`/connections/${encodeURIComponent(connection.id)}`, 'DELETE');
         }
       }
-      console.log(player
+      console.log(search
+        ? `CAPTURING SEARCH: search a NEW keyword; open Videos, Albums, Playlists, Lyrics, Singers and Users; load another page of Videos and play an MV. Temporary rule lasts ${captureSeconds} seconds.`
+        : player
         ? `CAPTURING PLAYER ACTIONS: open singer, comments and album; toggle the song heart and restore it; add to a test playlist and remove it. Temporary rule lasts ${captureSeconds} seconds.`
         : recommendations
           ? `CAPTURING RECOMMENDATIONS: reopen Home, open Daily 30 and personalized recommendations, then scroll the page. Temporary rule lasts ${captureSeconds} seconds.`

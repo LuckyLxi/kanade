@@ -134,7 +134,9 @@ uin=<MUSIC_ID>; qqmusic_uin=<MUSIC_ID>; qqmusic_key=<MUSIC_KEY>; qm_keyst=<MUSIC
 | 热搜：`tencent_musicsoso_hotkey.HotkeyService.GetHotkeyForQQMusicPC` | PC 公共 | `search_id=""`、`uin=账号编号的 i64 数值，无账号时 0` | `vec_hotkey`、`vec_reckey`；读取 `title/query/description`，过滤空 `query` |
 | 联想：`music.smartboxCgi.SmartBoxCgi.GetSmartBoxResultForPc` | PC 公共 | `num_per_page=4`、`query`、`search_id=本次生成的搜索 ID` | `data.song.song_list`、`data.singer.singer_list`、`data.album.album_list`；读取 `name`、`singer` |
 
-搜索页码从 `1` 开始。PC 搜索 `searchid` 是每次生成的 37 位大写十六进制字符串。联想结果映射成歌曲、歌手、专辑三类文字建议，当前返回模型不含目标 MID。
+当前搜歌实现的页码从 `1` 开始。PC 搜索 `searchid` 是每次生成的 37 位大写十六进制字符串。联想结果映射成歌曲、歌手、专辑三类文字建议，当前返回模型不含目标 MID。
+
+2026-10-31 补抓了官方客户端七类搜索及 MV 元数据、取流和清晰度切换，见[分类搜索与 MV 抓包](qqmusic-search-mv-capture.md)。视频、专辑、歌单、歌词、歌手、用户分别观察到 `search_type=4/2/3/7/1/8`；歌词仍返回歌曲对象，歌单首页请求出现 `page_num=0`。这些是抓包证据，尚未接入当前应用，也未独立重放验证。
 
 未登录搜索保留旧 CGI；README 记录其历史直接请求曾返回 HTTP 500，本文没有重新核实其当前可用性。PC 匿名搜索也没有作为已验证的替代路径接入。
 
@@ -578,6 +580,7 @@ HAR 凭据辅助函数依赖该文件内存在可解析的 `comm.uin/authst/tmeL
 | [parse.rs](../rust/src/qq/parse.rs) / [lyric.rs](../rust/src/qq/lyric.rs) | 上游数据与歌词解析 |
 | [api/music.rs](../rust/src/api/music.rs) / [api/types.rs](../rust/src/api/types.rs) / [api/error.rs](../rust/src/api/error.rs) | 应用层入口、模型、错误枚举 |
 | [真实接口测试](../rust/tests/live.rs) | 手动联网验证入口及其前置条件 |
+| [分类搜索与 MV 抓包](qqmusic-search-mv-capture.md) | 七类搜索参数、MV 元数据、取流与清晰度切换及未验证边界 |
 | [播放器关联操作抓包](qqmusic-player-actions-capture.md) | 歌手、专辑、评论、红心、加歌、80105 排查 |
 | [歌单管理抓包](qqmusic-playlist-management-capture.md) | 改名与删除的官方请求样本 |
 | [最近播放抓包](qqmusic-recent-plays-capture.md) | 云端记录读取、播放上报 |
