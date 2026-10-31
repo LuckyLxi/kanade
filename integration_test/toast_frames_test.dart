@@ -66,13 +66,17 @@ void main() {
     await frames('replace', [60, 120, 300]);
     await frames('gone', [3000]);
 
-    // 播放页打开时放到顶上
+    // 提示还在时打开播放页：应该平滑滑到顶上，不消失
+    toast('已添加到我喜欢', ToastKind.liked);
+    await frames('before_open', [300]);
     await tester.tapAt(tester.getTopLeft(bar) + const Offset(100, 20));
-    await frames('player_open', [700]);
+    await frames('player_open', [80, 200, 320, 500, 900]);
+    await frames('player_open_gone', [2500]);
     toast('已添加到我喜欢', ToastKind.liked);
     await frames('player', [300]);
+    // 提示还在时关掉播放页：应该平滑滑到底下，不跳
     nav.pop();
-    await frames('player_close', [700]);
+    await frames('player_close', [100, 300, 500, 700, 900]);
 
     // 宽窗口：桌面播放栏上方，内容区居中
     debugDefaultTargetPlatformOverride = null;

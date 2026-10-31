@@ -155,27 +155,38 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
     return ListenableBuilder(
       listenable: _placement,
       builder: (context, child) {
-        // 播放页底下是播放控制，提示放到顶上
+        // 播放页底下是播放控制，提示放到顶上；开关播放页、播放条变形时都平滑挪过去，不跳
         final onPlayer = MiniPlayer.anchor.hidden.value || DesktopPlayerBar.anchor.hidden.value;
         final chrome = onPlayer ? EdgeInsets.zero : Toast.chrome.value;
         final from = onPlayer ? -1.0 : 1.0;
-        return Positioned(
-          left: chrome.left + 16,
-          right: chrome.right + 16,
-          top: onPlayer ? MediaQuery.paddingOf(context).top + 28 : null,
-          bottom: onPlayer ? null : chrome.bottom,
-          child: Align(
-            alignment: onPlayer ? Alignment.topCenter : Alignment.bottomCenter,
-            child: AnimatedBuilder(
-              animation: _t,
-              builder: (context, child) => Opacity(
-                opacity: _t.value.clamp(0.0, 1.0),
-                child: Transform.translate(
-                  offset: Offset(0, from * 12 * (1 - _t.value)),
-                  child: Transform.scale(scale: 0.94 + 0.06 * _t.value, child: child),
+        const duration = Duration(milliseconds: 420);
+        const curve = Curves.easeInOutCubic;
+        // 铺满整个窗口，靠 Align 定位；Align 自己不接点击，空白处会落到下面
+        return Positioned.fill(
+          child: AnimatedPadding(
+            duration: duration,
+            curve: curve,
+            padding: EdgeInsets.fromLTRB(
+              chrome.left + 16,
+              onPlayer ? MediaQuery.paddingOf(context).top + 28 : 0,
+              chrome.right + 16,
+              onPlayer ? 0 : chrome.bottom,
+            ),
+            child: AnimatedAlign(
+              duration: duration,
+              curve: curve,
+              alignment: onPlayer ? Alignment.topCenter : Alignment.bottomCenter,
+              child: AnimatedBuilder(
+                animation: _t,
+                builder: (context, child) => Opacity(
+                  opacity: _t.value.clamp(0.0, 1.0),
+                  child: Transform.translate(
+                    offset: Offset(0, from * 12 * (1 - _t.value)),
+                    child: Transform.scale(scale: 0.94 + 0.06 * _t.value, child: child),
+                  ),
                 ),
+                child: child,
               ),
-              child: child,
             ),
           ),
         );
