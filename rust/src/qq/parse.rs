@@ -33,6 +33,10 @@ pub fn singer_cover(singer_mid: &str) -> String {
     format!("https://y.gtimg.cn/music/photo_new/T001R300x300M000{singer_mid}.jpg")
 }
 
+pub fn singer_photo(singer_mid: &str) -> String {
+    format!("https://y.gtimg.cn/music/photo_new/T001R800x800M000{singer_mid}.jpg")
+}
+
 /// 统一的歌曲解析。搜索、榜单、歌单返回的结构基本一致；
 /// 部分旧接口会把歌曲包在 `songInfo` / `data` 里，这里一并处理。
 pub fn song(v: &Value) -> Option<Song> {

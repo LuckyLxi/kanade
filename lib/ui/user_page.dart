@@ -6,13 +6,15 @@ import '../l10n/l10n_ext.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'follow_button.dart';
+import 'glass.dart';
+import 'profile_layout.dart';
 import 'singer_page.dart' show AlbumTile;
 import 'smooth_scroll.dart';
 import 'song_list_page.dart';
 import 'video_tile.dart';
 import 'widgets.dart';
 
-/// 用户主页：创建的歌单、我喜欢（歌曲 / 歌单 / 专辑 / 视频）。
+/// 用户主页：头像、数字和简介，下面是创建的歌单、我喜欢（歌曲 / 歌单 / 专辑 / 视频）。
 class UserPage extends StatelessWidget {
   const UserPage({super.key, required this.euin, required this.name});
 
@@ -26,8 +28,7 @@ class UserPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final account = context.select<AuthController, String?>((a) => a.user?.uin);
-    return Scaffold(
-      appBar: AppBar(title: Text(name)),
+    return GlassBackScaffold(
       body: AsyncView<UserProfile>(
         key: ValueKey((euin, account)),
         load: () => api.getUserProfile(euin: euin),
@@ -47,332 +48,323 @@ class _ProfileBody extends StatefulWidget {
 }
 
 class _ProfileBodyState extends State<_ProfileBody> {
+  static const _barHeight = 56.0;
+
+  final _scroll = SmoothScrollController();
+  final _marker = GlobalKey();
   bool _likes = false;
   UserAssetKind _kind = UserAssetKind.song;
   late bool _followed = widget.profile.followed;
 
+  late final _playlists = Pager<PlaylistBrief>(
+    (page, _) async {
+      final p = widget.profile;
+      final r = await api.getUserPublicPlaylists(euin: p.euin, creator: p.name, page: page, pageSize: 30);
+      return (r.playlists, r.hasMore);
+    },
+    hasMore: widget.profile.playlistCount > 0 && !widget.profile.playlistsHidden,
+  );
+  final _assets = <UserAssetKind, Pager<UserAssetPage>>{};
+  final _hidden = <UserAssetKind>{};
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    _playlists.dispose();
+    for (final p in _assets.values) {
+      p.dispose();
+    }
+    super.dispose();
+  }
+
+  void _select(VoidCallback change) {
+    keepPinned(_scroll, _marker, MediaQuery.paddingOf(context).top + _barHeight);
+    setState(change);
+  }
+
+  /// 一页结果当成一个条目存，四类资产共用一个 [Pager]。
+  Pager<UserAssetPage> _assetPager(UserAssetKind kind) => _assets[kind] ??= Pager((page, _) async {
+    final r = await api.getUserAssets(euin: widget.profile.euin, kind: kind, page: page, pageSize: 30);
+    if (r.hidden && mounted) setState(() => _hidden.add(kind));
+    final empty = r.songs.isEmpty && r.playlists.isEmpty && r.albums.isEmpty && r.videos.isEmpty;
+    return (empty ? <UserAssetPage>[] : [r], r.hasMore);
+  });
+
   @override
   Widget build(BuildContext context) {
     final p = widget.profile;
     final l = AppLocalizations.of(context);
-    final header = _Head(
-      p,
-      showPlaylistCount: !_likes,
-      followed: _followed,
-      onFollow: (value) async {
-        await api.setUserFollowed(euin: p.euin, followed: value);
-        if (mounted) setState(() => _followed = value);
-      },
-    );
-    return Column(
-      children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Pill(label: l.playlistsCreated, selected: !_likes, onTap: () => setState(() => _likes = false)),
-              const SizedBox(width: 6),
-              Pill(label: l.userLikes, selected: _likes, onTap: () => setState(() => _likes = true)),
-            ],
+    final top = MediaQuery.paddingOf(context).top;
+    return CustomScrollView(
+      controller: _scroll,
+      slivers: [
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: PinnedBox(
+            height: top + _barHeight,
+            child: Padding(
+              padding: EdgeInsets.only(top: top, left: 72, right: 20),
+              // 头部滚出去以后才显示名字
+              child: ListenableBuilder(
+                listenable: _scroll,
+                builder: (context, child) => Opacity(
+                  opacity: _scroll.hasClients ? ((_scroll.offset - 70) / 50).clamp(0.0, 1.0) : 0,
+                  child: child,
+                ),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    p.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
-        if (_likes)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Row(
+        SliverToBoxAdapter(
+          child: _Head(
+            p,
+            followed: _followed,
+            onFollow: (value) async {
+              await api.setUserFollowed(euin: p.euin, followed: value);
+              if (mounted) setState(() => _followed = value);
+            },
+          ),
+        ),
+        SliverToBoxAdapter(key: _marker),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: PinnedBox(
+            height: _likes ? 100 : 56,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final (kind, label) in [
-                  (UserAssetKind.song, l.tabSongs),
-                  (UserAssetKind.playlist, l.searchKindPlaylist),
-                  (UserAssetKind.album, l.tabAlbums),
-                  (UserAssetKind.video, l.searchKindVideo),
-                ])
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: Pill(label: label, selected: _kind == kind, onTap: () => setState(() => _kind = kind)),
+                PillRow(
+                  children: [
+                    Pill(label: l.playlistsCreated, selected: !_likes, onTap: () => _select(() => _likes = false)),
+                    Pill(label: l.userLikes, selected: _likes, onTap: () => _select(() => _likes = true)),
+                  ],
+                ),
+                if (_likes) ...[
+                  const SizedBox(height: 10),
+                  PillRow(
+                    children: [
+                      for (final (kind, label) in [
+                        (UserAssetKind.song, l.tabSongs),
+                        (UserAssetKind.playlist, l.searchKindPlaylist),
+                        (UserAssetKind.album, l.tabAlbums),
+                        (UserAssetKind.video, l.searchKindVideo),
+                      ])
+                        Pill(label: label, selected: _kind == kind, onTap: () => _select(() => _kind = kind)),
+                    ],
                   ),
+                ],
               ],
             ),
           ),
-        Expanded(
-          child: !_likes
-              ? _Playlists(p, header: header)
-              : _Assets(key: ValueKey(_kind), profile: p, kind: _kind, header: header),
         ),
+        if (!_likes)
+          PagedSliver(
+            pager: _playlists,
+            emptyText: p.playlistsHidden ? l.userPrivate : l.userNoPlaylists,
+            itemBuilder: (context, items, i) => _PlaylistTile(items[i]),
+          )
+        else
+          _assetsSliver(l),
+        PinFiller(marker: _marker, pinnedAbove: top + _barHeight),
       ],
     );
   }
-}
 
-class _Playlists extends StatefulWidget {
-  const _Playlists(this.profile, {required this.header});
-
-  final UserProfile profile;
-  final Widget header;
-
-  @override
-  State<_Playlists> createState() => _PlaylistsState();
-}
-
-class _PlaylistsState extends State<_Playlists> {
-  static const _pageSize = 30;
-
-  final _scroll = SmoothScrollController();
-  final _items = <PlaylistBrief>[];
-  int _page = 0;
-  late bool _hasMore = widget.profile.playlistCount > 0 && !widget.profile.playlistsHidden;
-  bool _loading = false;
-  Object? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _more();
-  }
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  Future<void> _more() async {
-    if (_loading || !_hasMore || _error != null) return;
-    final p = widget.profile;
-    setState(() => _loading = true);
-    try {
-      final r = await api.getUserPublicPlaylists(euin: p.euin, creator: p.name, page: _page, pageSize: _pageSize);
-      if (!mounted) return;
-      setState(() {
-        _page++;
-        _items.addAll(r.playlists);
-        _hasMore = r.hasMore;
-      });
-    } catch (e) {
-      if (mounted) setState(() => _error = e);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    return NotificationListener<ScrollNotification>(
-      onNotification: (n) {
-        if (n.metrics.extentAfter < 300) _more();
-        return false;
-      },
-      child: ListView.builder(
-        controller: _scroll,
-        itemCount: _items.length + 2,
-        itemBuilder: (context, i) {
-          if (i == 0) return widget.header;
-          final j = i - 1;
-          if (j < _items.length) {
-            final p = _items[j];
-            return ListTile(
-              leading: Cover(p.coverUrl, size: 52, radius: 12),
-              title: Text(
-                p.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              ),
-              subtitle: p.songCount > 0 ? Text(l.songCount(p.songCount)) : null,
-              onTap: () => Navigator.of(context).push(SongListPage.playlist(p.id, p.title)),
-            );
-          }
-          if (_error != null) {
-            return ListTile(
-              title: Text(l.loadFailed(errorText(l, _error!)), textAlign: TextAlign.center),
-              onTap: () {
-                setState(() => _error = null);
-                _more();
+  Widget _assetsSliver(AppLocalizations l) {
+    final kind = _kind;
+    final pager = _assetPager(kind);
+    return ListenableBuilder(
+      listenable: pager,
+      builder: (context, _) {
+        // 把各页摊平成一个列表，歌曲要整张列表才能连着播
+        final pages = pager.items;
+        final songs = [for (final r in pages) ...r.songs];
+        final playlists = [for (final r in pages) ...r.playlists];
+        final albums = [for (final r in pages) ...r.albums];
+        final videos = [for (final r in pages) ...r.videos];
+        final count = songs.length + playlists.length + albums.length + videos.length;
+        return SliverMainAxisGroup(
+          slivers: [
+            SliverList.builder(
+              itemCount: count,
+              itemBuilder: (context, i) => switch (kind) {
+                UserAssetKind.song => SongTile(songs: songs, index: i),
+                UserAssetKind.video => VideoTile(videos[i]),
+                UserAssetKind.album => AlbumTile(albums[i]),
+                UserAssetKind.playlist => _PlaylistTile(playlists[i]),
               },
-            );
-          }
-          if (_loading) {
-            return const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          if (_items.isEmpty) {
-            return Padding(
-              padding: const EdgeInsets.all(32),
-              child: Center(child: Text(widget.profile.playlistsHidden ? l.userPrivate : l.userNoPlaylists)),
-            );
-          }
-          return const BottomSpacer();
-        },
-      ),
+            ),
+            // 只用来显示加载 / 出错 / 空，条目都在上面
+            PagedSliver<UserAssetPage>(
+              key: ValueKey(kind),
+              pager: pager,
+              emptyText: _hidden.contains(kind) ? l.userPrivate : l.noItems,
+              itemBuilder: (_, _, _) => const SizedBox.shrink(),
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
-class _Assets extends StatefulWidget {
-  const _Assets({super.key, required this.profile, required this.kind, required this.header});
+class _PlaylistTile extends StatelessWidget {
+  const _PlaylistTile(this.p);
 
-  final UserProfile profile;
-  final UserAssetKind kind;
-  final Widget header;
-
-  @override
-  State<_Assets> createState() => _AssetsState();
-}
-
-class _AssetsState extends State<_Assets> {
-  final _scroll = SmoothScrollController();
-  final _playlists = <PlaylistBrief>[];
-  final _albums = <AlbumBrief>[];
-  final _songs = <Song>[];
-  final _videos = <VideoBrief>[];
-  int _page = 0;
-  bool _hasMore = true;
-  bool _loading = false;
-  bool _hidden = false;
-  Object? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _more();
-  }
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  Future<void> _more() async {
-    if (_loading || !_hasMore || _error != null) return;
-    setState(() => _loading = true);
-    try {
-      final result = await api.getUserAssets(euin: widget.profile.euin, kind: widget.kind, page: _page, pageSize: 30);
-      if (!mounted) return;
-      setState(() {
-        _playlists.addAll(result.playlists);
-        _albums.addAll(result.albums);
-        _songs.addAll(result.songs);
-        _videos.addAll(result.videos);
-        _page++;
-        _hasMore = result.hasMore;
-        _hidden = result.hidden;
-      });
-    } catch (e) {
-      if (mounted) setState(() => _error = e);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
+  final PlaylistBrief p;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final count = _songs.length + _playlists.length + _albums.length + _videos.length;
-    return NotificationListener<ScrollNotification>(
-      onNotification: (n) {
-        if (n.metrics.extentAfter < 300) _more();
-        return false;
-      },
-      child: ListView.builder(
-        controller: _scroll,
-        itemCount: count + 2,
-        itemBuilder: (context, i) {
-          if (i == 0) return widget.header;
-          final index = i - 1;
-          if (index < count) {
-            if (widget.kind == UserAssetKind.song) return SongTile(songs: _songs, index: index);
-            if (widget.kind == UserAssetKind.video) return VideoTile(_videos[index]);
-            if (widget.kind == UserAssetKind.album) return AlbumTile(_albums[index]);
-            final p = _playlists[index];
-            return ListTile(
-              leading: Cover(p.coverUrl, size: 52, radius: 12),
-              title: Text(p.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text(l.songCount(p.songCount)),
-              onTap: () => Navigator.of(context).push(SongListPage.playlist(p.id, p.title)),
-            );
-          }
-          if (_error != null) {
-            return ListTile(
-              title: Text(l.loadFailed(errorText(l, _error!)), textAlign: TextAlign.center),
-              onTap: () {
-                setState(() => _error = null);
-                _more();
-              },
-            );
-          }
-          if (_loading) {
-            return const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          if (count == 0) {
-            return Padding(
-              padding: const EdgeInsets.all(32),
-              child: Center(child: Text(_hidden ? l.userPrivate : l.noItems)),
-            );
-          }
-          return const BottomSpacer();
-        },
+    return ListTile(
+      leading: Cover(p.coverUrl, size: 52, radius: 12),
+      title: Text(
+        p.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
       ),
+      subtitle: p.songCount > 0 ? Text(l.songCount(p.songCount)) : null,
+      onTap: () => Navigator.of(context).push(SongListPage.playlist(p.id, p.title)),
     );
   }
 }
 
 class _Head extends StatelessWidget {
-  const _Head(this.p, {required this.followed, required this.onFollow, required this.showPlaylistCount});
+  const _Head(this.p, {required this.followed, required this.onFollow});
 
   final UserProfile p;
   final bool followed;
   final Future<void> Function(bool) onFollow;
-  final bool showPlaylistCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              ClipOval(child: Cover(p.avatarUrl, size: 84, radius: 0)),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      p.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        _Stat(formatCount(l, p.fansCount.toInt()), l.statFans),
+                        const SizedBox(width: 20),
+                        _Stat(formatCount(l, p.followCount.toInt()), l.statFollows),
+                        const SizedBox(width: 20),
+                        _Stat('${p.playlistCount}', l.statPlaylists),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (p.intro.isNotEmpty) ...[const SizedBox(height: 16), _Intro(p.intro)],
+          if (!p.isSelf) ...[
+            const SizedBox(height: 12),
+            SizedBox(height: 44, child: FollowButton(followed: followed, onChanged: onFollow)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat(this.value, this.label);
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+      const SizedBox(height: 2),
+      Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+    ],
+  );
+}
+
+/// 简介默认两行，放不下才出现“展开”。
+class _Intro extends StatefulWidget {
+  const _Intro(this.text);
+
+  final String text;
+
+  @override
+  State<_Intro> createState() => _IntroState();
+}
+
+class _IntroState extends State<_Intro> {
+  bool _open = false;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
-    // 和歌手页同一种居中头部
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
-      child: Column(
-        children: [
-          DecoratedBox(
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: Colors.black54, blurRadius: 40, offset: Offset(0, 20))],
+    final style = TextStyle(fontSize: 14, height: 1.6, color: scheme.onSurface.withValues(alpha: 0.8));
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: widget.text, style: style),
+          maxLines: 2,
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout(maxWidth: constraints.maxWidth);
+        final overflows = painter.didExceedMaxLines;
+        painter.dispose();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.text,
+              maxLines: _open ? null : 2,
+              overflow: _open ? null : TextOverflow.ellipsis,
+              style: style,
             ),
-            child: ClipOval(child: Cover(p.avatarUrl, size: 120, radius: 0)),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            p.name,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l.userFansFollows(formatCount(l, p.fansCount.toInt()), formatCount(l, p.followCount.toInt())),
-            style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
-          ),
-          if (!p.isSelf) ...[const SizedBox(height: 8), FollowButton(followed: followed, onChanged: onFollow)],
-          if (showPlaylistCount && p.playlistCount > 0) ...[
-            const SizedBox(height: 16),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Text(
-                l.userPlaylists(p.playlistCount),
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            if (overflows)
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: scheme.onSurfaceVariant,
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 32),
+                  textStyle: const TextStyle(fontSize: 13),
+                ),
+                onPressed: () => setState(() => _open = !_open),
+                iconAlignment: IconAlignment.end,
+                icon: Icon(_open ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 18),
+                label: Text(_open ? l.showLess : l.showMore),
               ),
-            ),
           ],
-        ],
-      ),
+        );
+      },
     );
   }
 }

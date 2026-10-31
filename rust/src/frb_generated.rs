@@ -3136,6 +3136,7 @@ impl SseDecode for crate::api::types::SingerDetail {
         let mut var_mid = <String>::sse_decode(deserializer);
         let mut var_name = <String>::sse_decode(deserializer);
         let mut var_avatarUrl = <String>::sse_decode(deserializer);
+        let mut var_photoUrl = <String>::sse_decode(deserializer);
         let mut var_description = <String>::sse_decode(deserializer);
         let mut var_songs = <Vec<crate::api::types::Song>>::sse_decode(deserializer);
         let mut var_songTotal = <u32>::sse_decode(deserializer);
@@ -3146,6 +3147,7 @@ impl SseDecode for crate::api::types::SingerDetail {
             mid: var_mid,
             name: var_name,
             avatar_url: var_avatarUrl,
+            photo_url: var_photoUrl,
             description: var_description,
             songs: var_songs,
             song_total: var_songTotal,
@@ -3403,6 +3405,7 @@ impl SseDecode for crate::api::types::UserProfile {
         let mut var_avatarUrl = <String>::sse_decode(deserializer);
         let mut var_fansCount = <u64>::sse_decode(deserializer);
         let mut var_followCount = <u64>::sse_decode(deserializer);
+        let mut var_intro = <String>::sse_decode(deserializer);
         let mut var_playlistCount = <u32>::sse_decode(deserializer);
         let mut var_followed = <bool>::sse_decode(deserializer);
         let mut var_isSelf = <bool>::sse_decode(deserializer);
@@ -3413,6 +3416,7 @@ impl SseDecode for crate::api::types::UserProfile {
             avatar_url: var_avatarUrl,
             fans_count: var_fansCount,
             follow_count: var_followCount,
+            intro: var_intro,
             playlist_count: var_playlistCount,
             followed: var_followed,
             is_self: var_isSelf,
@@ -4233,6 +4237,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::SingerDetail {
             self.mid.into_into_dart().into_dart(),
             self.name.into_into_dart().into_dart(),
             self.avatar_url.into_into_dart().into_dart(),
+            self.photo_url.into_into_dart().into_dart(),
             self.description.into_into_dart().into_dart(),
             self.songs.into_into_dart().into_dart(),
             self.song_total.into_into_dart().into_dart(),
@@ -4545,6 +4550,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::UserProfile {
             self.avatar_url.into_into_dart().into_dart(),
             self.fans_count.into_into_dart().into_dart(),
             self.follow_count.into_into_dart().into_dart(),
+            self.intro.into_into_dart().into_dart(),
             self.playlist_count.into_into_dart().into_dart(),
             self.followed.into_into_dart().into_dart(),
             self.is_self.into_into_dart().into_dart(),
@@ -5315,6 +5321,7 @@ impl SseEncode for crate::api::types::SingerDetail {
         <String>::sse_encode(self.mid, serializer);
         <String>::sse_encode(self.name, serializer);
         <String>::sse_encode(self.avatar_url, serializer);
+        <String>::sse_encode(self.photo_url, serializer);
         <String>::sse_encode(self.description, serializer);
         <Vec<crate::api::types::Song>>::sse_encode(self.songs, serializer);
         <u32>::sse_encode(self.song_total, serializer);
@@ -5508,6 +5515,7 @@ impl SseEncode for crate::api::types::UserProfile {
         <String>::sse_encode(self.avatar_url, serializer);
         <u64>::sse_encode(self.fans_count, serializer);
         <u64>::sse_encode(self.follow_count, serializer);
+        <String>::sse_encode(self.intro, serializer);
         <u32>::sse_encode(self.playlist_count, serializer);
         <bool>::sse_encode(self.followed, serializer);
         <bool>::sse_encode(self.is_self, serializer);

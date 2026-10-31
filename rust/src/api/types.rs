@@ -186,6 +186,8 @@ pub struct UserProfile {
     pub avatar_url: String,
     pub fans_count: u64,
     pub follow_count: u64,
+    /// 个人简介；没填时退回认证说明，两者都没有为空。
+    pub intro: String,
     /// 公开歌单数；主页没有歌单标签时为 0。
     pub playlist_count: u32,
     pub followed: bool,
@@ -380,6 +382,8 @@ pub struct SingerDetail {
     pub mid: String,
     pub name: String,
     pub avatar_url: String,
+    /// 800×800 的大图，歌手页顶部铺满用。
+    pub photo_url: String,
     pub description: String,
     /// 第一页热门歌曲，更多用 `get_singer_songs` 翻页。
     pub songs: Vec<Song>,

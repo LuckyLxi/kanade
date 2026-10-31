@@ -1303,6 +1303,54 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'我喜欢'**
   String get userLikes;
+
+  /// No description provided for @singerAbout.
+  ///
+  /// In zh, this message translates to:
+  /// **'详情'**
+  String get singerAbout;
+
+  /// No description provided for @singerBio.
+  ///
+  /// In zh, this message translates to:
+  /// **'简介'**
+  String get singerBio;
+
+  /// No description provided for @singerGuard.
+  ///
+  /// In zh, this message translates to:
+  /// **'守护'**
+  String get singerGuard;
+
+  /// No description provided for @statFans.
+  ///
+  /// In zh, this message translates to:
+  /// **'粉丝'**
+  String get statFans;
+
+  /// No description provided for @statFollows.
+  ///
+  /// In zh, this message translates to:
+  /// **'关注'**
+  String get statFollows;
+
+  /// No description provided for @statPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单'**
+  String get statPlaylists;
+
+  /// No description provided for @showMore.
+  ///
+  /// In zh, this message translates to:
+  /// **'展开'**
+  String get showMore;
+
+  /// No description provided for @showLess.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起'**
+  String get showLess;
 }
 
 class _AppLocalizationsDelegate

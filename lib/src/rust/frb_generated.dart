@@ -2747,18 +2747,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   SingerDetail dco_decode_singer_detail(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 9)
-      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
     return SingerDetail(
       mid: dco_decode_String(arr[0]),
       name: dco_decode_String(arr[1]),
       avatarUrl: dco_decode_String(arr[2]),
-      description: dco_decode_String(arr[3]),
-      songs: dco_decode_list_song(arr[4]),
-      songTotal: dco_decode_u_32(arr[5]),
-      albums: dco_decode_list_album_brief(arr[6]),
-      albumTotal: dco_decode_u_32(arr[7]),
-      selectedAlbums: dco_decode_list_album_brief(arr[8]),
+      photoUrl: dco_decode_String(arr[3]),
+      description: dco_decode_String(arr[4]),
+      songs: dco_decode_list_song(arr[5]),
+      songTotal: dco_decode_u_32(arr[6]),
+      albums: dco_decode_list_album_brief(arr[7]),
+      albumTotal: dco_decode_u_32(arr[8]),
+      selectedAlbums: dco_decode_list_album_brief(arr[9]),
     );
   }
 
@@ -2961,18 +2962,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   UserProfile dco_decode_user_profile(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 9)
-      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
     return UserProfile(
       euin: dco_decode_String(arr[0]),
       name: dco_decode_String(arr[1]),
       avatarUrl: dco_decode_String(arr[2]),
       fansCount: dco_decode_u_64(arr[3]),
       followCount: dco_decode_u_64(arr[4]),
-      playlistCount: dco_decode_u_32(arr[5]),
-      followed: dco_decode_bool(arr[6]),
-      isSelf: dco_decode_bool(arr[7]),
-      playlistsHidden: dco_decode_bool(arr[8]),
+      intro: dco_decode_String(arr[5]),
+      playlistCount: dco_decode_u_32(arr[6]),
+      followed: dco_decode_bool(arr[7]),
+      isSelf: dco_decode_bool(arr[8]),
+      playlistsHidden: dco_decode_bool(arr[9]),
     );
   }
 
@@ -3805,6 +3807,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_mid = sse_decode_String(deserializer);
     var var_name = sse_decode_String(deserializer);
     var var_avatarUrl = sse_decode_String(deserializer);
+    var var_photoUrl = sse_decode_String(deserializer);
     var var_description = sse_decode_String(deserializer);
     var var_songs = sse_decode_list_song(deserializer);
     var var_songTotal = sse_decode_u_32(deserializer);
@@ -3815,6 +3818,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       mid: var_mid,
       name: var_name,
       avatarUrl: var_avatarUrl,
+      photoUrl: var_photoUrl,
       description: var_description,
       songs: var_songs,
       songTotal: var_songTotal,
@@ -4032,6 +4036,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_avatarUrl = sse_decode_String(deserializer);
     var var_fansCount = sse_decode_u_64(deserializer);
     var var_followCount = sse_decode_u_64(deserializer);
+    var var_intro = sse_decode_String(deserializer);
     var var_playlistCount = sse_decode_u_32(deserializer);
     var var_followed = sse_decode_bool(deserializer);
     var var_isSelf = sse_decode_bool(deserializer);
@@ -4042,6 +4047,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       avatarUrl: var_avatarUrl,
       fansCount: var_fansCount,
       followCount: var_followCount,
+      intro: var_intro,
       playlistCount: var_playlistCount,
       followed: var_followed,
       isSelf: var_isSelf,
@@ -4743,6 +4749,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.mid, serializer);
     sse_encode_String(self.name, serializer);
     sse_encode_String(self.avatarUrl, serializer);
+    sse_encode_String(self.photoUrl, serializer);
     sse_encode_String(self.description, serializer);
     sse_encode_list_song(self.songs, serializer);
     sse_encode_u_32(self.songTotal, serializer);
@@ -4916,6 +4923,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.avatarUrl, serializer);
     sse_encode_u_64(self.fansCount, serializer);
     sse_encode_u_64(self.followCount, serializer);
+    sse_encode_String(self.intro, serializer);
     sse_encode_u_32(self.playlistCount, serializer);
     sse_encode_bool(self.followed, serializer);
     sse_encode_bool(self.isSelf, serializer);

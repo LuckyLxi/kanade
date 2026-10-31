@@ -120,7 +120,8 @@ class GlassBackScaffold extends StatelessWidget {
                 // Only the floating back button samples this source. Keep its
                 // lens/blur margin without copying the whole fullscreen list.
                 captureBounds: (_) => Rect.fromLTWH(0, 0, 112, MediaQuery.paddingOf(context).top + 112),
-                child: ColoredBox(color: scheme.surface, child: body),
+                // Material rather than ColoredBox so list tiles in the body keep their ink.
+                child: Material(color: scheme.surface, child: body),
               ),
             ),
             Positioned(

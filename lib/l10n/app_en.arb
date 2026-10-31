@@ -200,5 +200,13 @@
   "noItems": "No items",
   "newest": "Newest",
   "hottest": "Most popular",
-  "userLikes": "Liked"
+  "userLikes": "Liked",
+  "singerAbout": "About",
+  "singerBio": "Biography",
+  "singerGuard": "Guardians",
+  "statFans": "Followers",
+  "statFollows": "Following",
+  "statPlaylists": "Playlists",
+  "showMore": "More",
+  "showLess": "Less"
 }

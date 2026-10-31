@@ -50,9 +50,17 @@ void main() {
       ),
     );
     await wait(3500);
-    expect(find.text('精选专辑'), findsOneWidget);
     await screenshot('featured');
-    await tester.tap(find.text('视频').first);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+    await wait(600);
+    expect(find.text('精选专辑'), findsOneWidget);
+    await screenshot('featured_collapsed');
+    await tester.tap(find.widgetWithText(Pill, '详情'));
+    await wait(600);
+    expect(find.text('简介'), findsOneWidget);
+    expect(find.text('守护'), findsOneWidget);
+    await screenshot('singer_about');
+    await tester.tap(find.widgetWithText(Pill, '视频'));
     await wait();
     expect(find.byType(VideoTile), findsWidgets);
     final latest = tester.widgetList<VideoTile>(find.byType(VideoTile)).take(3).map((v) => v.video.vid).toList();
@@ -92,9 +100,16 @@ void main() {
     await wait(3000);
     expect(find.byType(UserPage), findsOneWidget);
     expect(find.byType(ListTile), findsWidgets);
+    await screenshot('user_head');
     await tester.tap(find.widgetWithText(Pill, '我喜欢'));
     await wait();
     expect(find.byType(SongTile), findsWidgets);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+    await wait(600);
+    await screenshot('liked_songs_scrolled');
+    await tester.tap(find.widgetWithText(Pill, '专辑'));
+    await wait();
+    await screenshot('liked_albums_pinned');
     await screenshot('liked_songs');
     await tester.tap(find.widgetWithText(Pill, '歌单'));
     await wait();
@@ -123,6 +138,13 @@ void main() {
     expect(find.byType(VideoTile), findsWidgets);
     await screenshot('liked_videos');
     expect(tester.takeException(), isNull);
+
+    // 官方账号没填简介，会退回显示认证说明
+    Navigator.of(tester.element(find.byType(UserPage)))
+        .pushReplacement(UserPage.route('ownk7e-l7e4kNn**', '鸣潮先约电台'));
+    await wait();
+    expect(find.textContaining('官方认证'), findsOneWidget);
+    await screenshot('user_intro');
 
     Navigator.of(tester.element(find.byType(UserPage)))
         .pushReplacement(MaterialPageRoute<void>(builder: (_) => const MinePage()));

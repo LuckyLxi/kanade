@@ -731,4 +731,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get userLikes => 'Liked';
+
+  @override
+  String get singerAbout => 'About';
+
+  @override
+  String get singerBio => 'Biography';
+
+  @override
+  String get singerGuard => 'Guardians';
+
+  @override
+  String get statFans => 'Followers';
+
+  @override
+  String get statFollows => 'Following';
+
+  @override
+  String get statPlaylists => 'Playlists';
+
+  @override
+  String get showMore => 'More';
+
+  @override
+  String get showLess => 'Less';
 }

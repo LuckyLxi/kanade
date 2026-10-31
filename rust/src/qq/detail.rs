@@ -38,6 +38,7 @@ pub async fn singer_detail(mid: &str) -> Result<SingerDetail> {
         mid: mid.to_string(),
         name: s(&basic["name"]),
         avatar_url: if avatar.is_empty() { singer_cover(mid) } else { avatar },
+        photo_url: parse::singer_photo(mid),
         description: s(&singer["ex_info"]["desc"]),
         songs: parse::songs(&data["songs"]["songList"]),
         song_total: n(&data["songs"]["totalNum"]) as u32,

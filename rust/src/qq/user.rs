@@ -15,7 +15,27 @@ const PLAYLIST_TAB: &str = "disc";
 
 /// 官方 PC 主页 CGI 接受搜索结果的 encrypt_uin；公开歌单分页仍用已验证的统一主页接口。
 pub async fn user_profile(euin: &str) -> Result<UserProfile> {
-    profile(&profile_data(euin).await?)
+    let (data, about) = tokio::join!(profile_data(euin), about_desc(euin));
+    let mut p = profile(&data?)?;
+    // 简介只是锦上添花，拿不到不影响主页
+    let intro = about.unwrap_or_default();
+    if !intro.is_empty() { p.intro = intro; }
+    Ok(p)
+}
+
+/// 统一主页“关于”标签里基本信息的简介（`baseInfo.desc`），大多数人没填。
+async fn about_desc(euin: &str) -> Result<String> {
+    let data = core()
+        .cached(&format!("user:about:{euin}"), 600, || {
+            core().musicu(HOMEPAGE, "GetHomepageTabDetail",
+                json!({"uin": euin, "IsQueryTabDetail": 1, "TabID": "about", "PageNum": 0, "PageSize": 10, "Order": 0}))
+        })
+        .await?;
+    Ok(data["IntroductionTab"]["List"].as_array().into_iter().flatten()
+        .flat_map(|item| item["AboutList"].as_array().into_iter().flatten())
+        .map(|about| s(&about["baseInfo"]["desc"]).trim().to_string())
+        .find(|d| !d.is_empty())
+        .unwrap_or_default())
 }
 
 async fn profile_data(euin: &str) -> Result<Value> {
@@ -48,6 +68,8 @@ fn profile(data: &Value) -> Result<UserProfile> {
         euin: euin.into(), name: s(&creator["nick"]), avatar_url: s(&creator["headpic"]),
         fans_count: n(&creator["nums"]["fansnum"]) as u64,
         follow_count: n(&creator["nums"]["follownum"]) as u64,
+        // 认证说明，比如“官方认证：《鸣潮》先约电台团队推出的电台栏目”
+        intro: s(&creator["cfinfo"]["title"]),
         playlist_count: n(&data["mydiss"]["num"]) as u32,
         followed: n(&creator["isfollow"]) == 1,
         is_self: n(&creator["ishost"]) == 1,

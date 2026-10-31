@@ -482,5 +482,13 @@
   "noItems": "暂无内容",
   "newest": "最新",
   "hottest": "最热",
-  "userLikes": "我喜欢"
+  "userLikes": "我喜欢",
+  "singerAbout": "详情",
+  "singerBio": "简介",
+  "singerGuard": "守护",
+  "statFans": "粉丝",
+  "statFollows": "关注",
+  "statPlaylists": "歌单",
+  "showMore": "展开",
+  "showLess": "收起"
 }

@@ -839,6 +839,9 @@ class SingerDetail {
   final String mid;
   final String name;
   final String avatarUrl;
+
+  /// 800×800 的大图，歌手页顶部铺满用。
+  final String photoUrl;
   final String description;
 
   /// 第一页热门歌曲，更多用 `get_singer_songs` 翻页。
@@ -852,6 +855,7 @@ class SingerDetail {
     required this.mid,
     required this.name,
     required this.avatarUrl,
+    required this.photoUrl,
     required this.description,
     required this.songs,
     required this.songTotal,
@@ -865,6 +869,7 @@ class SingerDetail {
       mid.hashCode ^
       name.hashCode ^
       avatarUrl.hashCode ^
+      photoUrl.hashCode ^
       description.hashCode ^
       songs.hashCode ^
       songTotal.hashCode ^
@@ -880,6 +885,7 @@ class SingerDetail {
           mid == other.mid &&
           name == other.name &&
           avatarUrl == other.avatarUrl &&
+          photoUrl == other.photoUrl &&
           description == other.description &&
           songs == other.songs &&
           songTotal == other.songTotal &&
@@ -1251,6 +1257,9 @@ class UserProfile {
   final BigInt fansCount;
   final BigInt followCount;
 
+  /// 个人简介；没填时退回认证说明，两者都没有为空。
+  final String intro;
+
   /// 公开歌单数；主页没有歌单标签时为 0。
   final int playlistCount;
   final bool followed;
@@ -1263,6 +1272,7 @@ class UserProfile {
     required this.avatarUrl,
     required this.fansCount,
     required this.followCount,
+    required this.intro,
     required this.playlistCount,
     required this.followed,
     required this.isSelf,
@@ -1276,6 +1286,7 @@ class UserProfile {
       avatarUrl.hashCode ^
       fansCount.hashCode ^
       followCount.hashCode ^
+      intro.hashCode ^
       playlistCount.hashCode ^
       followed.hashCode ^
       isSelf.hashCode ^
@@ -1291,6 +1302,7 @@ class UserProfile {
           avatarUrl == other.avatarUrl &&
           fansCount == other.fansCount &&
           followCount == other.followCount &&
+          intro == other.intro &&
           playlistCount == other.playlistCount &&
           followed == other.followed &&
           isSelf == other.isSelf &&

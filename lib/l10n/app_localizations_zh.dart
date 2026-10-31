@@ -687,4 +687,28 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get userLikes => '我喜欢';
+
+  @override
+  String get singerAbout => '详情';
+
+  @override
+  String get singerBio => '简介';
+
+  @override
+  String get singerGuard => '守护';
+
+  @override
+  String get statFans => '粉丝';
+
+  @override
+  String get statFollows => '关注';
+
+  @override
+  String get statPlaylists => '歌单';
+
+  @override
+  String get showMore => '展开';
+
+  @override
+  String get showLess => '收起';
 }

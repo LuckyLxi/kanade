@@ -443,6 +443,7 @@ songmid=<SONG_MID>&format=json&nobase64=1&g_tk=5381
 | 功能 / 上游方法 | `param` | 返回路径 |
 | --- | --- | --- |
 | 资料：GET `https://c6.y.qq.com/rsc/fcgi-bin/fcg_get_profile_homepage.fcg` | `userid/cid=205360838/ct=20/cv=2276/reqfrom=1/reqtype=0/format=json`，以及 `uin/g_tk/g_tk_new_20200303/platform` | `data.creator.nick/headpic/encrypt_uin/nums/isfollow/ishost/diss_lock`；`data.mydiss.num` |
+| 简介：`…UnifiedHomepageSrv.GetHomepageTabDetail` | `uin`、`IsQueryTabDetail=1`、`TabID="about"`、`PageNum=0`、`PageSize=10`、`Order=0` | `IntroductionTab.List[].AboutList[].baseInfo.desc`；2026-10-31 扫过约 260 个搜索到的用户全为空，没填时退回 `creator.cfinfo.title`（认证说明）。失败不影响资料 |
 | 歌单：`…UnifiedHomepageSrv.GetHomepageTabDetail` | `uin`、`IsQueryTabDetail=1`、`TabID="disc"`、`PageNum`、`PageSize`、`Order=0` | `DiscTab.List[]` 的 `Dissid/Title/Picurl/Subtitle`，`HasMore` |
 | 喜欢歌曲：`music.srfDissInfo.DissInfo.CgiGetDiss` | `optype=0,disstid=<目标用户喜欢歌单ID>,onlysonglist=1,song_begin=page*page_size,song_num=page_size` | `songlist[]/hasmore`；复用歌曲解析与播放组件 |
 | 收藏歌单：`music.musicasset.PlaylistFavRead.GetPlaylistFavInfo_v2` | `uin=<encrypt_uin>,offset=page*page_size,size=page_size` | `v_list[].tid/name/logo/songnum/nickname`、`hasmore/hide` |
