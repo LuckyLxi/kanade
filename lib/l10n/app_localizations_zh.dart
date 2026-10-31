@@ -378,6 +378,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get unlike => '取消喜欢';
 
   @override
+  String get likeShort => '喜欢';
+
+  @override
+  String get likedShort => '已喜欢';
+
+  @override
   String get liked => '已添加到我喜欢';
 
   @override

@@ -5,7 +5,9 @@ import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
 import '../src/rust/api/types.dart';
+import 'sheet.dart';
 import 'toast.dart';
+import 'widgets.dart';
 
 /// 歌单菜单做了什么，详情页据此改标题或退出。
 sealed class PlaylistEdit {}
@@ -24,28 +26,32 @@ bool canEditPlaylist(MyPlaylist? p) => p != null && !isLikedPlaylist(p);
 /// 自建歌单的更多操作：重命名、删除。没有改动时返回 null。
 Future<PlaylistEdit?> showPlaylistActions(BuildContext context, MyPlaylist playlist) async {
   final l = AppLocalizations.of(context);
-  final action = await showModalBottomSheet<String>(
+  final action = await showKanadeSheet<String>(
     context: context,
-    builder: (sheet) => SafeArea(
-      child: ListView(
-        shrinkWrap: true,
-        children: [
-          ListTile(
-            title: Text(playlist.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-            titleTextStyle: Theme.of(sheet).textTheme.titleMedium,
-          ),
-          ListTile(
-            leading: const Icon(Icons.edit_outlined),
-            title: Text(l.renamePlaylist),
-            onTap: () => Navigator.pop(sheet, 'rename'),
-          ),
-          ListTile(
-            leading: Icon(Icons.delete_outline, color: Theme.of(sheet).colorScheme.error),
-            title: Text(l.deletePlaylist, style: TextStyle(color: Theme.of(sheet).colorScheme.error)),
-            onTap: () => Navigator.pop(sheet, 'delete'),
-          ),
-        ],
-      ),
+    builder: (sheet) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SheetHeader(
+          leading: Cover(playlist.coverUrl, size: 48, radius: 10),
+          title: playlist.name,
+          subtitle: l.songCount(playlist.songCount),
+        ),
+        SheetGroup(
+          children: [
+            SheetRow(
+              leading: const Icon(Icons.edit_outlined),
+              title: l.renamePlaylist,
+              onTap: () => Navigator.pop(sheet, 'rename'),
+            ),
+            SheetRow(
+              leading: const Icon(Icons.delete_outline_rounded),
+              title: l.deletePlaylist,
+              destructive: true,
+              onTap: () => Navigator.pop(sheet, 'delete'),
+            ),
+          ],
+        ),
+      ],
     ),
   );
   if (!context.mounted) return null;

@@ -8,6 +8,7 @@ import '../library/library_controller.dart';
 import '../src/rust/api/types.dart';
 import 'album_page.dart';
 import 'comments_page.dart';
+import 'sheet.dart';
 import 'singer_page.dart';
 import 'smooth_scroll.dart';
 import 'toast.dart';
@@ -36,32 +37,9 @@ Future<void> addToPlaylist(BuildContext context, Song song) async {
   if (!_requireLogin(context)) return;
   final l = AppLocalizations.of(context);
   final library = context.read<LibraryController>();
-  final picked = await showModalBottomSheet<MyPlaylist>(
+  final picked = await showKanadeSheet<MyPlaylist>(
     context: context,
-    builder: (_) => SafeArea(
-      child: AsyncView<List<MyPlaylist>>(
-        load: library.myPlaylists,
-        builder: (context, lists) => lists.isEmpty
-            ? Center(child: Text(l.noMyPlaylists))
-            // 歌单多的时候会很长，滚轮也要平滑
-            : SmoothScroll(
-                builder: (_, scroll) => ListView(
-                  controller: scroll,
-                  shrinkWrap: true,
-                  children: [
-                    ListTile(title: Text(l.addToPlaylist, style: Theme.of(context).textTheme.titleMedium)),
-                    for (final p in lists)
-                      ListTile(
-                        leading: Cover(p.coverUrl, size: 40),
-                        title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(l.songCount(p.songCount)),
-                        onTap: () => Navigator.pop(context, p),
-                      ),
-                  ],
-                ),
-              ),
-      ),
-    ),
+    builder: (_) => _PlaylistPicker(load: library.myPlaylists),
   );
   if (picked == null || !context.mounted) return;
   try {
@@ -92,32 +70,30 @@ void openSinger(BuildContext context, Song song) {
     Navigator.of(context).push(SingerPage.route(singers.first.mid, singers.first.name));
     return;
   }
-  showModalBottomSheet<void>(
+  showKanadeSheet<void>(
     context: context,
-    builder: (sheet) => SafeArea(
-      child: ListView(
-        shrinkWrap: true,
-        children: [
-          for (final s in singers)
-            ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: Text(s.name),
-              onTap: () {
-                Navigator.pop(sheet);
-                Navigator.of(context).push(SingerPage.route(s.mid, s.name));
-              },
-            ),
-        ],
-      ),
+    builder: (sheet) => SheetGroup(
+      children: [
+        for (final s in singers)
+          SheetRow(
+            leading: const Icon(Icons.person_outline_rounded),
+            title: s.name,
+            chevron: true,
+            onTap: () {
+              Navigator.pop(sheet);
+              Navigator.of(context).push(SingerPage.route(s.mid, s.name));
+            },
+          ),
+      ],
     ),
   );
 }
 
-/// 歌曲的更多操作：红心、加入歌单、评论、歌手、专辑。
+/// 歌曲的更多操作：红心、加入歌单、评论放在上面一排，歌手、专辑在下面。
 /// 在自己的歌单里打开时传入 [onRemove]，多出“从歌单中删除”。
 Future<void> showSongActions(BuildContext context, Song song, {VoidCallback? onRemove}) {
   final l = AppLocalizations.of(context);
-  return showModalBottomSheet<void>(
+  return showKanadeSheet<void>(
     context: context,
     builder: (sheet) {
       final liked = sheet.watch<LibraryController>().isLiked(song);
@@ -127,52 +103,125 @@ Future<void> showSongActions(BuildContext context, Song song, {VoidCallback? onR
         action();
       }
 
-      return SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            ListTile(
-              leading: Cover(song.coverUrl, size: 44, radius: 6),
-              title: Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text(singerNames(song), maxLines: 1, overflow: TextOverflow.ellipsis),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: Icon(liked ? Icons.favorite : Icons.favorite_border, color: liked ? Colors.red : null),
-              title: Text(liked ? l.unlike : l.like),
-              onTap: () => run(() => toggleLike(context, song)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.playlist_add),
-              title: Text(l.addToPlaylist),
-              onTap: () => run(() => addToPlaylist(context, song)),
-            ),
-            if (onRemove != null)
-              ListTile(
-                leading: const Icon(Icons.playlist_remove),
-                title: Text(l.removeFromPlaylist),
-                onTap: () => run(onRemove),
+      final hasSinger = song.singers.any((s) => s.mid.isNotEmpty);
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SheetHeader(
+            leading: Cover(song.coverUrl, size: 48, radius: 10),
+            title: song.name,
+            subtitle: singerNames(song),
+          ),
+          SheetQuickActions(
+            children: [
+              SheetQuickAction(
+                icon: liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                iconColor: liked ? Theme.of(sheet).colorScheme.primary : null,
+                label: liked ? l.likedShort : l.likeShort,
+                onTap: () => run(() => toggleLike(context, song)),
               ),
-            ListTile(
-              leading: const Icon(Icons.comment_outlined),
-              title: Text(l.comments),
-              onTap: () => run(() => Navigator.of(context).push(CommentsPage.song(song))),
+              SheetQuickAction(
+                icon: Icons.playlist_add_rounded,
+                label: l.addToPlaylist,
+                onTap: () => run(() => addToPlaylist(context, song)),
+              ),
+              SheetQuickAction(
+                icon: Icons.chat_bubble_outline_rounded,
+                label: l.comments,
+                onTap: () => run(() => Navigator.of(context).push(CommentsPage.song(song))),
+              ),
+            ],
+          ),
+          if (hasSinger || song.albumMid.isNotEmpty || onRemove != null)
+            SheetGroup(
+              children: [
+                if (hasSinger)
+                  SheetRow(
+                    leading: const Icon(Icons.person_outline_rounded),
+                    title: l.singerNamed(singerNames(song)),
+                    chevron: true,
+                    onTap: () => run(() => openSinger(context, song)),
+                  ),
+                if (song.albumMid.isNotEmpty)
+                  SheetRow(
+                    leading: const Icon(Icons.album_outlined),
+                    title: l.albumNamed(song.albumName),
+                    chevron: true,
+                    onTap: () => run(() => Navigator.of(context).push(AlbumPage.route(song.albumMid, song.albumName))),
+                  ),
+                if (onRemove != null)
+                  SheetRow(
+                    leading: const Icon(Icons.playlist_remove_rounded),
+                    title: l.removeFromPlaylist,
+                    destructive: true,
+                    onTap: () => run(onRemove),
+                  ),
+              ],
             ),
-            if (song.singers.any((s) => s.mid.isNotEmpty))
-              ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: Text(l.singerNamed(singerNames(song)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                onTap: () => run(() => openSinger(context, song)),
-              ),
-            if (song.albumMid.isNotEmpty)
-              ListTile(
-                leading: const Icon(Icons.album_outlined),
-                title: Text(l.albumNamed(song.albumName), maxLines: 1, overflow: TextOverflow.ellipsis),
-                onTap: () => run(() => Navigator.of(context).push(AlbumPage.route(song.albumMid, song.albumName))),
-              ),
-          ],
-        ),
+        ],
       );
     },
   );
+}
+
+/// 选一个自己的歌单。加载中和出错时只占一小块，免得卡片先撑满再缩回去。
+class _PlaylistPicker extends StatefulWidget {
+  const _PlaylistPicker({required this.load});
+
+  final Future<List<MyPlaylist>> Function() load;
+
+  @override
+  State<_PlaylistPicker> createState() => _PlaylistPickerState();
+}
+
+class _PlaylistPickerState extends State<_PlaylistPicker> {
+  late Future<List<MyPlaylist>> _future = widget.load();
+
+  Widget _placeholder(Widget child) => SizedBox(height: 140, child: Center(child: child));
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SheetHeader(title: l.addToPlaylist),
+        Flexible(
+          child: FutureBuilder<List<MyPlaylist>>(
+            future: _future,
+            builder: (context, snap) {
+              if (snap.hasError) {
+                return _placeholder(Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(l.loadFailed(errorText(l, snap.error!)), textAlign: TextAlign.center),
+                    const SizedBox(height: 12),
+                    FilledButton.tonal(onPressed: () => setState(() => _future = widget.load()), child: Text(l.retry)),
+                  ],
+                ));
+              }
+              final lists = snap.data;
+              if (lists == null) return _placeholder(const CircularProgressIndicator());
+              if (lists.isEmpty) return _placeholder(Text(l.noMyPlaylists));
+              // 歌单多的时候会很长，滚轮也要平滑
+              return SmoothScroll(
+                builder: (_, scroll) => SheetGroup(
+                  controller: scroll,
+                  children: [
+                    for (final p in lists)
+                      SheetRow(
+                        leading: Cover(p.coverUrl, size: 40),
+                        title: p.name,
+                        subtitle: l.songCount(p.songCount),
+                        onTap: () => Navigator.pop(context, p),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
 }

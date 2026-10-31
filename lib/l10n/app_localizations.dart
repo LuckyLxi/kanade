@@ -746,6 +746,18 @@ abstract class AppLocalizations {
   /// **'取消喜欢'**
   String get unlike;
 
+  /// No description provided for @likeShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'喜欢'**
+  String get likeShort;
+
+  /// No description provided for @likedShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'已喜欢'**
+  String get likedShort;
+
   /// No description provided for @liked.
   ///
   /// In zh, this message translates to:

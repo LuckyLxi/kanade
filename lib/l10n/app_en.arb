@@ -108,6 +108,8 @@
   "errorInternal": "Internal error: {detail}",
   "like": "Like",
   "unlike": "Unlike",
+  "likeShort": "Like",
+  "likedShort": "Liked",
   "liked": "Added to Liked Songs",
   "unliked": "Removed from Liked Songs",
   "addToPlaylist": "Add to playlist",

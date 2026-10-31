@@ -401,6 +401,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unlike => 'Unlike';
 
   @override
+  String get likeShort => 'Like';
+
+  @override
+  String get likedShort => 'Liked';
+
+  @override
   String get liked => 'Added to Liked Songs';
 
   @override

@@ -5,6 +5,7 @@ import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'sheet.dart';
 import 'smooth_scroll.dart';
 
 typedef CommentLoader = Future<CommentPage> Function(int page, String lastSeqNo);
@@ -211,13 +212,11 @@ class CommentTile extends StatelessWidget {
 }
 
 void _showReplies(BuildContext context, Comment root) {
-  showModalBottomSheet<void>(
+  showKanadeSheet<void>(
     context: context,
-    isScrollControlled: true,
-    builder: (_) => DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.7,
-      maxChildSize: 0.95,
+    heightFactor: 0.75,
+    padding: EdgeInsets.zero,
+    builder: (_) => SmoothScroll(
       builder: (context, controller) => Column(
         children: [
           CommentTile(Comment(
