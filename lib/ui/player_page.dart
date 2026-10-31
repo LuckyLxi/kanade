@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui' show ImageFilter, lerpDouble;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -16,10 +19,12 @@ import 'player_lyrics.dart';
 import 'player_route.dart';
 import 'smooth_scroll.dart';
 import 'song_actions.dart';
+import 'toast.dart';
 import 'widgets.dart';
 
-enum _Panel { none, lyrics, queue }
+enum _Panel { lyrics, queue }
 
+enum _Drag { none, route, page }
 
 const _motion = Duration(milliseconds: 550);
 const _curve = Curves.easeInOutCubicEmphasized;
@@ -45,10 +50,24 @@ class PlayerPage extends StatefulWidget {
   State<PlayerPage> createState() => _PlayerPageState();
 }
 
-class _PlayerPageState extends State<PlayerPage> {
-  late _Panel _panel = widget.showQueue ? _Panel.queue : _Panel.none;
+class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateMixin {
   CoverArt? _art;
   String? _artUrl;
+
+  /// 宽屏右侧显示队列还是歌词。
+  late bool _wideQueue = widget.showQueue;
+
+  /// 窄屏翻页的进度：0 是主页面，1 是 [_side] 那一页（队列在下面、歌词在右边）。
+  /// 拖动时手指直接改它，封面、歌名、控件、面板的位置都由它算出来。
+  late final AnimationController _page = AnimationController(vsync: this, value: widget.showQueue ? 1 : 0)
+    ..addStatusListener((_) => setState(() {}));
+  late _Panel _side = widget.showQueue ? _Panel.queue : _Panel.lyrics;
+
+  /// 窄屏内容区的大小，翻页时手指位移按它换算成进度。
+  Size _area = Size.zero;
+
+  /// 窄屏封面歌名那一块的高度，也就是控件顶边的位置。
+  double _headerHeight = 0;
 
   List<Color> get _palette => _art?.palette ?? fallbackPalette;
 
@@ -70,7 +89,108 @@ class _PlayerPageState extends State<PlayerPage> {
     );
   }
 
-  void _togglePanel(_Panel panel) => setState(() => _panel = _panel == panel ? _Panel.none : panel);
+  @override
+  void dispose() {
+    _page.dispose();
+    super.dispose();
+  }
+
+  // ---- 窄屏翻页 ----
+
+  /// 松手后接着手指的速度弹到位，临界阻尼不回弹。
+  static final _pageSpring = SpringDescription.withDampingRatio(mass: 1, stiffness: 520);
+
+  double get _extent => _side == _Panel.queue ? _area.height : _area.width;
+
+  void _pageDragStart(_Panel side) {
+    _page.stop();
+    _side = side;
+  }
+
+  /// [delta] 是手指沿翻页方向的位移（队列看竖直、歌词看水平），往主页面那边为正。
+  void _pageDragUpdate(double delta) {
+    if (_extent > 0) _page.value -= delta / _extent;
+  }
+
+  /// 甩得够快按方向翻，否则过了一半就翻过去、不到一半弹回来。
+  void _pageDragEnd(double velocity) {
+    final v = _extent > 0 ? -velocity / _extent : 0.0;
+    final open = v.abs() > 1.2 ? v > 0 : _page.value > 0.5;
+    // 落点要正好是 0 / 1，往回翻要用 animateBackWith，停下时才算回到主页面
+    final spring = SpringSimulation(_pageSpring, _page.value, open ? 1 : 0, v, snapToEnd: true);
+    open ? _page.animateWith(spring) : _page.animateBackWith(spring);
+  }
+
+  /// 这次拖动交给谁：路由（拖动关闭播放页）还是翻页；第一次移动时按方向定下来。
+  _Drag? _drag;
+  Axis? _dragAxis;
+
+  /// 队列列表在顶上被往下拉，由列表自己接管了这次拖动。
+  bool _listPull = false;
+
+  _Drag _decideVertical(bool narrow, PlayerRoute? r, double dy) {
+    if (!narrow) {
+      r?.dragStart();
+      return r == null ? _Drag.none : _Drag.route;
+    }
+    if (_page.value == 0) {
+      // 主页面往下拖、或者打开动画还没走完，是拖动播放页本身；往上翻到队列
+      if (r != null && (dy >= 0 || r.progress < 1)) {
+        r.dragStart();
+        return _Drag.route;
+      }
+      if (dy >= 0) return _Drag.none;
+      _pageDragStart(_Panel.queue);
+      return _Drag.page;
+    }
+    // 队列页顶上往下拉回主页面；歌词页不管竖直方向
+    if (_side != _Panel.queue) return _Drag.none;
+    _pageDragStart(_Panel.queue);
+    return _Drag.page;
+  }
+
+  _Drag _decideHorizontal(double dx) {
+    final t = _page.value;
+    if ((t == 0 && dx < 0) || (t > 0 && _side == _Panel.lyrics)) {
+      _pageDragStart(_Panel.lyrics);
+      return _Drag.page;
+    }
+    return _Drag.none;
+  }
+
+  Widget _gestures({required bool narrow, required Widget child}) {
+    final route = ModalRoute.of(context);
+    final r = route is PlayerRoute ? route : null;
+    void start(Axis axis) {
+      _drag = null;
+      _dragAxis = axis;
+    }
+    void update(Axis axis, double delta) {
+      if (_listPull || _dragAxis != axis) return;
+      _drag ??= axis == Axis.vertical ? _decideVertical(narrow, r, delta) : _decideHorizontal(delta);
+      if (_drag == _Drag.route) r!.dragUpdate(delta);
+      if (_drag == _Drag.page) _pageDragUpdate(delta);
+    }
+    // 点按钮时拖动手势没真正开始也会收到取消，这时 _drag 还是空的
+    void end(Axis axis, double velocity) {
+      if (_dragAxis != axis) return;
+      if (_drag == _Drag.route) r!.dragEnd(velocity);
+      if (_drag == _Drag.page) _pageDragEnd(velocity);
+      _drag = null;
+      _dragAxis = null;
+    }
+    return GestureDetector(
+      onVerticalDragStart: (_) => start(Axis.vertical),
+      onVerticalDragUpdate: (d) => update(Axis.vertical, d.delta.dy),
+      onVerticalDragEnd: (d) => end(Axis.vertical, d.velocity.pixelsPerSecond.dy),
+      onVerticalDragCancel: () => end(Axis.vertical, 0),
+      onHorizontalDragStart: narrow ? (_) => start(Axis.horizontal) : null,
+      onHorizontalDragUpdate: narrow ? (d) => update(Axis.horizontal, d.delta.dx) : null,
+      onHorizontalDragEnd: narrow ? (d) => end(Axis.horizontal, d.velocity.pixelsPerSecond.dx) : null,
+      onHorizontalDragCancel: narrow ? () => end(Axis.horizontal, 0) : null,
+      child: child,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +200,6 @@ class _PlayerPageState extends State<PlayerPage> {
     final cover = bigCoverUrl(song);
     _loadArt(cover);
     final wide = MediaQuery.sizeOf(context).width >= 800;
-    final route = ModalRoute.of(context);
 
     final page = Scaffold(
       backgroundColor: Colors.black,
@@ -103,89 +222,119 @@ class _PlayerPageState extends State<PlayerPage> {
       ),
     );
 
+    // 窄屏翻到队列时，返回键先翻回主页面；歌词页按返回直接关掉播放页
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Theme(
         data: _art?.theme ?? _fallbackTheme,
-        // 下拉时整页沿着变形的路径缩回播放条，手指松开再决定关还是弹回
-        child: route is PlayerRoute
-            ? GestureDetector(
-                onVerticalDragStart: (_) => route.dragStart(),
-                onVerticalDragUpdate: (d) => route.dragUpdate(d.delta.dy),
-                onVerticalDragEnd: (d) => route.dragEnd(d.velocity.pixelsPerSecond.dy),
-                onVerticalDragCancel: () => route.dragEnd(0),
-                child: page,
-              )
-            : page,
+        child: PopScope(
+          canPop: wide || _page.isDismissed || _side == _Panel.lyrics,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _page.animateBack(0, duration: _motion, curve: _curve);
+          },
+          // 下拉时整页沿着变形的路径缩回播放条，手指松开再决定关还是弹回
+          child: _gestures(narrow: !wide, child: page),
+        ),
       ),
     );
   }
 
+  /// 主页面和队列 / 歌词像两页纸：控件跟着主页面翻走，面板从下面或右边跟进来，
+  /// 封面和歌名按进度缩进左上角。
   Widget _narrow(PlayerController p, Song song, String cover) {
-    final open = _panel != _Panel.none;
-    return Column(
-      children: [
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, c) {
-              const pad = 28.0, titleH = 64.0, small = 60.0;
-              final size = min(c.maxWidth - pad * 2, c.maxHeight - titleH - 28).clamp(80.0, 560.0);
-              final top = max(0.0, (c.maxHeight - size - titleH - 24) / 2);
-              final coverRect = open
-                  ? const Rect.fromLTWH(24, 4, small, small)
-                  : Rect.fromLTWH((c.maxWidth - size) / 2, top, size, size);
-              final titleRect = open
-                  ? Rect.fromLTWH(24 + small + 14, 4, c.maxWidth - 24 - small - 14 - 20, small)
-                  : Rect.fromLTWH(pad, top + size + 24, c.maxWidth - pad * 2, titleH);
-              return Stack(
-                children: [
+    const small = 60.0;
+    // 主页面停稳时不建面板；从队列列表往下拉回来、手指还没松开时要留着，松手要靠它
+    final panel = _page.isDismissed && !_listPull
+        ? null
+        : RepaintBoundary(
+            child: switch (_side) {
+              _Panel.lyrics => const LyricView(key: ValueKey('lyrics')),
+              _Panel.queue => _QueuePanel(
+                key: const ValueKey('queue'),
+                onPullStart: () {
+                  _listPull = true;
+                  _pageDragStart(_Panel.queue);
+                },
+                onPull: _pageDragUpdate,
+                onPullEnd: (v) {
+                  setState(() => _listPull = false);
+                  _pageDragEnd(v);
+                },
+              ),
+            },
+          );
+    final controls = RepaintBoundary(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(28, 8, 28, 8),
+        child: _ControlsArea(accent: _palette.first),
+      ),
+    );
+    return LayoutBuilder(
+      builder: (context, area) {
+        _area = area.biggest;
+        return AnimatedBuilder(
+          animation: _page,
+          builder: (context, _) {
+            final t = _page.value;
+            // 整页翻走的距离：队列竖着翻一屏，歌词横着翻一屏
+            final shift = _side == _Panel.queue ? Offset(0, area.maxHeight) : Offset(area.maxWidth, 0);
+            return Stack(
+              children: [
+                if (panel != null)
                   Positioned.fill(
                     top: small + 16,
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 400),
-                      switchInCurve: Curves.easeOutCubic,
-                      transitionBuilder: (child, a) => FadeTransition(
-                        opacity: a,
-                        child: SlideTransition(
-                          position: Tween(begin: const Offset(0, 0.06), end: Offset.zero).animate(a),
-                          child: child,
-                        ),
-                      ),
-                      child: switch (_panel) {
-                        _Panel.lyrics => const LyricView(key: ValueKey('lyrics')),
-                        _Panel.queue => const _QueuePanel(key: ValueKey('queue')),
-                        _Panel.none => const SizedBox.shrink(),
-                      },
+                    child: Transform.translate(offset: shift * (1 - t), child: panel),
+                  ),
+                // 从下往上排：控件先画，封面歌名盖在上面
+                Column(
+                  verticalDirection: VerticalDirection.up,
+                  children: [
+                    // 控件翻走时从顶上那条封面歌名下面钻过去，和面板一样在那条线以上看不见
+                    ClipRect(
+                      clipper: _ClipAbove(() => small + 16 - _headerHeight),
+                      child: Transform.translate(offset: -shift * t, child: controls),
                     ),
-                  ),
-                  AnimatedPositioned.fromRect(
-                    rect: coverRect,
-                    duration: _motion,
-                    curve: _curve,
-                    child: _AlbumArt(url: cover, playing: p.playing, expanded: !open),
-                  ),
-                  AnimatedPositioned.fromRect(
-                    rect: titleRect,
-                    duration: _motion,
-                    curve: _curve,
-                    child: _TitleRow(song: song, compact: open),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(28, 8, 28, 8),
-          child: _ControlsArea(panel: _panel, accent: _palette.first, onPanel: _togglePanel),
-        ),
-      ],
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, c) {
+                          _headerHeight = c.maxHeight;
+                          const pad = 28.0, titleH = 64.0;
+                          final size = min(c.maxWidth - pad * 2, c.maxHeight - titleH - 28).clamp(80.0, 560.0);
+                          final top = max(0.0, (c.maxHeight - size - titleH - 24) / 2);
+                          final coverRect = Rect.lerp(
+                            Rect.fromLTWH((c.maxWidth - size) / 2, top, size, size),
+                            const Rect.fromLTWH(24, 4, small, small),
+                            t,
+                          )!;
+                          final titleRect = Rect.lerp(
+                            Rect.fromLTWH(pad, top + size + 24, c.maxWidth - pad * 2, titleH),
+                            Rect.fromLTWH(24 + small + 14, 4, c.maxWidth - 24 - small - 14 - 20, small),
+                            t,
+                          )!;
+                          return Stack(
+                            children: [
+                              Positioned.fromRect(
+                                rect: coverRect,
+                                child: _AlbumArt(url: cover, playing: p.playing, expanded: t < 0.5),
+                              ),
+                              Positioned.fromRect(rect: titleRect, child: _TitleRow(song: song, t: t)),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
   Widget _wide(PlayerController p, Song song, String cover) {
-    // 宽屏右侧始终有内容：默认歌词，点队列切换
-    final panel = _panel == _Panel.queue ? _Panel.queue : _Panel.lyrics;
+    // 宽屏右侧始终有内容：默认歌词，队列按钮在歌词和队列之间切换
     return Row(
       children: [
         Expanded(
@@ -208,12 +357,12 @@ class _PlayerPageState extends State<PlayerPage> {
                   ),
                 ),
                 const SizedBox(height: 28),
-                SizedBox(height: 64, child: _TitleRow(song: song, compact: false)),
+                SizedBox(height: 64, child: _TitleRow(song: song, t: 0)),
                 const SizedBox(height: 12),
                 _ControlsArea(
-                  panel: panel,
                   accent: _palette.first,
-                  onPanel: (x) => setState(() => _panel = x == _Panel.queue && _panel != _Panel.queue ? x : _Panel.lyrics),
+                  queueOpen: _wideQueue,
+                  onQueue: () => setState(() => _wideQueue = !_wideQueue),
                 ),
               ],
             ),
@@ -225,7 +374,7 @@ class _PlayerPageState extends State<PlayerPage> {
             padding: const EdgeInsets.fromLTRB(0, 8, 40, 8),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 400),
-              child: panel == _Panel.queue
+              child: _wideQueue
                   ? const _QueuePanel(key: ValueKey('queue'))
                   : const LyricView(key: ValueKey('lyrics'), fontSize: 36),
             ),
@@ -234,6 +383,19 @@ class _PlayerPageState extends State<PlayerPage> {
       ],
     );
   }
+}
+
+/// 只露出 [top] 以下的部分，[top] 用本地坐标、每次画的时候现取（要等排版完才知道）。
+class _ClipAbove extends CustomClipper<Rect> {
+  _ClipAbove(this.top);
+
+  final double Function() top;
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTRB(-1e5, top(), 1e5, 1e5);
+
+  @override
+  bool shouldReclip(_ClipAbove old) => true;
 }
 
 class _Grabber extends StatelessWidget {
@@ -268,7 +430,7 @@ BoxShadow albumArtShadow({required bool lifted}) => BoxShadow(
   offset: Offset(0, lifted ? 28 : 8),
 );
 
-/// 封面：暂停时缩小、播放时弹回并加深投影；大图状态下左右滑动切歌。
+/// 封面：暂停时缩小、播放时弹回并加深投影。
 class _AlbumArt extends StatelessWidget {
   const _AlbumArt({required this.url, required this.playing, required this.expanded});
 
@@ -278,40 +440,30 @@ class _AlbumArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.read<PlayerController>();
     final lifted = expanded && playing;
     final radius = expanded ? 14.0 : 8.0;
     final morph = PlayerMorph.maybeOf(context);
-    final art = GestureDetector(
-      onHorizontalDragEnd: !expanded
-          ? null
-          : (d) {
-              final v = d.velocity.pixelsPerSecond.dx;
-              if (v < -300) unawaited(p.next());
-              if (v > 300) unawaited(p.previous());
-            },
-      child: AnimatedScale(
-        scale: expanded && !playing ? 0.8 : 1,
+    final art = AnimatedScale(
+      scale: expanded && !playing ? 0.8 : 1,
+      duration: const Duration(milliseconds: 650),
+      curve: playing ? Curves.easeOutBack : Curves.easeOutCubic,
+      child: AnimatedContainer(
         duration: const Duration(milliseconds: 650),
-        curve: playing ? Curves.easeOutBack : Curves.easeOutCubic,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 650),
-          curve: Curves.easeOutCubic,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(radius),
-            boxShadow: [albumArtShadow(lifted: lifted)],
-          ),
-          // 打开播放页时封面从播放条飞过来，落点量的就是这里
-          child: KeyedSubtree(
-            key: morph?.artKey,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 450),
-              transitionBuilder: (child, a) => FadeTransition(
-                opacity: a,
-                child: ScaleTransition(scale: Tween(begin: 0.94, end: 1.0).animate(a), child: child),
-              ),
-              child: SizedBox.expand(key: ValueKey(url), child: Cover(url, radius: radius)),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(radius),
+          boxShadow: [albumArtShadow(lifted: lifted)],
+        ),
+        // 打开播放页时封面从播放条飞过来，落点量的就是这里
+        child: KeyedSubtree(
+          key: morph?.artKey,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 450),
+            transitionBuilder: (child, a) => FadeTransition(
+              opacity: a,
+              child: ScaleTransition(scale: Tween(begin: 0.94, end: 1.0).animate(a), child: child),
             ),
+            child: SizedBox.expand(key: ValueKey(url), child: Cover(url, radius: radius)),
           ),
         ),
       ),
@@ -326,11 +478,12 @@ class _AlbumArt extends StatelessWidget {
   }
 }
 
+/// 歌名、歌手和按钮。[t] 是翻页进度：0 是主页面的大字，1 是缩在左上角封面旁边的小字。
 class _TitleRow extends StatelessWidget {
-  const _TitleRow({required this.song, required this.compact});
+  const _TitleRow({required this.song, required this.t});
 
   final Song song;
-  final bool compact;
+  final double t;
 
   @override
   Widget build(BuildContext context) {
@@ -344,20 +497,16 @@ class _TitleRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              AnimatedDefaultTextStyle(
-                duration: _motion,
-                curve: _curve,
-                style: TextStyle(fontSize: compact ? 17 : 22, fontWeight: FontWeight.w800, color: Colors.white),
+              DefaultTextStyle(
+                style: TextStyle(fontSize: lerpDouble(22, 17, t), fontWeight: FontWeight.w800, color: Colors.white),
                 child: _Marquee(song.name),
               ),
               const SizedBox(height: 2),
               GestureDetector(
                 onTap: () => openSinger(context, song),
-                child: AnimatedDefaultTextStyle(
-                  duration: _motion,
-                  curve: _curve,
+                child: DefaultTextStyle(
                   style: TextStyle(
-                    fontSize: compact ? 14 : 18,
+                    fontSize: lerpDouble(18, 14, t),
                     fontWeight: FontWeight.w500,
                     color: error != null ? const Color(0xFFFF9A9A) : Colors.white60,
                   ),
@@ -513,13 +662,15 @@ class _LikeButton extends StatelessWidget {
   }
 }
 
-/// 进度条 + 播放按钮 + 音量 + 底部切换栏。
+/// 进度条 + 播放按钮一排 + 底部按钮。
 class _ControlsArea extends StatelessWidget {
-  const _ControlsArea({required this.panel, required this.accent, required this.onPanel});
+  const _ControlsArea({required this.accent, this.queueOpen = false, this.onQueue});
 
-  final _Panel panel;
   final Color accent;
-  final ValueChanged<_Panel> onPanel;
+  final bool queueOpen;
+
+  /// 宽屏才有队列按钮；窄屏上滑打开队列、左滑打开歌词，底下只留评论。
+  final VoidCallback? onQueue;
 
   @override
   Widget build(BuildContext context) {
@@ -529,21 +680,12 @@ class _ControlsArea extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         const _ProgressBar(),
-        const SizedBox(height: 4),
-        const _Transport(),
         const SizedBox(height: 6),
-        const _VolumeBar(),
+        const _Transport(),
         const SizedBox(height: 14),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _ToggleIcon(
-              icon: Icons.lyrics_outlined,
-              tooltip: l.lyrics,
-              selected: panel == _Panel.lyrics,
-              accent: accent,
-              onTap: () => onPanel(_Panel.lyrics),
-            ),
             _ToggleIcon(
               icon: Icons.mode_comment_outlined,
               tooltip: l.comments,
@@ -551,13 +693,14 @@ class _ControlsArea extends StatelessWidget {
               accent: accent,
               onTap: song == null ? () {} : () => Navigator.of(context).push(CommentsPage.song(song)),
             ),
-            _ToggleIcon(
-              icon: Icons.format_list_bulleted_rounded,
-              tooltip: l.queue,
-              selected: panel == _Panel.queue,
-              accent: accent,
-              onTap: () => onPanel(_Panel.queue),
-            ),
+            if (onQueue != null)
+              _ToggleIcon(
+                icon: Icons.format_list_bulleted_rounded,
+                tooltip: l.queue,
+                selected: queueOpen,
+                accent: accent,
+                onTap: onQueue!,
+              ),
           ],
         ),
       ],
@@ -611,7 +754,6 @@ class _ThinSlider extends StatelessWidget {
     required this.onStart,
     required this.onChanged,
     required this.onEnd,
-    this.height = 7,
   });
 
   final double value;
@@ -619,7 +761,7 @@ class _ThinSlider extends StatelessWidget {
   final ValueChanged<double> onStart;
   final ValueChanged<double> onChanged;
   final VoidCallback onEnd;
-  final double height;
+  static const height = 7.0;
 
   @override
   Widget build(BuildContext context) {
@@ -729,62 +871,7 @@ class _ProgressBarState extends State<_ProgressBar> {
   }
 }
 
-class _VolumeBar extends StatefulWidget {
-  const _VolumeBar();
-
-  @override
-  State<_VolumeBar> createState() => _VolumeBarState();
-}
-
-class _VolumeBarState extends State<_VolumeBar> {
-  bool _active = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.watch<PlayerController>();
-    final l = AppLocalizations.of(context);
-    void set(double v) => unawaited(p.setVolume(v * 100));
-    return Semantics(
-      label: l.volume,
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => set(0),
-            child: AnimatedScale(
-              scale: _active ? 1.15 : 1,
-              duration: const Duration(milliseconds: 200),
-              child: const Icon(Icons.volume_mute_rounded, size: 18, color: Colors.white54),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _ThinSlider(
-              value: p.volume / 100,
-              active: _active,
-              height: 6,
-              onStart: (v) {
-                setState(() => _active = true);
-                set(v);
-              },
-              onChanged: set,
-              onEnd: () => setState(() => _active = false),
-            ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => set(1),
-            child: AnimatedScale(
-              scale: _active ? 1.15 : 1,
-              duration: const Duration(milliseconds: 200),
-              child: const Icon(Icons.volume_up_rounded, size: 20, color: Colors.white54),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
+/// 播放模式 · 上一首 · 播放 / 暂停 · 下一首 · 音量。
 class _Transport extends StatelessWidget {
   const _Transport();
 
@@ -792,8 +879,9 @@ class _Transport extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.watch<PlayerController>();
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
+        const _ModeButton(),
         _PressButton(
           size: 44,
           nudge: -1,
@@ -821,12 +909,14 @@ class _Transport extends StatelessWidget {
           onTap: p.next,
           child: const Icon(Icons.fast_forward_rounded, size: 44, color: Colors.white),
         ),
+        const _VolumeButton(),
       ],
     );
   }
 }
 
 /// 按下时缩小并亮起圆形底；上一首 / 下一首额外往对应方向轻推一下。
+/// 圆形底比按钮本身大，画在布局范围外面，不把一排按钮撑宽。
 class _PressButton extends StatefulWidget {
   const _PressButton({required this.size, required this.onTap, required this.child, this.nudge = 0});
 
@@ -858,6 +948,7 @@ class _PressButtonState extends State<_PressButton> with TickerProviderStateMixi
   Widget build(BuildContext context) {
     final box = widget.size * 1.7;
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTapDown: (_) => _press.forward(),
       onTapCancel: _press.reverse,
       onTapUp: (_) {
@@ -866,19 +957,299 @@ class _PressButtonState extends State<_PressButton> with TickerProviderStateMixi
         HapticFeedback.lightImpact();
         widget.onTap();
       },
-      child: AnimatedBuilder(
-        animation: Listenable.merge([_press, _nudge]),
-        builder: (_, child) => Container(
-          width: box,
-          height: box,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.16 * _press.value)),
-          child: Transform.translate(
-            offset: Offset(widget.nudge * 12 * sin(Curves.easeOut.transform(_nudge.value) * pi), 0),
-            child: Transform.scale(scale: 1 - 0.14 * _press.value, child: child),
+      child: SizedBox.square(
+        dimension: widget.size * 1.25,
+        child: OverflowBox(
+          maxWidth: box,
+          maxHeight: box,
+          child: AnimatedBuilder(
+            animation: Listenable.merge([_press, _nudge]),
+            builder: (_, child) => Container(
+              width: box,
+              height: box,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.16 * _press.value)),
+              child: Transform.translate(
+                offset: Offset(widget.nudge * 12 * sin(Curves.easeOut.transform(_nudge.value) * pi), 0),
+                child: Transform.scale(scale: 1 - 0.14 * _press.value, child: child),
+              ),
+            ),
+            child: Center(child: widget.child),
           ),
         ),
-        child: Center(child: widget.child),
       ),
+    );
+  }
+}
+
+String _modeLabel(AppLocalizations l, PlayMode mode) => switch (mode) {
+  PlayMode.sequence => l.modeSequence,
+  PlayMode.repeatOne => l.modeRepeatOne,
+  PlayMode.shuffle => l.modeShuffle,
+};
+
+/// 播放模式：点一下换下一种（列表循环 → 单曲循环 → 随机），换完弹个提示。
+class _ModeButton extends StatelessWidget {
+  const _ModeButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final mode = context.select<PlayerController, PlayMode>((p) => p.mode);
+    return Tooltip(
+      message: _modeLabel(l, mode),
+      child: _PressButton(
+        size: 32,
+        onTap: () {
+          final p = context.read<PlayerController>()..cycleMode();
+          showToast(context, _modeLabel(l, p.mode));
+        },
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          switchInCurve: Curves.easeOutBack,
+          transitionBuilder: (child, a) => FadeTransition(
+            opacity: a,
+            child: ScaleTransition(scale: Tween(begin: 0.5, end: 1.0).animate(a), child: child),
+          ),
+          child: Icon(
+            switch (mode) {
+              PlayMode.sequence => Icons.repeat_rounded,
+              PlayMode.repeatOne => Icons.repeat_one_rounded,
+              PlayMode.shuffle => Icons.shuffle_rounded,
+            },
+            key: ValueKey(mode),
+            size: 24,
+            color: Colors.white70,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+IconData _volumeIcon(double volume) => volume == 0
+    ? Icons.volume_off_rounded
+    : volume < 50
+        ? Icons.volume_down_rounded
+        : Icons.volume_up_rounded;
+
+/// 音量按钮：点开时按钮本身长成一条竖着的音量条，点外面再缩回按钮。
+class _VolumeButton extends StatefulWidget {
+  const _VolumeButton();
+
+  @override
+  State<_VolumeButton> createState() => _VolumeButtonState();
+}
+
+class _VolumeButtonState extends State<_VolumeButton> {
+  bool _open = false;
+
+  void _openPanel() {
+    final box = context.findRenderObject()! as RenderBox;
+    final route = _VolumeRoute(
+      anchor: box.localToGlobal(Offset.zero) & box.size,
+      player: context.read<PlayerController>(),
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    );
+    // 展开期间按钮藏起来，看起来就是它自己变成了音量条；缩回去落地了再露出来
+    setState(() => _open = true);
+    unawaited(Navigator.of(context, rootNavigator: true).push(route));
+    unawaited(route.completed.then((_) {
+      if (mounted) setState(() => _open = false);
+    }));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final volume = context.select<PlayerController, double>((p) => p.volume);
+    return Tooltip(
+      message: l.volume,
+      child: Opacity(
+        opacity: _open ? 0 : 1,
+        child: _PressButton(
+          size: 32,
+          onTap: _openPanel,
+          child: Icon(_volumeIcon(volume), size: 24, color: Colors.white70),
+        ),
+      ),
+    );
+  }
+}
+
+class _VolumeRoute extends PopupRoute<void> {
+  _VolumeRoute({required this.anchor, required this.player, required this.barrierLabel});
+
+  /// 音量按钮在屏幕上的位置，音量条从这里长出来、缩回这里。
+  final Rect anchor;
+  final PlayerController player;
+
+  @override
+  final String barrierLabel;
+
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  bool get barrierDismissible => true;
+
+  @override
+  Duration get transitionDuration => const Duration(milliseconds: 380);
+
+  @override
+  Duration get reverseTransitionDuration => const Duration(milliseconds: 260);
+
+  late final CurvedAnimation _curved = CurvedAnimation(
+    parent: animation!,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+
+  @override
+  void dispose() {
+    _curved.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget buildPage(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation) =>
+      _VolumePanel(anchor: anchor, player: player, animation: _curved, route: animation);
+}
+
+class _VolumePanel extends StatelessWidget {
+  const _VolumePanel({required this.anchor, required this.player, required this.animation, required this.route});
+
+  final Rect anchor;
+  final PlayerController player;
+
+  /// 加了曲线的进度：0 是按钮，1 是展开的音量条。
+  final Animation<double> animation;
+
+  /// 路由本身的动画，只用来判断是在展开还是在收起。
+  final Animation<double> route;
+
+  static const _width = 56.0, _height = 220.0;
+
+  void _set(double v) => unawaited(player.setVolume(v * 100));
+
+  @override
+  Widget build(BuildContext context) {
+    final screen = MediaQuery.sizeOf(context);
+    final top = MediaQuery.paddingOf(context).top;
+    final c = anchor.center;
+    // 底部那一格放图标，正好盖在按钮原来的位置上
+    final left = (c.dx - _width / 2).clamp(8.0, screen.width - _width - 8);
+    final bottom = c.dy + _width / 2;
+    final panel = Rect.fromLTRB(left, max(top + 8, bottom - _height), left + _width, bottom);
+    return Material(
+      type: MaterialType.transparency,
+      child: AnimatedBuilder(
+        animation: animation,
+        builder: (context, _) {
+          final t = animation.value;
+          final rect = Rect.lerp(anchor, panel, t)!;
+          final radius = lerpDouble(anchor.shortestSide / 2, _width / 2, t)!;
+          final content = ((t - 0.35) / 0.65).clamp(0.0, 1.0);
+          return Stack(
+            children: [
+              Positioned.fromRect(
+                rect: rect,
+                child: IgnorePointer(
+                  // 收起途中不再接受拖动
+                  ignoring: route.status == AnimationStatus.reverse,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(radius),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 24 * t, sigmaY: 24 * t),
+                      child: ColoredBox(
+                        color: Colors.white.withValues(alpha: 0.16 * t),
+                        child: LayoutBuilder(
+                          builder: (context, box) {
+                            double at(Offset o) => (1 - o.dy / box.maxHeight).clamp(0.0, 1.0);
+                            return Listener(
+                              onPointerSignal: (e) {
+                                if (e is PointerScrollEvent) _set((player.volume - e.scrollDelta.dy / 8) / 100);
+                              },
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onVerticalDragStart: (d) => _set(at(d.localPosition)),
+                                onVerticalDragUpdate: (d) => _set(at(d.localPosition)),
+                                onTapUp: (d) => _set(at(d.localPosition)),
+                                child: ListenableBuilder(
+                                  listenable: player,
+                                  builder: (context, _) =>
+                                      _VolumeFill(volume: player.volume, content: content, iconBox: lerpDouble(anchor.height, _width, t)!),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// 音量条里面：从下往上的填充、顶上的数值、底部的图标。图标被填充盖住时换成深色。
+class _VolumeFill extends StatelessWidget {
+  const _VolumeFill({required this.volume, required this.content, required this.iconBox});
+
+  final double volume;
+  final double content;
+  final double iconBox;
+
+  @override
+  Widget build(BuildContext context) {
+    final v = volume / 100;
+    return LayoutBuilder(
+      builder: (context, box) {
+        final filled = v * box.maxHeight;
+        Color on(bool covered) => Color.lerp(Colors.white70, Colors.black87, covered ? content : 0)!;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: SizedBox(
+                height: filled,
+                width: double.infinity,
+                child: ColoredBox(color: Colors.white.withValues(alpha: 0.9 * content)),
+              ),
+            ),
+            Positioned(
+              top: 12,
+              left: 0,
+              right: 0,
+              child: Opacity(
+                opacity: content,
+                child: Text(
+                  '${volume.round()}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: on(filled > box.maxHeight - 22),
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: iconBox,
+              child: Center(child: Icon(_volumeIcon(volume), size: 24, color: on(filled > iconBox / 2))),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -998,7 +1369,13 @@ class QualityMenu extends StatelessWidget {
 }
 
 class _QueuePanel extends StatefulWidget {
-  const _QueuePanel({super.key});
+  const _QueuePanel({super.key, this.onPullStart, this.onPull, this.onPullEnd});
+
+  /// 窄屏：列表已经在最顶上还往下拉时，这次拖动改成翻回主页面，跟着手指走。
+  /// [onPull] 给竖直位移，[onPullEnd] 给松手时的竖直速度。
+  final VoidCallback? onPullStart;
+  final ValueChanged<double>? onPull;
+  final ValueChanged<double>? onPullEnd;
 
   @override
   State<_QueuePanel> createState() => _QueuePanelState();
@@ -1009,6 +1386,48 @@ class _QueuePanelState extends State<_QueuePanel> {
   late final ScrollController _scroll = SmoothScrollController(
     initialScrollOffset: max(0, (context.read<PlayerController>().index - 1) * _extent),
   );
+
+  /// 直接看手指，不进手势竞争：比列表的滚动手势先一步判断是不是在顶上往下拉。
+  VelocityTracker? _tracker;
+  double _moved = 0;
+  bool _decided = false;
+  bool _pulling = false;
+
+  void _onDown(PointerDownEvent e) {
+    if (widget.onPull == null) return;
+    _tracker = VelocityTracker.withKind(e.kind)..addPosition(e.timeStamp, e.position);
+    _moved = 0;
+    _decided = false;
+  }
+
+  void _onMove(PointerMoveEvent e) {
+    final tracker = _tracker;
+    if (tracker == null) return;
+    tracker.addPosition(e.timeStamp, e.position);
+    if (_pulling) {
+      widget.onPull!(e.delta.dy);
+      return;
+    }
+    if (_decided) return;
+    _moved += e.delta.dy;
+    // 比列表滚动的判定距离小，列表还没开始滚就决定好
+    if (_moved.abs() < 8) return;
+    _decided = true;
+    final atTop = _scroll.hasClients && _scroll.position.pixels <= _scroll.position.minScrollExtent;
+    if (_moved < 0 || !atTop) return;
+    // 拉的时候列表本身不能滚，换掉滚动物理也会结束列表已经开始的那次滚动
+    setState(() => _pulling = true);
+    widget.onPullStart!();
+    widget.onPull!(_moved);
+  }
+
+  void _onUp(PointerEvent e, {required bool cancel}) {
+    final tracker = _tracker;
+    _tracker = null;
+    if (!_pulling) return;
+    setState(() => _pulling = false);
+    widget.onPullEnd!(cancel || tracker == null ? 0 : tracker.getVelocity().pixelsPerSecond.dy);
+  }
 
   @override
   void dispose() {
@@ -1024,27 +1443,8 @@ class _QueuePanelState extends State<_QueuePanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 4, 20, 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(l.upNext, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: Colors.white)),
-              ),
-              _ModeChip(
-                icon: Icons.shuffle_rounded,
-                tooltip: l.modeShuffle,
-                selected: p.mode == PlayMode.shuffle,
-                onTap: () => p.setMode(p.mode == PlayMode.shuffle ? PlayMode.sequence : PlayMode.shuffle),
-              ),
-              const SizedBox(width: 8),
-              _ModeChip(
-                icon: p.mode == PlayMode.repeatOne ? Icons.repeat_one_rounded : Icons.repeat_rounded,
-                tooltip: p.mode == PlayMode.repeatOne ? l.modeRepeatOne : l.modeSequence,
-                selected: p.mode == PlayMode.repeatOne,
-                onTap: () => p.setMode(p.mode == PlayMode.repeatOne ? PlayMode.sequence : PlayMode.repeatOne),
-              ),
-            ],
-          ),
+          padding: const EdgeInsets.fromLTRB(24, 8, 20, 12),
+          child: Text(l.upNext, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: Colors.white)),
         ),
         Expanded(
           child: ShaderMask(
@@ -1055,51 +1455,29 @@ class _QueuePanelState extends State<_QueuePanel> {
               colors: [Colors.transparent, Colors.black, Colors.black, Colors.transparent],
               stops: [0, 0.04, 0.9, 1],
             ).createShader(r),
-            child: ListView.builder(
-              controller: _scroll,
-              itemExtent: _extent,
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 40),
-              itemCount: p.queue.length,
-              itemBuilder: (_, i) => _QueueTile(
-                song: p.queue[i],
-                current: i == p.index,
-                played: i < p.index,
-                playing: p.playing,
-                onTap: () => p.playAt(i),
+            child: Listener(
+              onPointerDown: _onDown,
+              onPointerMove: _onMove,
+              onPointerUp: (e) => _onUp(e, cancel: false),
+              onPointerCancel: (e) => _onUp(e, cancel: true),
+              child: ListView.builder(
+                controller: _scroll,
+                physics: _pulling ? const NeverScrollableScrollPhysics() : null,
+                itemExtent: _extent,
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 40),
+                itemCount: p.queue.length,
+                itemBuilder: (_, i) => _QueueTile(
+                  song: p.queue[i],
+                  current: i == p.index,
+                  played: i < p.index,
+                  playing: p.playing,
+                  onTap: () => p.playAt(i),
+                ),
               ),
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ModeChip extends StatelessWidget {
-  const _ModeChip({required this.icon, required this.tooltip, required this.selected, required this.onTap});
-
-  final IconData icon;
-  final String tooltip;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          width: 40,
-          height: 32,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: selected ? 0.9 : 0.14),
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: Icon(icon, size: 19, color: selected ? Colors.black87 : Colors.white),
-        ),
-      ),
     );
   }
 }

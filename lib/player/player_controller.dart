@@ -66,6 +66,7 @@ class PlayerController extends ChangeNotifier {
       }),
     ]);
     _restoreSession();
+    if (volume != 100) unawaited(_player.setVolume(volume));
   }
 
   final Player _player = Player(configuration: const PlayerConfiguration(title: 'Kanade'));
@@ -78,6 +79,8 @@ class PlayerController extends ChangeNotifier {
 
   static const _defaultQualityKey = 'default_quality';
   static const _sessionKey = 'last_session';
+  static const _modeKey = 'play_mode';
+  static const _volumeKey = 'volume';
 
   /// 上次的队列是启动时恢复出来的，还没取过音源：按播放键时才真正打开。
   bool _restored = false;
@@ -87,7 +90,9 @@ class PlayerController extends ChangeNotifier {
 
   /// 播放器里选择的音质，切歌后继续沿用；歌曲没有该档位或播不了时会降级。
   late Quality quality = defaultQuality;
-  PlayMode mode = PlayMode.sequence;
+
+  /// 播放模式单独存一份，队列空着的时候也记得住。
+  PlayMode mode = PlayMode.values.asNameMap()[api.getPref(key: _modeKey)] ?? PlayMode.sequence;
 
   bool playing = false;
   bool buffering = false;
@@ -359,17 +364,27 @@ class PlayerController extends ChangeNotifier {
 
   void setMode(PlayMode m) {
     mode = m;
+    api.setPref(key: _modeKey, value: m.name);
     _saveSession();
     notifyListeners();
   }
 
-  /// 音量 0–100。
-  double volume = 100;
+  /// 音量 0–100，重启后恢复上次的值。
+  double volume = (double.tryParse(api.getPref(key: _volumeKey) ?? '') ?? 100).clamp(0, 100);
+  Timer? _volumeSave;
 
   Future<void> setVolume(double v) {
     volume = v.clamp(0, 100);
+    // 拖动音量时每帧都会调到这里，停下来再写库
+    _volumeSave?.cancel();
+    _volumeSave = Timer(const Duration(milliseconds: 400), _saveVolume);
     notifyListeners();
     return _player.setVolume(volume);
+  }
+
+  void _saveVolume() {
+    _volumeSave = null;
+    api.setPref(key: _volumeKey, value: volume.toStringAsFixed(1));
   }
 
   /// 切换当前歌曲的音质：从当前进度继续播放，暂停状态保持暂停。
@@ -419,7 +434,8 @@ class PlayerController extends ChangeNotifier {
       if (i < 0 || i >= songs.length) return;
       queue = songs;
       index = i;
-      mode = PlayMode.values.asNameMap()[m['mode']] ?? mode;
+      // 旧版本只把模式存在会话里
+      if (api.getPref(key: _modeKey) == null) mode = PlayMode.values.asNameMap()[m['mode']] ?? mode;
       duration = Duration(seconds: songs[i].durationSecs);
       _restored = true;
     } catch (_) {
@@ -483,6 +499,10 @@ class PlayerController extends ChangeNotifier {
   @override
   void dispose() {
     ++_qualitiesToken;
+    if (_volumeSave != null) {
+      _volumeSave!.cancel();
+      _saveVolume();
+    }
     _auth.removeListener(_onAuthChanged);
     for (final s in _subs) {
       s.cancel();

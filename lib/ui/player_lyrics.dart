@@ -26,6 +26,9 @@ class _LyricViewState extends State<LyricView> {
   bool _userScrolling = false;
   DateTime _userScrolledAt = DateTime(0);
 
+  /// 刚打开或换了歌词：直接停到当前行，不从第一行滚下来。
+  bool _jump = true;
+
   @override
   void initState() {
     super.initState();
@@ -56,10 +59,12 @@ class _LyricViewState extends State<LyricView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ctx = i >= 0 && i < _keys.length ? _keys[i].currentContext : null;
       if (ctx != null) {
+        final jump = _jump;
+        _jump = false;
         Scrollable.ensureVisible(
           ctx,
           alignment: 0.3,
-          duration: const Duration(milliseconds: 700),
+          duration: jump ? Duration.zero : const Duration(milliseconds: 700),
           curve: Curves.easeOutCubic,
         );
       }
@@ -72,7 +77,9 @@ class _LyricViewState extends State<LyricView> {
     if (!identical(lyric, _lyric)) {
       _lyric = lyric;
       _keys = List.generate(lyric?.lines.length ?? 0, (_) => GlobalKey());
-      _current = -1;
+      _current = _player.lyricIndexAt(_player.position.value);
+      _jump = true;
+      _follow(_current);
     }
     final l = AppLocalizations.of(context);
     final big = TextStyle(fontSize: widget.fontSize, fontWeight: FontWeight.w800, height: 1.25);

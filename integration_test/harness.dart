@@ -35,6 +35,15 @@ Future<(PlayerController, NavigatorState)> launchWithSong(
     final top = groups.first.lists.first;
     return (await api.getToplistDetail(topId: top.topId, period: top.period)).songs;
   });
+  // 测试里静音。音量会存下来，结束时把存的值改回去，别把用户的音量留成 0；
+  // 那时播放器已经销毁（销毁时会把当前音量写进去），只能直接改存储
+  // 测试和真正的 App 用同一个数据库，上次的播放队列也一起还原
+  final savedVolume = api.getPref(key: 'volume');
+  final savedSession = api.getPref(key: 'last_session');
+  addTearDown(() {
+    api.setPref(key: 'volume', value: savedVolume ?? '100');
+    if (savedSession != null) api.setPref(key: 'last_session', value: savedSession);
+  });
   await tester.runAsync(() async {
     await player.setVolume(0);
     final playing = player.playList(songs!, 0);

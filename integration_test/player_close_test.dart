@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:kanade/ui/desktop_shell.dart';
 import 'package:kanade/ui/mini_player.dart';
+import 'package:kanade/ui/player_page.dart';
 import 'package:kanade/ui/player_route.dart';
 
 import 'harness.dart';
@@ -21,21 +22,31 @@ void main() {
     final (_, nav) = await launchWithSong(tester);
     Future<void> wait(int ms) => tester.runAsync(() => Future<void>.delayed(Duration(milliseconds: ms)));
 
+    // 手机上左滑进歌词、上滑进队列，返回键回到主页面；电脑右边默认就是歌词，只有队列按钮
+    final narrow = Platform.isAndroid;
+    final page = find.byType(PlayerPage);
+    Future<void> swipe(Offset by) => tester.fling(page, by, 1500);
     final cases = <String, Future<void> Function()>{
       'plain': () async {},
-      'lyrics': () async {
-        await tester.tap(find.byIcon(Icons.lyrics_outlined).last);
-        await wait(800);
-        await tester.tap(find.byIcon(Icons.lyrics_outlined).last);
-      },
-      // 歌词开着直接退出
-      'lyricsOpen': () async {
-        await tester.tap(find.byIcon(Icons.lyrics_outlined).last);
+      if (narrow) ...{
+        'lyrics': () async {
+          await swipe(const Offset(-300, 0));
+          await wait(800);
+          await nav.maybePop();
+        },
+        // 歌词开着直接退出
+        'lyricsOpen': () => swipe(const Offset(-300, 0)),
       },
       'queue': () async {
-        await tester.tap(find.byIcon(Icons.format_list_bulleted_rounded).last);
-        await wait(800);
-        await tester.tap(find.byIcon(Icons.format_list_bulleted_rounded).last);
+        if (narrow) {
+          await swipe(const Offset(0, -300));
+          await wait(800);
+          await nav.maybePop();
+        } else {
+          await tester.tap(find.byIcon(Icons.format_list_bulleted_rounded).last);
+          await wait(800);
+          await tester.tap(find.byIcon(Icons.format_list_bulleted_rounded).last);
+        }
       },
       'pause': () async {
         await tester.tap(find.byType(AnimatedIcon).last);
