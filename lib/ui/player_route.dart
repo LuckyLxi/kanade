@@ -144,7 +144,10 @@ class PlayerBarDrag {
 }
 
 class _DragPreview with PlayerMorph {
-  _DragPreview(this.anchor, TickerProvider vsync) : _controller = AnimationController(vsync: vsync);
+  _DragPreview(this.anchor, TickerProvider vsync) : _controller = AnimationController(vsync: vsync) {
+    // 拖到顶时飞行封面撤掉，换播放页自己的封面露出来，和路由里一样
+    _controller.addListener(() => artInFlight.value = _controller.value < 1);
+  }
 
   @override
   final PlayerBarAnchor anchor;

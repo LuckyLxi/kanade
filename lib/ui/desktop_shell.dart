@@ -317,38 +317,32 @@ class _DesktopBarContent extends StatelessWidget {
             width: 300,
             child: Row(
               children: [
-                InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: openPlayer,
-                  child: showCover
-                      ? KeyedSubtree(
-                          key: DesktopPlayerBar.anchor.coverKey,
-                          child: Cover(song.coverUrl, size: 54, radius: 12),
-                        )
-                      : const SizedBox.square(dimension: 54),
-                ),
+                // 封面和歌名的点击交给外层播放栏打开播放页，不画水波纹
+                showCover
+                    ? KeyedSubtree(
+                        key: DesktopPlayerBar.anchor.coverKey,
+                        child: Cover(song.coverUrl, size: 54, radius: 12),
+                      )
+                    : const SizedBox.square(dimension: 54),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: InkWell(
-                    onTap: openPlayer,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          song.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                        ),
-                        Text(
-                          p.error == null ? singerNames(song) : playerErrorText(l, p.error!),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, color: p.error != null ? scheme.error : muted),
-                        ),
-                      ],
-                    ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        song.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        p.error == null ? singerNames(song) : playerErrorText(l, p.error!),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: p.error != null ? scheme.error : muted),
+                      ),
+                    ],
                   ),
                 ),
                 IconButton(
