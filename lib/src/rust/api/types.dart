@@ -9,7 +9,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'types.freezed.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 class AlbumBrief {
   final String mid;
@@ -317,6 +317,89 @@ class LyricLine {
           trans == other.trans;
 }
 
+class MvDetail {
+  final String vid;
+  final String name;
+  final String coverUrl;
+  final List<Singer> singers;
+
+  /// 用户上传的视频才有。
+  final String uploader;
+  final int durationSecs;
+  final BigInt playCount;
+
+  /// 形如 2026-09-17，可能为空。
+  final String publishDate;
+  final String description;
+
+  /// 从低到高；没有权限或下架时为空。
+  final List<MvStream> streams;
+
+  const MvDetail({
+    required this.vid,
+    required this.name,
+    required this.coverUrl,
+    required this.singers,
+    required this.uploader,
+    required this.durationSecs,
+    required this.playCount,
+    required this.publishDate,
+    required this.description,
+    required this.streams,
+  });
+
+  @override
+  int get hashCode =>
+      vid.hashCode ^
+      name.hashCode ^
+      coverUrl.hashCode ^
+      singers.hashCode ^
+      uploader.hashCode ^
+      durationSecs.hashCode ^
+      playCount.hashCode ^
+      publishDate.hashCode ^
+      description.hashCode ^
+      streams.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MvDetail &&
+          runtimeType == other.runtimeType &&
+          vid == other.vid &&
+          name == other.name &&
+          coverUrl == other.coverUrl &&
+          singers == other.singers &&
+          uploader == other.uploader &&
+          durationSecs == other.durationSecs &&
+          playCount == other.playCount &&
+          publishDate == other.publishDate &&
+          description == other.description &&
+          streams == other.streams;
+}
+
+/// MV 的一档清晰度。
+class MvStream {
+  /// 画面高度：360 / 480 / 720 / 1080。
+  final int height;
+  final String url;
+  final BigInt size;
+
+  const MvStream({required this.height, required this.url, required this.size});
+
+  @override
+  int get hashCode => height.hashCode ^ url.hashCode ^ size.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MvStream &&
+          runtimeType == other.runtimeType &&
+          height == other.height &&
+          url == other.url &&
+          size == other.size;
+}
+
 /// 当前账号自己创建的歌单，加歌和红心用。
 class MyPlaylist {
   /// 201 是“我喜欢”。
@@ -602,14 +685,60 @@ class RecommendSection {
           playlists == other.playlists;
 }
 
+/// 搜索分类，对应 Windows 客户端搜索结果页的标签。
+enum SearchKind {
+  song,
+  singer,
+  album,
+  playlist,
+
+  /// 官方 MV 和用户上传的视频混在一起。
+  video,
+
+  /// 按歌词搜歌，结果仍是歌曲，另附命中的歌词片段。
+  lyric,
+  user,
+}
+
+/// 一页搜索结果，只有所搜分类对应的列表有内容。
 class SearchResult {
   final List<Song> songs;
+
+  /// 歌词搜索时与 songs 一一对应的命中歌词，没找到命中行时为空字符串；其他分类为空列表。
+  final List<String> lyricSnippets;
+  final List<SingerBrief> singers;
+  final List<AlbumBrief> albums;
+  final List<PlaylistBrief> playlists;
+  final List<VideoBrief> videos;
+  final List<UserBrief> users;
   final int total;
 
-  const SearchResult({required this.songs, required this.total});
+  /// 还有下一页。返回条数可能多于请求的每页条数，不能用条数判断。
+  final bool hasMore;
+
+  const SearchResult({
+    required this.songs,
+    required this.lyricSnippets,
+    required this.singers,
+    required this.albums,
+    required this.playlists,
+    required this.videos,
+    required this.users,
+    required this.total,
+    required this.hasMore,
+  });
 
   @override
-  int get hashCode => songs.hashCode ^ total.hashCode;
+  int get hashCode =>
+      songs.hashCode ^
+      lyricSnippets.hashCode ^
+      singers.hashCode ^
+      albums.hashCode ^
+      playlists.hashCode ^
+      videos.hashCode ^
+      users.hashCode ^
+      total.hashCode ^
+      hasMore.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -617,7 +746,14 @@ class SearchResult {
       other is SearchResult &&
           runtimeType == other.runtimeType &&
           songs == other.songs &&
-          total == other.total;
+          lyricSnippets == other.lyricSnippets &&
+          singers == other.singers &&
+          albums == other.albums &&
+          playlists == other.playlists &&
+          videos == other.videos &&
+          users == other.users &&
+          total == other.total &&
+          hasMore == other.hasMore;
 }
 
 class SearchSuggestion {
@@ -662,6 +798,41 @@ class Singer {
           runtimeType == other.runtimeType &&
           mid == other.mid &&
           name == other.name;
+}
+
+class SingerBrief {
+  final String mid;
+  final String name;
+  final String avatarUrl;
+  final int songCount;
+  final int albumCount;
+
+  const SingerBrief({
+    required this.mid,
+    required this.name,
+    required this.avatarUrl,
+    required this.songCount,
+    required this.albumCount,
+  });
+
+  @override
+  int get hashCode =>
+      mid.hashCode ^
+      name.hashCode ^
+      avatarUrl.hashCode ^
+      songCount.hashCode ^
+      albumCount.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SingerBrief &&
+          runtimeType == other.runtimeType &&
+          mid == other.mid &&
+          name == other.name &&
+          avatarUrl == other.avatarUrl &&
+          songCount == other.songCount &&
+          albumCount == other.albumCount;
 }
 
 class SingerDetail {
@@ -896,6 +1067,48 @@ class TopListGroup {
           lists == other.lists;
 }
 
+class UserBrief {
+  /// 加密的账号编号（encrypt_uin），打开用户主页用；搜索结果里没有明文账号。
+  final String euin;
+  final String name;
+  final String avatarUrl;
+  final BigInt fansCount;
+  final int playlistCount;
+
+  /// 认证说明，比如“《鸣潮》先约电台团队推出的电台栏目”，可能为空。
+  final String description;
+
+  const UserBrief({
+    required this.euin,
+    required this.name,
+    required this.avatarUrl,
+    required this.fansCount,
+    required this.playlistCount,
+    required this.description,
+  });
+
+  @override
+  int get hashCode =>
+      euin.hashCode ^
+      name.hashCode ^
+      avatarUrl.hashCode ^
+      fansCount.hashCode ^
+      playlistCount.hashCode ^
+      description.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UserBrief &&
+          runtimeType == other.runtimeType &&
+          euin == other.euin &&
+          name == other.name &&
+          avatarUrl == other.avatarUrl &&
+          fansCount == other.fansCount &&
+          playlistCount == other.playlistCount &&
+          description == other.description;
+}
+
 class UserInfo {
   final String uin;
   final String nickname;
@@ -918,4 +1131,111 @@ class UserInfo {
           uin == other.uin &&
           nickname == other.nickname &&
           avatarUrl == other.avatarUrl;
+}
+
+class UserPlaylistPage {
+  final List<PlaylistBrief> playlists;
+  final bool hasMore;
+
+  const UserPlaylistPage({required this.playlists, required this.hasMore});
+
+  @override
+  int get hashCode => playlists.hashCode ^ hasMore.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UserPlaylistPage &&
+          runtimeType == other.runtimeType &&
+          playlists == other.playlists &&
+          hasMore == other.hasMore;
+}
+
+class UserProfile {
+  final String euin;
+  final String name;
+  final String avatarUrl;
+  final BigInt fansCount;
+  final BigInt followCount;
+
+  /// 公开歌单数；主页没有歌单标签时为 0。
+  final int playlistCount;
+
+  const UserProfile({
+    required this.euin,
+    required this.name,
+    required this.avatarUrl,
+    required this.fansCount,
+    required this.followCount,
+    required this.playlistCount,
+  });
+
+  @override
+  int get hashCode =>
+      euin.hashCode ^
+      name.hashCode ^
+      avatarUrl.hashCode ^
+      fansCount.hashCode ^
+      followCount.hashCode ^
+      playlistCount.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UserProfile &&
+          runtimeType == other.runtimeType &&
+          euin == other.euin &&
+          name == other.name &&
+          avatarUrl == other.avatarUrl &&
+          fansCount == other.fansCount &&
+          followCount == other.followCount &&
+          playlistCount == other.playlistCount;
+}
+
+class VideoBrief {
+  /// 字符串 VID，取 MV 详情和播放地址用；不能用数字 mv_id 代替。
+  final String vid;
+  final String name;
+  final String coverUrl;
+  final int durationSecs;
+  final BigInt playCount;
+
+  /// 官方 MV 是歌手名，用户上传的是上传者昵称。
+  final String creator;
+
+  /// 用户上传，而不是官方 MV。
+  final bool uploaded;
+
+  const VideoBrief({
+    required this.vid,
+    required this.name,
+    required this.coverUrl,
+    required this.durationSecs,
+    required this.playCount,
+    required this.creator,
+    required this.uploaded,
+  });
+
+  @override
+  int get hashCode =>
+      vid.hashCode ^
+      name.hashCode ^
+      coverUrl.hashCode ^
+      durationSecs.hashCode ^
+      playCount.hashCode ^
+      creator.hashCode ^
+      uploaded.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VideoBrief &&
+          runtimeType == other.runtimeType &&
+          vid == other.vid &&
+          name == other.name &&
+          coverUrl == other.coverUrl &&
+          durationSecs == other.durationSecs &&
+          playCount == other.playCount &&
+          creator == other.creator &&
+          uploaded == other.uploaded;
 }

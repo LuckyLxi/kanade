@@ -5,7 +5,11 @@ import 'package:flutter/material.dart';
 import '../l10n/l10n_ext.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'mv_page.dart';
+import 'singer_page.dart';
 import 'smooth_scroll.dart';
+import 'song_list_page.dart';
+import 'user_page.dart';
 import 'widgets.dart';
 
 class SearchPage extends StatefulWidget {
@@ -15,19 +19,48 @@ class SearchPage extends StatefulWidget {
   State<SearchPage> createState() => _SearchPageState();
 }
 
+/// 一个分类已经加载的结果；只有和分类对应的列表有内容。
+class _Results {
+  List<Song> songs = [];
+  List<String> lyricSnippets = [];
+  List<SingerBrief> singers = [];
+  List<AlbumBrief> albums = [];
+  List<PlaylistBrief> playlists = [];
+  List<VideoBrief> videos = [];
+  List<UserBrief> users = [];
+  int page = 0;
+  int total = 0;
+  bool hasMore = true;
+  bool loading = false;
+  Object? error;
+
+  int get length => songs.length + singers.length + albums.length + playlists.length + videos.length + users.length;
+
+  /// 每次换成新列表：歌曲列表会交给播放队列，不能在原列表上追加。
+  void add(SearchResult r) {
+    page++;
+    total = r.total;
+    hasMore = r.hasMore;
+    songs = [...songs, ...r.songs];
+    lyricSnippets = [...lyricSnippets, ...r.lyricSnippets];
+    singers = [...singers, ...r.singers];
+    albums = [...albums, ...r.albums];
+    playlists = [...playlists, ...r.playlists];
+    videos = [...videos, ...r.videos];
+    users = [...users, ...r.users];
+  }
+}
+
 class _SearchPageState extends State<SearchPage> {
   static const _pageSize = 30;
 
   final _controller = TextEditingController();
-  final _scroll = SmoothScrollController();
   final _hotScroll = SmoothScrollController();
   final _suggestScroll = SmoothScrollController();
+  final _scrolls = {for (final k in SearchKind.values) k: SmoothScrollController()};
   String _keyword = '';
-  List<Song> _songs = [];
-  int _page = 0;
-  int _total = 0;
-  bool _loading = false;
-  Object? _error;
+  SearchKind _kind = SearchKind.song;
+  final _results = <SearchKind, _Results>{};
 
   HotSearch? _hot;
   Object? _hotError;
@@ -37,12 +70,11 @@ class _SearchPageState extends State<SearchPage> {
   List<SearchSuggestion> _suggestions = [];
   Timer? _debounce;
 
+  _Results get _current => _results.putIfAbsent(_kind, _Results.new);
+
   @override
   void initState() {
     super.initState();
-    _scroll.addListener(() {
-      if (_scroll.position.extentAfter < 400) _loadMore();
-    });
     _loadHot();
   }
 
@@ -50,9 +82,11 @@ class _SearchPageState extends State<SearchPage> {
   void dispose() {
     _debounce?.cancel();
     _controller.dispose();
-    _scroll.dispose();
     _hotScroll.dispose();
     _suggestScroll.dispose();
+    for (final c in _scrolls.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -91,8 +125,7 @@ class _SearchPageState extends State<SearchPage> {
       _typing = false;
       _suggestions = [];
       _keyword = '';
-      _songs = [];
-      _error = null;
+      _results.clear();
     });
   }
 
@@ -102,6 +135,7 @@ class _SearchPageState extends State<SearchPage> {
     _search(keyword);
   }
 
+  /// 换关键词时保留当前分类，和官方客户端一样。
   Future<void> _search(String keyword) async {
     keyword = keyword.trim();
     if (keyword.isEmpty) return;
@@ -110,31 +144,38 @@ class _SearchPageState extends State<SearchPage> {
     setState(() {
       _typing = false;
       _keyword = keyword;
-      _songs = [];
-      _page = 0;
-      _total = 0;
-      _error = null;
+      _results.clear();
     });
     await _loadMore();
   }
 
+  void _selectKind(SearchKind kind) {
+    if (kind == _kind) return;
+    setState(() => _kind = kind);
+    if (_current.page == 0) _loadMore();
+  }
+
   Future<void> _loadMore() async {
-    if (_loading || _keyword.isEmpty || (_page > 0 && _songs.length >= _total)) return;
+    final kind = _kind;
+    final r = _current;
+    if (r.loading || _keyword.isEmpty || !r.hasMore || r.error != null) return;
     final keyword = _keyword;
-    setState(() => _loading = true);
+    setState(() => r.loading = true);
     try {
-      final r = await api.searchSongs(keyword: keyword, page: _page + 1, pageSize: _pageSize);
-      if (keyword != _keyword) return;
-      setState(() {
-        _page++;
-        _total = r.songs.isEmpty ? _songs.length : r.total;
-        _songs = [..._songs, ...r.songs];
-      });
+      final page = await api.search(keyword: keyword, kind: kind, page: r.page + 1, pageSize: _pageSize);
+      // 等待期间换了关键词，这份结果已经被清掉了
+      if (!mounted || keyword != _keyword || _results[kind] != r) return;
+      setState(() => r.add(page));
     } catch (e) {
-      setState(() => _error = e);
+      if (mounted) setState(() => r.error = e);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => r.loading = false);
     }
+  }
+
+  void _retry() {
+    setState(() => _current.error = null);
+    _loadMore();
   }
 
   @override
@@ -165,27 +206,131 @@ class _SearchPageState extends State<SearchPage> {
     if (_keyword.isEmpty) {
       return _hotView(l);
     }
-    if (_error != null && _songs.isEmpty) {
-      return Center(child: Text(l.searchFailed(errorText(l, _error!))));
-    }
-    if (_songs.isEmpty) {
-      return Center(child: _loading ? const CircularProgressIndicator() : Text(l.searchNoResults));
-    }
-    return ListView.builder(
-      controller: _scroll,
-      itemCount: _songs.length + 1,
-      itemBuilder: (_, i) {
-        if (i == _songs.length) {
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Center(
-              child: _loading ? const CircularProgressIndicator() : Text(l.searchTotal(_total)),
-            ),
-          );
-        }
-        return SongTile(songs: _songs, index: i);
-      },
+    return Column(
+      children: [
+        _kindBar(l),
+        Expanded(child: _resultView(l)),
+      ],
     );
+  }
+
+  String _kindLabel(AppLocalizations l, SearchKind kind) => switch (kind) {
+        SearchKind.song => l.searchKindSong,
+        SearchKind.singer => l.searchKindSinger,
+        SearchKind.album => l.searchKindAlbum,
+        SearchKind.playlist => l.searchKindPlaylist,
+        SearchKind.video => l.searchKindVideo,
+        SearchKind.lyric => l.searchKindLyric,
+        SearchKind.user => l.searchKindUser,
+      };
+
+  Widget _kindBar(AppLocalizations l) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Row(
+        children: [
+          for (final kind in SearchKind.values)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 8),
+              child: Pill(label: _kindLabel(l, kind), selected: kind == _kind, onTap: () => _selectKind(kind)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _resultView(AppLocalizations l) {
+    final r = _current;
+    if (r.length == 0) {
+      if (r.error != null) {
+        return Center(
+          child: TextButton(onPressed: _retry, child: Text(l.searchFailed(errorText(l, r.error!)), textAlign: TextAlign.center)),
+        );
+      }
+      return Center(child: r.loading || r.page == 0 ? const CircularProgressIndicator() : Text(l.searchNoResults));
+    }
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n.metrics.extentAfter < 400) _loadMore();
+        return false;
+      },
+      child: ListView.builder(
+        key: ValueKey(_kind),
+        controller: _scrolls[_kind],
+        itemCount: r.length + 1,
+        itemBuilder: (context, i) => i == r.length ? _footer(l, r) : _item(l, r, i),
+      ),
+    );
+  }
+
+  Widget _footer(AppLocalizations l, _Results r) {
+    if (r.error != null) {
+      return ListTile(title: Text(l.loadFailed(errorText(l, r.error!)), textAlign: TextAlign.center), onTap: _retry);
+    }
+    final songs = _kind == SearchKind.song || _kind == SearchKind.lyric;
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Center(
+        child: r.loading
+            ? const CircularProgressIndicator()
+            : Text(songs ? l.searchTotal(r.total) : l.searchTotalItems(r.total)),
+      ),
+    );
+  }
+
+  Widget _item(AppLocalizations l, _Results r, int i) {
+    switch (_kind) {
+      case SearchKind.song:
+        return SongTile(songs: r.songs, index: i);
+      case SearchKind.lyric:
+        return _LyricTile(songs: r.songs, index: i, snippet: r.lyricSnippets[i]);
+      case SearchKind.singer:
+        final s = r.singers[i];
+        return ListTile(
+          leading: Cover(s.avatarUrl, size: 52, radius: 26),
+          title: Text(s.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          subtitle: Text(l.singerStats(s.songCount, s.albumCount)),
+          onTap: () => Navigator.of(context).push(SingerPage.route(s.mid, s.name)),
+        );
+      case SearchKind.album:
+        return AlbumTile(r.albums[i]);
+      case SearchKind.playlist:
+        final p = r.playlists[i];
+        return ListTile(
+          leading: Cover(p.coverUrl, size: 52, radius: 12),
+          title: Text(p.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          subtitle: Text(
+            [
+              l.songCount(p.songCount),
+              if (p.creator.isNotEmpty) p.creator,
+              if (p.playCount > BigInt.zero) '▶ ${formatCount(l, p.playCount.toInt())}',
+            ].join(' · '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          onTap: () => Navigator.of(context).push(SongListPage.playlist(p.id, p.title)),
+        );
+      case SearchKind.video:
+        return _VideoTile(r.videos[i]);
+      case SearchKind.user:
+        final u = r.users[i];
+        return ListTile(
+          leading: Cover(u.avatarUrl, size: 52, radius: 26),
+          title: Text(u.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          subtitle: Text(
+            u.description.isNotEmpty
+                ? u.description
+                // 歌手账号没有歌单标签，不显示“歌单 0”
+                : u.playlistCount > 0
+                    ? l.userBriefStats(formatCount(l, u.fansCount.toInt()), u.playlistCount)
+                    : l.userFans(formatCount(l, u.fansCount.toInt())),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          onTap: () => Navigator.of(context).push(UserPage.route(u.euin, u.name)),
+        );
+    }
   }
 
   Widget _suggestionList() {
@@ -263,4 +408,93 @@ class _SearchPageState extends State<SearchPage> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         child: Text(text, style: Theme.of(context).textTheme.titleMedium),
       );
+}
+
+/// 歌曲行下面带一行命中的歌词。
+class _LyricTile extends StatelessWidget {
+  const _LyricTile({required this.songs, required this.index, required this.snippet});
+
+  final List<Song> songs;
+  final int index;
+  final String snippet;
+
+  @override
+  Widget build(BuildContext context) {
+    final tile = SongTile(songs: songs, index: index);
+    if (snippet.isEmpty) return tile;
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        tile,
+        Padding(
+          // 和歌名对齐：左边距 16 + 封面 48 + 间距 16
+          padding: const EdgeInsetsDirectional.fromSTEB(80, 0, 16, 8),
+          child: Text(
+            snippet,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 13, height: 1.4, color: scheme.onSurfaceVariant),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 16:9 封面，右下角是时长。官方 MV 标 MV，用户上传的不标。
+class _VideoTile extends StatelessWidget {
+  const _VideoTile(this.video);
+
+  final VideoBrief video;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return ListTile(
+      leading: SizedBox(
+        width: 96,
+        height: 54,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Cover(video.coverUrl, radius: 8),
+            if (video.durationSecs > 0)
+              Positioned(
+                right: 4,
+                bottom: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
+                  child: Text(
+                    formatDuration(Duration(seconds: video.durationSecs)),
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontFeatures: [FontFeature.tabularFigures()]),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+      title: Text(video.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 3),
+        child: Row(
+          children: [
+            if (!video.uploaded) const QualityBadge('MV'),
+            Expanded(
+              child: Text(
+                [
+                  if (video.creator.isNotEmpty) video.creator,
+                  if (video.playCount > BigInt.zero) '▶ ${formatCount(l, video.playCount.toInt())}',
+                ].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+      onTap: () => Navigator.of(context).push(MvPage.route(video.vid, video.name)),
+    );
+  }
 }

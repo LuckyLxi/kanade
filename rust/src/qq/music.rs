@@ -18,26 +18,51 @@ fn search_id() -> String {
 }
 
 pub async fn search_songs(keyword: &str, page: u32, page_size: u32) -> Result<SearchResult> {
+    search(keyword, SearchKind::Song, page, page_size).await
+}
+
+/// 各分类在 Windows 客户端抓包中的 search_type、remoteplace，以及结果在 `body` 下的字段名。
+fn search_spec(kind: SearchKind) -> (u32, &'static str, &'static str) {
+    match kind {
+        SearchKind::Song => (0, "txt.newclient.top", "song"),
+        SearchKind::Singer => (1, "sizer.newclient.singer", "singer"),
+        SearchKind::Album => (2, "sizer.newclient.album", "album"),
+        SearchKind::Playlist => (3, "sizer.newclient.playlist", "songlist"),
+        SearchKind::Video => (4, "sizer.newclient.mv", "mv"),
+        SearchKind::Lyric => (7, "txt.newclient.top", "song"),
+        SearchKind::User => (8, "sizer.newclient.users", "user"),
+    }
+}
+
+/// 分类搜索，`page` 从 1 开始。歌曲搜索未登录时沿用旧接口；
+/// 旧接口没有其他分类，其他分类始终走 PC 接口。
+pub async fn search(keyword: &str, kind: SearchKind, page: u32, page_size: u32) -> Result<SearchResult> {
     let c = core();
-    let cache_prefix = if c.session().is_some() { "search:desktop" } else { "search" };
-    let key = format!("{cache_prefix}:{keyword}:{page}:{page_size}");
+    let desktop = c.session().is_some() || kind != SearchKind::Song;
+    let (search_type, remoteplace, group) = search_spec(kind);
+    let key = if desktop {
+        format!("search:desktop:{search_type}:{keyword}:{page}:{page_size}")
+    } else {
+        format!("search:{keyword}:{page}:{page_size}")
+    };
     let data = c
         .cached(&key, 600, || async {
-            if c.session().is_some() {
+            if desktop {
                 let d = c.desktop_musicu(
                     "music.search.SearchCgiService",
                     "DoSearchForQQMusicDesktop",
                     json!({
                         "query": keyword,
-                        "search_type": 0,
+                        "search_type": search_type,
                         "num_per_page": page_size,
                         "page_num": page,
-                        "remoteplace": "txt.newclient.top",
+                        "remoteplace": remoteplace,
                         "searchid": search_id(),
                         "grp": 1,
                     }),
                 ).await?;
-                return Ok(json!({ "list": d["body"]["song"]["list"], "total": d["meta"]["sum"] }));
+                let meta = &d["meta"];
+                return Ok(json!({ "list": d["body"][group]["list"], "total": meta["sum"], "nextpage": meta["nextpage"] }));
             }
             let d = c.get_json(
                 "https://c.y.qq.com/soso/fcgi-bin/client_search_cp",
@@ -52,7 +77,140 @@ pub async fn search_songs(keyword: &str, page: u32, page_size: u32) -> Result<Se
             Ok(json!({ "list": song["list"], "total": song["totalnum"] }))
         })
         .await?;
-    Ok(SearchResult { songs: parse::songs(&data["list"]), total: n(&data["total"]) as u32 })
+    Ok(search_result(kind, keyword, page, page_size, &data))
+}
+
+fn search_result(kind: SearchKind, keyword: &str, page: u32, page_size: u32, data: &Value) -> SearchResult {
+    let list = &data["list"];
+    let items = list.as_array().map(Vec::as_slice).unwrap_or_default();
+    let total = n(&data["total"]) as u32;
+    // 歌手搜索最后一页 nextpage 为 -1；旧接口没有这个字段，按总数估算
+    let has_more = !items.is_empty()
+        && match &data["nextpage"] {
+            Value::Null => page * page_size < total,
+            next => n(next) > 0,
+        };
+    let mut r = SearchResult {
+        songs: vec![],
+        lyric_snippets: vec![],
+        singers: vec![],
+        albums: vec![],
+        playlists: vec![],
+        videos: vec![],
+        users: vec![],
+        total,
+        has_more,
+    };
+    match kind {
+        SearchKind::Song => r.songs = parse::songs(list),
+        SearchKind::Lyric => {
+            for item in items {
+                if let Some(song) = parse::song(item) {
+                    r.lyric_snippets.push(lyric_snippet(item, keyword));
+                    r.songs.push(song);
+                }
+            }
+        }
+        SearchKind::Singer => {
+            r.singers = items
+                .iter()
+                .map(|x| SingerBrief {
+                    mid: s(&x["singerMID"]),
+                    name: s(&x["singerName"]),
+                    avatar_url: parse::singer_cover(&s(&x["singerMID"])),
+                    song_count: n(&x["songNum"]) as u32,
+                    album_count: n(&x["albumNum"]) as u32,
+                })
+                .filter(|x| !x.mid.is_empty())
+                .collect()
+        }
+        SearchKind::Album => {
+            r.albums = items
+                .iter()
+                .map(|x| {
+                    let singers: Vec<String> = x["singer_list"].as_array().into_iter().flatten().map(|x| s(&x["name"])).filter(|x| !x.is_empty()).collect();
+                    AlbumBrief {
+                        mid: s(&x["albumMID"]),
+                        name: s(&x["albumName"]),
+                        cover_url: parse::album_cover(&s(&x["albumMID"])),
+                        publish_date: s(&x["publicTime"]),
+                        singer_name: if singers.is_empty() { s(&x["singerName"]) } else { singers.join(" / ") },
+                    }
+                })
+                .filter(|x| !x.mid.is_empty())
+                .collect()
+        }
+        SearchKind::Playlist => {
+            r.playlists = items
+                .iter()
+                .map(|x| PlaylistBrief {
+                    id: s(&x["dissid"]),
+                    title: s(&x["dissname"]),
+                    cover_url: s(&x["imgurl"]),
+                    song_count: n(&x["song_count"]) as u32,
+                    play_count: n(&x["listennum"]) as u64,
+                    creator: s(&x["creator"]["name"]),
+                })
+                .filter(|x| !x.id.is_empty() && x.id != "0")
+                .collect()
+        }
+        SearchKind::Video => {
+            r.videos = items
+                .iter()
+                .map(|x| {
+                    let uploader = s(&x["uploader_nick"]);
+                    let singer = s(&x["singer_name"]);
+                    VideoBrief {
+                        vid: s(&x["v_id"]),
+                        name: s(&x["mv_name"]),
+                        cover_url: s(&x["mv_pic_url"]),
+                        duration_secs: n(&x["duration"]) as u32,
+                        play_count: n(&x["play_count"]) as u64,
+                        uploaded: singer.is_empty() && !uploader.is_empty(),
+                        creator: if singer.is_empty() { uploader } else { singer },
+                    }
+                })
+                .filter(|x| !x.vid.is_empty())
+                .collect()
+        }
+        SearchKind::User => {
+            r.users = items
+                .iter()
+                .map(|x| UserBrief {
+                    euin: s(&x["encrypt_uin"]),
+                    name: s(&x["title"]),
+                    // iconurl 是认证角标，不是头像
+                    avatar_url: s(&x["pic"]),
+                    fans_count: n(&x["fans_num"]) as u64,
+                    playlist_count: n(&x["diss_num"]) as u32,
+                    description: s(&x["identify_title"]),
+                })
+                .filter(|x| !x.euin.is_empty())
+                .collect()
+        }
+    }
+    r
+}
+
+/// 歌词搜索的 `lyric` / `lyric_hilight` 实测常为空，歌词文本在 `content` 里，
+/// 第一行是“歌名 - 歌手”。取包含关键词的前两行；没有就用高亮字段去掉标签。
+fn lyric_snippet(item: &Value, keyword: &str) -> String {
+    let needle = keyword.trim().to_lowercase();
+    let content = s(&item["content"]);
+    let matched: Vec<&str> = content
+        .lines()
+        .skip(1)
+        .map(str::trim)
+        .filter(|line| !needle.is_empty() && line.to_lowercase().contains(&needle))
+        .collect();
+    // 搜人名时命中的多是“曲：周杰伦”这类署名行，有真正的歌词行就优先用
+    let is_credit = |line: &&str| line.chars().take(16).any(|c| c == '：' || c == ':');
+    let lyrics: Vec<&str> = matched.iter().copied().filter(|l| !is_credit(l)).collect();
+    let hits: Vec<&str> = if lyrics.is_empty() { matched } else { lyrics }.into_iter().take(2).collect();
+    if !hits.is_empty() {
+        return hits.join(" / ");
+    }
+    first_s(item, &["lyric_hilight", "lyric"]).replace("<em>", "").replace("</em>", "").lines().map(str::trim).filter(|x| !x.is_empty()).take(2).collect::<Vec<_>>().join(" / ")
 }
 
 fn hot_keywords(list: &Value) -> Vec<HotKeyword> {
@@ -535,6 +693,55 @@ mod tests {
     #[ignore = "需要联网"]
     async fn fetches_new_songs() {
         assert!(!new_songs().await.unwrap().is_empty());
+    }
+
+    #[test]
+    fn parses_category_search_results() {
+        let singers = json!({ "list": [{ "singerMID": "003xSwHe0xtkZI", "singerName": "jixwang", "songNum": 168, "albumNum": 34 }], "total": 19, "nextpage": -1 });
+        let r = search_result(SearchKind::Singer, "鸣潮", 1, 28, &singers);
+        assert_eq!((r.singers[0].name.as_str(), r.singers[0].song_count, r.has_more), ("jixwang", 168, false));
+
+        let albums = json!({ "list": [{ "albumMID": "00087mKB1xbyP2", "albumName": "定玄", "publicTime": "2026-06-26", "singerName": "x",
+            "singer_list": [{ "name": "鸣潮先约电台" }] }], "total": 251, "nextpage": 2 });
+        let r = search_result(SearchKind::Album, "鸣潮", 1, 30, &albums);
+        assert_eq!(r.albums[0].singer_name, "鸣潮先约电台");
+        assert!(r.has_more);
+
+        let playlists = json!({ "list": [{ "dissid": "9629670386", "dissname": "锁暝", "imgurl": "https://a/b", "song_count": 276,
+            "listennum": 315007, "creator": { "name": "艾德" } }], "total": 300, "nextpage": 2 });
+        let r = search_result(SearchKind::Playlist, "鸣潮", 1, 21, &playlists);
+        assert_eq!((r.playlists[0].id.as_str(), r.playlists[0].creator.as_str()), ("9629670386", "艾德"));
+
+        let videos = json!({ "list": [
+            { "v_id": "004cp3hL2EXB5u", "mv_id": 2447344, "mv_name": "心月辞·何所往", "mv_pic_url": "http://y.gtimg.cn/x.jpg",
+              "duration": 169, "play_count": 4906, "singer_name": "鸣潮先约电台/苏诗丁", "uploader_nick": "" },
+            { "v_id": "011MCPJI0R8LSV", "mv_name": "过场动画", "singer_name": "", "uploader_nick": "漂子" },
+        ], "total": 443, "nextpage": 2 });
+        let r = search_result(SearchKind::Video, "鸣潮", 1, 56, &videos);
+        assert_eq!(r.videos[0].vid, "004cp3hL2EXB5u");
+        assert!(!r.videos[0].uploaded && r.videos[1].uploaded);
+        assert_eq!(r.videos[1].creator, "漂子");
+    }
+
+    #[test]
+    fn lyric_snippet_skips_title_line() {
+        let item = json!({ "mid": "000bjZqH448qnK", "name": "远航星的告别", "lyric": "", "lyric_hilight": "",
+            "content": "远航星的告别 - 鸣潮先约电台\n词：Xulai\n出品：鸣潮先约电台\nThat snowflake once fell on my nose" });
+        let r = search_result(SearchKind::Lyric, "snowflake", 1, 10, &json!({ "list": [item], "total": 1000, "nextpage": 2 }));
+        assert_eq!(r.lyric_snippets, vec!["That snowflake once fell on my nose".to_string()]);
+        assert_eq!(r.songs.len(), 1);
+        assert_eq!(lyric_snippet(&json!({ "content": "a - b", "lyric_hilight": "<em>你</em>好\n世界" }), "你"), "你好 / 世界");
+        let credits = json!({ "content": "晴天 - 周杰伦\n词：周杰伦\n曲：周杰伦\n周杰伦说过的话" });
+        assert_eq!(lyric_snippet(&credits, "周杰伦"), "周杰伦说过的话");
+        assert_eq!(lyric_snippet(&json!({ "content": "晴天 - 周杰伦\n词：周杰伦" }), "周杰伦"), "词：周杰伦");
+    }
+
+    #[test]
+    fn legacy_song_search_estimates_more_pages() {
+        let r = search_result(SearchKind::Song, "x", 1, 2, &json!({ "list": [{ "mid": "a" }, { "mid": "b" }], "total": 3 }));
+        assert!(r.has_more);
+        let r = search_result(SearchKind::Song, "x", 2, 2, &json!({ "list": [{ "mid": "c" }], "total": 3 }));
+        assert!(!r.has_more);
     }
 
     #[tokio::test]

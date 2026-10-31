@@ -97,7 +97,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get searchHint => '搜索歌曲、歌手';
+  String get searchHint => '搜索歌曲、歌手、专辑、视频';
 
   @override
   String get searchPrompt => '输入关键词后回车搜索';
@@ -112,7 +112,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get filterSongsHint => '搜索歌名、歌手';
 
   @override
-  String get searchNoResults => '没有找到相关歌曲';
+  String get searchNoResults => '没有找到相关结果';
 
   @override
   String searchFailed(String error) {
@@ -591,4 +591,61 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get nothingPlaying => '还没有在播放的歌';
+
+  @override
+  String get searchKindSong => '歌曲';
+
+  @override
+  String get searchKindSinger => '歌手';
+
+  @override
+  String get searchKindAlbum => '专辑';
+
+  @override
+  String get searchKindPlaylist => '歌单';
+
+  @override
+  String get searchKindVideo => '视频';
+
+  @override
+  String get searchKindLyric => '歌词';
+
+  @override
+  String searchTotalItems(int count) {
+    return '共 $count 个结果';
+  }
+
+  @override
+  String singerStats(int songs, int albums) {
+    return '$songs 首歌 · $albums 张专辑';
+  }
+
+  @override
+  String get searchKindUser => '用户';
+
+  @override
+  String get mvUnavailable => '这个视频暂时无法播放';
+
+  @override
+  String userFansFollows(String fans, String follows) {
+    return '粉丝 $fans · 关注 $follows';
+  }
+
+  @override
+  String userBriefStats(String fans, int count) {
+    return '粉丝 $fans · 歌单 $count';
+  }
+
+  @override
+  String userPlaylists(int count) {
+    return '歌单 $count';
+  }
+
+  @override
+  String get userNoPlaylists => '没有公开的歌单';
+
+  @override
+  String userFans(String fans) {
+    return '粉丝 $fans';
+  }
 }

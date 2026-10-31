@@ -92,6 +92,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<LyricLine> dco_decode_list_lyric_line(dynamic raw);
 
   @protected
+  List<MvStream> dco_decode_list_mv_stream(dynamic raw);
+
+  @protected
   List<MyPlaylist> dco_decode_list_my_playlist(dynamic raw);
 
   @protected
@@ -116,6 +119,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Singer> dco_decode_list_singer(dynamic raw);
 
   @protected
+  List<SingerBrief> dco_decode_list_singer_brief(dynamic raw);
+
+  @protected
   List<Song> dco_decode_list_song(dynamic raw);
 
   @protected
@@ -125,6 +131,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<TopListGroup> dco_decode_list_top_list_group(dynamic raw);
 
   @protected
+  List<UserBrief> dco_decode_list_user_brief(dynamic raw);
+
+  @protected
+  List<VideoBrief> dco_decode_list_video_brief(dynamic raw);
+
+  @protected
   LoginKind dco_decode_login_kind(dynamic raw);
 
   @protected
@@ -132,6 +144,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LyricLine dco_decode_lyric_line(dynamic raw);
+
+  @protected
+  MvDetail dco_decode_mv_detail(dynamic raw);
+
+  @protected
+  MvStream dco_decode_mv_stream(dynamic raw);
 
   @protected
   MyPlaylist dco_decode_my_playlist(dynamic raw);
@@ -180,6 +198,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RecommendSection dco_decode_recommend_section(dynamic raw);
 
   @protected
+  SearchKind dco_decode_search_kind(dynamic raw);
+
+  @protected
   SearchResult dco_decode_search_result(dynamic raw);
 
   @protected
@@ -187,6 +208,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Singer dco_decode_singer(dynamic raw);
+
+  @protected
+  SingerBrief dco_decode_singer_brief(dynamic raw);
 
   @protected
   SingerDetail dco_decode_singer_detail(dynamic raw);
@@ -222,7 +246,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void dco_decode_unit(dynamic raw);
 
   @protected
+  UserBrief dco_decode_user_brief(dynamic raw);
+
+  @protected
   UserInfo dco_decode_user_info(dynamic raw);
+
+  @protected
+  UserPlaylistPage dco_decode_user_playlist_page(dynamic raw);
+
+  @protected
+  UserProfile dco_decode_user_profile(dynamic raw);
+
+  @protected
+  VideoBrief dco_decode_video_brief(dynamic raw);
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
@@ -293,6 +329,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<LyricLine> sse_decode_list_lyric_line(SseDeserializer deserializer);
 
   @protected
+  List<MvStream> sse_decode_list_mv_stream(SseDeserializer deserializer);
+
+  @protected
   List<MyPlaylist> sse_decode_list_my_playlist(SseDeserializer deserializer);
 
   @protected
@@ -325,6 +364,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Singer> sse_decode_list_singer(SseDeserializer deserializer);
 
   @protected
+  List<SingerBrief> sse_decode_list_singer_brief(SseDeserializer deserializer);
+
+  @protected
   List<Song> sse_decode_list_song(SseDeserializer deserializer);
 
   @protected
@@ -336,6 +378,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<UserBrief> sse_decode_list_user_brief(SseDeserializer deserializer);
+
+  @protected
+  List<VideoBrief> sse_decode_list_video_brief(SseDeserializer deserializer);
+
+  @protected
   LoginKind sse_decode_login_kind(SseDeserializer deserializer);
 
   @protected
@@ -343,6 +391,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LyricLine sse_decode_lyric_line(SseDeserializer deserializer);
+
+  @protected
+  MvDetail sse_decode_mv_detail(SseDeserializer deserializer);
+
+  @protected
+  MvStream sse_decode_mv_stream(SseDeserializer deserializer);
 
   @protected
   MyPlaylist sse_decode_my_playlist(SseDeserializer deserializer);
@@ -397,6 +451,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RecommendSection sse_decode_recommend_section(SseDeserializer deserializer);
 
   @protected
+  SearchKind sse_decode_search_kind(SseDeserializer deserializer);
+
+  @protected
   SearchResult sse_decode_search_result(SseDeserializer deserializer);
 
   @protected
@@ -404,6 +461,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Singer sse_decode_singer(SseDeserializer deserializer);
+
+  @protected
+  SingerBrief sse_decode_singer_brief(SseDeserializer deserializer);
 
   @protected
   SingerDetail sse_decode_singer_detail(SseDeserializer deserializer);
@@ -439,7 +499,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_decode_unit(SseDeserializer deserializer);
 
   @protected
+  UserBrief sse_decode_user_brief(SseDeserializer deserializer);
+
+  @protected
   UserInfo sse_decode_user_info(SseDeserializer deserializer);
+
+  @protected
+  UserPlaylistPage sse_decode_user_playlist_page(SseDeserializer deserializer);
+
+  @protected
+  UserProfile sse_decode_user_profile(SseDeserializer deserializer);
+
+  @protected
+  VideoBrief sse_decode_video_brief(SseDeserializer deserializer);
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer);
@@ -526,6 +598,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_mv_stream(List<MvStream> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_my_playlist(
     List<MyPlaylist> self,
     SseSerializer serializer,
@@ -571,6 +646,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_singer(List<Singer> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_singer_brief(
+    List<SingerBrief> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_song(List<Song> self, SseSerializer serializer);
 
   @protected
@@ -583,6 +664,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_user_brief(
+    List<UserBrief> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_video_brief(
+    List<VideoBrief> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_login_kind(LoginKind self, SseSerializer serializer);
 
   @protected
@@ -590,6 +683,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_lyric_line(LyricLine self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_mv_detail(MvDetail self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_mv_stream(MvStream self, SseSerializer serializer);
 
   @protected
   void sse_encode_my_playlist(MyPlaylist self, SseSerializer serializer);
@@ -658,6 +757,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_search_kind(SearchKind self, SseSerializer serializer);
+
+  @protected
   void sse_encode_search_result(SearchResult self, SseSerializer serializer);
 
   @protected
@@ -668,6 +770,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_singer(Singer self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_singer_brief(SingerBrief self, SseSerializer serializer);
 
   @protected
   void sse_encode_singer_detail(SingerDetail self, SseSerializer serializer);
@@ -706,7 +811,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_unit(void self, SseSerializer serializer);
 
   @protected
+  void sse_encode_user_brief(UserBrief self, SseSerializer serializer);
+
+  @protected
   void sse_encode_user_info(UserInfo self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_user_playlist_page(
+    UserPlaylistPage self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_user_profile(UserProfile self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_video_brief(VideoBrief self, SseSerializer serializer);
 }
 
 // Section: wire_class

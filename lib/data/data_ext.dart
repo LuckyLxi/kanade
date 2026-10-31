@@ -10,3 +10,6 @@ String bigCoverUrl(Song s) => httpsUrl(s.coverUrl).replaceFirst('300x300', '500x
 
 /// “我喜欢”在每个账号下的目录编号都是 201（Rust 侧见 qq/library.rs 的 LIKED_DIR_ID）。
 bool isLikedPlaylist(MyPlaylist p) => p.dirId == 201;
+
+/// 歌手头像，规则和 Rust 侧 parse::singer_cover 一致。
+String singerAvatar(String mid) => 'https://y.gtimg.cn/music/photo_new/T001R300x300M000$mid.jpg';

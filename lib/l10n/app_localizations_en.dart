@@ -109,7 +109,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get searchHint => 'Search songs, artists';
+  String get searchHint => 'Search songs, artists, albums, videos';
 
   @override
   String get searchPrompt => 'Type a keyword and press Enter';
@@ -124,7 +124,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get filterSongsHint => 'Search title or artist';
 
   @override
-  String get searchNoResults => 'No songs found';
+  String get searchNoResults => 'No results found';
 
   @override
   String searchFailed(String error) {
@@ -617,4 +617,79 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nothingPlaying => 'Nothing playing';
+
+  @override
+  String get searchKindSong => 'Songs';
+
+  @override
+  String get searchKindSinger => 'Artists';
+
+  @override
+  String get searchKindAlbum => 'Albums';
+
+  @override
+  String get searchKindPlaylist => 'Playlists';
+
+  @override
+  String get searchKindVideo => 'Videos';
+
+  @override
+  String get searchKindLyric => 'Lyrics';
+
+  @override
+  String searchTotalItems(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count results',
+      one: '1 result',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String singerStats(int songs, int albums) {
+    return '$songs songs · $albums albums';
+  }
+
+  @override
+  String get searchKindUser => 'Users';
+
+  @override
+  String get mvUnavailable => 'This video can\'t be played right now';
+
+  @override
+  String userFansFollows(String fans, String follows) {
+    return '$fans followers · $follows following';
+  }
+
+  @override
+  String userBriefStats(String fans, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count playlists',
+      one: '1 playlist',
+    );
+    return '$fans followers · $_temp0';
+  }
+
+  @override
+  String userPlaylists(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count playlists',
+      one: '1 playlist',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get userNoPlaylists => 'No public playlists';
+
+  @override
+  String userFans(String fans) {
+    return '$fans followers';
+  }
 }

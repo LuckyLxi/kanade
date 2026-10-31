@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kanade/app.dart';
 import 'package:kanade/player/player_controller.dart';
 import 'package:kanade/src/rust/api/music.dart' as api;
+import 'package:kanade/src/rust/api/types.dart';
 import 'package:kanade/ui/glass.dart';
 import 'package:kanade/ui/home_shell.dart';
 import 'package:provider/provider.dart';
@@ -27,7 +28,7 @@ Future<(PlayerController, NavigatorState)> launchWithSong(
 
   final songs = await tester.runAsync(() async {
     if (songKeyword != null) {
-      final result = await api.searchSongs(keyword: songKeyword, page: 1, pageSize: 20);
+      final result = await api.search(keyword: songKeyword, kind: SearchKind.song, page: 1, pageSize: 20);
       expect(result.songs, isNotEmpty, reason: 'the requested reproduction track must exist');
       return [result.songs.first];
     }

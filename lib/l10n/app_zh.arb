@@ -68,12 +68,12 @@
       }
     }
   },
-  "searchHint": "搜索歌曲、歌手",
+  "searchHint": "搜索歌曲、歌手、专辑、视频",
   "searchPrompt": "输入关键词后回车搜索",
   "searchHot": "热搜榜",
   "searchRecommended": "猜你想搜",
   "filterSongsHint": "搜索歌名、歌手",
-  "searchNoResults":"没有找到相关歌曲",
+  "searchNoResults": "没有找到相关结果",
   "searchFailed": "搜索失败：{error}",
   "@searchFailed": {
     "placeholders": {
@@ -403,5 +403,71 @@
   },
   "playlistRenamed": "已重命名",
   "playlistDeleted": "已删除歌单",
-  "nothingPlaying": "还没有在播放的歌"
+  "nothingPlaying": "还没有在播放的歌",
+  "searchKindSong": "歌曲",
+  "searchKindSinger": "歌手",
+  "searchKindAlbum": "专辑",
+  "searchKindPlaylist": "歌单",
+  "searchKindVideo": "视频",
+  "searchKindLyric": "歌词",
+  "searchTotalItems": "共 {count} 个结果",
+  "@searchTotalItems": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "singerStats": "{songs} 首歌 · {albums} 张专辑",
+  "@singerStats": {
+    "placeholders": {
+      "songs": {
+        "type": "int"
+      },
+      "albums": {
+        "type": "int"
+      }
+    }
+  },
+  "searchKindUser": "用户",
+  "mvUnavailable": "这个视频暂时无法播放",
+  "userFansFollows": "粉丝 {fans} · 关注 {follows}",
+  "@userFansFollows": {
+    "placeholders": {
+      "fans": {
+        "type": "String"
+      },
+      "follows": {
+        "type": "String"
+      }
+    }
+  },
+  "userBriefStats": "粉丝 {fans} · 歌单 {count}",
+  "@userBriefStats": {
+    "placeholders": {
+      "fans": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "userPlaylists": "歌单 {count}",
+  "@userPlaylists": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "userNoPlaylists": "没有公开的歌单",
+  "userFans": "粉丝 {fans}",
+  "@userFans": {
+    "placeholders": {
+      "fans": {
+        "type": "String"
+      }
+    }
+  }
 }

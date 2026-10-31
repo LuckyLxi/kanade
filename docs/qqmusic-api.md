@@ -16,6 +16,8 @@
 - [歌单读取与写入](#歌单读取与写入)
 - [最近播放](#最近播放)
 - [歌手与专辑](#歌手与专辑)
+- [MV](#mv)
+- [其他用户主页](#其他用户主页)
 - [评论与回复](#评论与回复)
 - [登录与用户资料](#登录与用户资料)
 - [项目数据结构与调用入口](#项目数据结构与调用入口)
@@ -129,16 +131,29 @@ uin=<MUSIC_ID>; qqmusic_uin=<MUSIC_ID>; qqmusic_key=<MUSIC_KEY>; qm_keyst=<MUSIC
 
 | 功能 / 上游方法 | 通道 | `param` / 查询参数 | 返回路径与项目处理 |
 | --- | --- | --- | --- |
-| 登录后搜歌：`music.search.SearchCgiService.DoSearchForQQMusicDesktop` | PC 公共 | `query`、`search_type=0`、`num_per_page`、`page_num`、`remoteplace="txt.newclient.top"`、`searchid`、`grp=1` | 歌曲 `body.song.list`，总数 `meta.sum` |
+| 分类搜索：`music.search.SearchCgiService.DoSearchForQQMusicDesktop` | PC 公共 | `query`、`search_type`、`num_per_page`、`page_num`、`remoteplace`、`searchid`、`grp=1`；分类取值见下表 | 列表见下表，总数 `meta.sum`，`meta.nextpage>0` 视为还有下一页 |
 | 未登录搜歌：`https://c.y.qq.com/soso/fcgi-bin/client_search_cp` | GET | `w=关键词`、`p=页码`、`n=每页条数`、`format=json` | 原始响应 `data.song.list`、`data.song.totalnum` |
 | 热搜：`tencent_musicsoso_hotkey.HotkeyService.GetHotkeyForQQMusicPC` | PC 公共 | `search_id=""`、`uin=账号编号的 i64 数值，无账号时 0` | `vec_hotkey`、`vec_reckey`；读取 `title/query/description`，过滤空 `query` |
 | 联想：`music.smartboxCgi.SmartBoxCgi.GetSmartBoxResultForPc` | PC 公共 | `num_per_page=4`、`query`、`search_id=本次生成的搜索 ID` | `data.song.song_list`、`data.singer.singer_list`、`data.album.album_list`；读取 `name`、`singer` |
 
-当前搜歌实现的页码从 `1` 开始。PC 搜索 `searchid` 是每次生成的 37 位大写十六进制字符串。联想结果映射成歌曲、歌手、专辑三类文字建议，当前返回模型不含目标 MID。
+| 分类 `SearchKind` | `search_type` | `remoteplace` | 列表 | 项目读取 |
+| --- | --- | --- | --- | --- |
+| 歌曲 `Song` | 0 | `txt.newclient.top` | `body.song.list` | 统一歌曲解析 |
+| 歌手 `Singer` | 1 | `sizer.newclient.singer` | `body.singer.list` | `singerMID/singerName/songNum/albumNum` |
+| 专辑 `Album` | 2 | `sizer.newclient.album` | `body.album.list` | `albumMID/albumName/publicTime/singer_list` |
+| 歌单 `Playlist` | 3 | `sizer.newclient.playlist` | `body.songlist.list` | `dissid/dissname/imgurl/song_count/listennum/creator.name` |
+| 视频 `Video` | 4 | `sizer.newclient.mv` | `body.mv.list` | 字符串 `v_id`、`mv_name/mv_pic_url/duration/play_count`；`singer_name` 为空且有 `uploader_nick` 时视为用户上传 |
+| 歌词 `Lyric` | 7 | `txt.newclient.top` | `body.song.list` | 歌曲对象；`lyric` / `lyric_hilight` 实测常为空，从 `content`（首行为“歌名 - 歌手”）取含关键词的前两行 |
+| 用户 `User` | 8 | `sizer.newclient.users` | `body.user.list` | `encrypt_uin/title/pic/fans_num/diss_num/identify_title`；`iconurl` 是认证角标不是头像，结果里没有明文账号 |
 
-2026-10-31 补抓了官方客户端七类搜索及 MV 元数据、取流和清晰度切换，见[分类搜索与 MV 抓包](qqmusic-search-mv-capture.md)。视频、专辑、歌单、歌词、歌手、用户分别观察到 `search_type=4/2/3/7/1/8`；歌词仍返回歌曲对象，歌单首页请求出现 `page_num=0`。这些是抓包证据，尚未接入当前应用，也未独立重放验证。
+页码从 `1` 开始。PC 搜索 `searchid` 是每次生成的 37 位大写十六进制字符串。联想结果映射成歌曲、歌手、专辑三类文字建议，当前返回模型不含目标 MID。
 
-未登录搜索保留旧 CGI；README 记录其历史直接请求曾返回 HTTP 500，本文没有重新核实其当前可用性。PC 匿名搜索也没有作为已验证的替代路径接入。
+2026-10-31 补抓了官方客户端七类搜索及 MV 元数据、取流和清晰度切换，见[分类搜索与 MV 抓包](qqmusic-search-mv-capture.md)。
+同日用登录态经 `musicu.fcg` 实测（`desktop_category_search_pagination`，关键词「周杰伦」，每页 10）：
+七个分类第一页均有结果，第二页非空且与第一页不重复。歌单 `page_num=0` 与 `1` 返回同一页，`2` 为第二页，
+因此歌单也统一从 `1` 开始。视频结果进入 [MV](#mv)，用户结果进入[用户主页](#其他用户主页)。
+
+未登录时歌曲搜索保留旧 CGI，其他分类没有旧接口，始终走 PC 接口。README 记录旧 CGI 历史直接请求曾返回 HTTP 500，本文没有重新核实其当前可用性。PC 匿名搜索也没有作为已验证的替代路径接入。
 
 ## 歌曲详情、音质与播放
 
@@ -362,6 +377,35 @@ songmid=<SONG_MID>&format=json&nobase64=1&g_tk=5381
 
 歌手详情优先采用响应 `pic.pic`。统一歌曲解析在没有专辑 MID 时尝试用首位歌手封面。
 
+## MV
+
+实现：[mv.rs](../rust/src/qq/mv.rs)。两项都走通用 `musicu`（带签名的 `musics.fcg`，失败回退 `musicu.fcg`）。
+
+| 功能 / 上游方法 | `param` | 返回路径与项目处理 |
+| --- | --- | --- |
+| 资料：`music.video.VideoData.get_video_info_batch` | `vidlist=[VID]`、`required=[name, cover_pic, singers, playcnt, pubdate, duration, uploader_nick, desc, ...]` | `data[VID]`；`pubdate` 是 Unix 秒，按北京时间转成日期；缓存 3600 秒 |
+| 播放地址：`music.stream.MvUrlProxy.GetMvUrls` | `vids=[VID]`、`request_type=10001`、`addrtype=3`、`format=264` | `data[VID].mp4[]` 中 `code=0` 的条目，取 `freeflow_url` / `url` 里第一个 https 地址；不缓存 |
+
+官方 Windows 客户端用 `request_type=10003, format=265`，只返回相对的 `urlPath` 和 HLS 片段路径，缺 CDN 基址
+（见[抓包笔记](qqmusic-search-mv-capture.md)）。2026-10-31 实测 `10001 + format=264`（H.264）直接返回完整 https MP4 地址，
+官方 MV 和用户上传视频都适用。按下载到的文件头（`tkhd`）核对，`filetype` 10 / 20 / 30 / 40 分别是
+640×360 / 846×476 / 1280×720 / 1920×1080，项目标成 360P / 480P / 720P / 1080P；其他 `filetype` 忽略。
+地址的 `expire` 为 86400 秒，每次打开播放页都重新获取。冒烟测试 `desktop_mv_streams` 对最低档发 Range 请求，
+确认返回 206 和 `ftyp`。付费 MV 和 `play_forbid_reason≠0` 的情况未验证，没有可用条目时播放页显示无法播放。
+
+## 其他用户主页
+
+实现：[user.rs](../rust/src/qq/user.rs)。只接受用户搜索结果里的 `encrypt_uin`。PC 通道对这两个方法返回 `10000`，走通用 `musicu`。
+
+| 功能 / 上游方法 | `param` | 返回路径 |
+| --- | --- | --- |
+| 资料：`music.UnifiedHomepage.UnifiedHomepageSrv.GetHomepageHeader` | `uin=<encrypt_uin>`、`IsQueryTabDetail=1` | `Info.BaseInfo.Name/BigAvatar/Avatar`、`Info.FansNum.Num`、`Info.FollowNum.Num`；`TabDetail.TabList[]` 的 `TabID/TabName/Count/PageSize` |
+| 歌单：`…UnifiedHomepageSrv.GetHomepageTabDetail` | `uin`、`IsQueryTabDetail=1`、`TabID="disc"`、`PageNum`、`PageSize`、`Order=0` | `DiscTab.List[]` 的 `Dissid/Title/Picurl/Subtitle`，`HasMore` |
+
+主页标签因账号而异：普通用户是 `disc`（歌单），歌手账号是 `song_sing/album/video` 等，只发动态的是 `moment`；
+项目只读取 `disc`，没有这个标签时显示“没有公开的歌单”。`PageNum` 从 `0` 开始，实测 0、1 两页不重复。
+歌曲数从副标题“62首    1260.8万次播放 …”开头解析，播放量不单独返回。歌单 ID 可直接用于 `get_playlist_detail`。
+
 ## 评论与回复
 
 模块：`music.globalComment.CommentRead`，使用内嵌页通道，不在本地强制检查登录态。当前只提供读取，不提供发布、删除、点赞评论。
@@ -476,7 +520,7 @@ QQ / 微信会话交换前，当前实现会先清空旧会话；Cookie 登录�
 
 | 功能 | 项目入口 | 返回类型 |
 | --- | --- | --- |
-| 搜索 / 热搜 / 联想 | `search_songs(keyword,page,page_size)` / `get_hot_search()` / `get_search_suggestions(query)` | `SearchResult` / `HotSearch` / `Vec<SearchSuggestion>` |
+| 搜索 / 热搜 / 联想 | `search(keyword,kind,page,page_size)` / `get_hot_search()` / `get_search_suggestions(query)` | `SearchResult` / `HotSearch` / `Vec<SearchSuggestion>` |
 | 链接 / 音质 / 歌词 | `get_song_url(mid,media_mid,quality)` / `get_song_qualities(mid)` / `get_lyric(mid,id)` | `SongUrl` / `Vec<QualityOption>` / `Lyric` |
 | 榜单 | `get_toplists()` / `get_toplist_detail(top_id,period)` | `Vec<TopListGroup>` / `TopListDetail` |
 | 推荐 | `get_recommend_feed()` / `get_guess_you_like()` / `get_radar_songs(seed,page)` / `get_new_songs()` | `RecommendFeed` / 后三项为 `Vec<Song>` |
@@ -485,6 +529,8 @@ QQ / 微信会话交换前，当前实现会先清空旧会话；Cookie 登录�
 | 最近播放 | `get_recent_plays()` / `report_play(song_id)` | `Vec<Song>` / 成功为空 |
 | 歌手 | `get_singer_detail(mid)` / `get_singer_songs(mid,begin,num)` / `get_singer_albums(mid,begin,num)` | `SingerDetail` / `Vec<Song>` / `Vec<AlbumBrief>` |
 | 专辑 | `get_album_detail(mid)` | `AlbumDetail` |
+| MV | `get_mv_detail(vid)` | `MvDetail` |
+| 其他用户 | `get_user_profile(euin)` / `get_user_public_playlists(euin,creator,page,page_size)` | `UserProfile` / `UserPlaylistPage` |
 | 评论 | `get_comments(target,id,page,last_seq_no)` / `get_comment_replies(root_id,page,last_seq_no)` | `CommentPage` |
 | 登录 | `create_login_qr(kind)` / `create_qq_app_login()` / `poll_login_qr(kind,qrsig)` / `login_with_cookie(cookie)` | `QrCode` / `QrCode` / `QrStatus` / `UserInfo` |
 | 本地用户状态 | `current_user()` / `logout()` | `Option<UserInfo>` / 成功为空 |

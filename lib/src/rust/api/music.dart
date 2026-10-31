@@ -14,12 +14,15 @@ import 'types.dart';
 Future<void> initCore({required String dataDir}) =>
     RustLib.instance.api.crateApiMusicInitCore(dataDir: dataDir);
 
-Future<SearchResult> searchSongs({
+/// 按分类搜索第 `page` 页（从 1 开始）。
+Future<SearchResult> search({
   required String keyword,
+  required SearchKind kind,
   required int page,
   required int pageSize,
-}) => RustLib.instance.api.crateApiMusicSearchSongs(
+}) => RustLib.instance.api.crateApiMusicSearch(
   keyword: keyword,
+  kind: kind,
   page: page,
   pageSize: pageSize,
 );
@@ -157,6 +160,27 @@ Future<List<AlbumBrief>> getSingerAlbums({
 
 Future<AlbumDetail> getAlbumDetail({required String mid}) =>
     RustLib.instance.api.crateApiMusicGetAlbumDetail(mid: mid);
+
+/// MV 资料和各清晰度的播放地址，`vid` 是视频搜索结果里的字符串 VID。
+Future<MvDetail> getMvDetail({required String vid}) =>
+    RustLib.instance.api.crateApiMusicGetMvDetail(vid: vid);
+
+/// 其他用户的主页资料，`euin` 来自用户搜索结果。
+Future<UserProfile> getUserProfile({required String euin}) =>
+    RustLib.instance.api.crateApiMusicGetUserProfile(euin: euin);
+
+/// 其他用户的公开歌单，`page` 从 0 开始；`creator` 是填进歌单卡片的用户名。
+Future<UserPlaylistPage> getUserPublicPlaylists({
+  required String euin,
+  required String creator,
+  required int page,
+  required int pageSize,
+}) => RustLib.instance.api.crateApiMusicGetUserPublicPlaylists(
+  euin: euin,
+  creator: creator,
+  page: page,
+  pageSize: pageSize,
+);
 
 /// 评论第 `page` 页（从 0 开始），`last_seq_no` 是上一页最后一条的 `seq_no`，第一页传空。
 Future<CommentPage> getComments({

@@ -251,7 +251,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchHint.
   ///
   /// In zh, this message translates to:
-  /// **'搜索歌曲、歌手'**
+  /// **'搜索歌曲、歌手、专辑、视频'**
   String get searchHint;
 
   /// No description provided for @searchPrompt.
@@ -281,7 +281,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchNoResults.
   ///
   /// In zh, this message translates to:
-  /// **'没有找到相关歌曲'**
+  /// **'没有找到相关结果'**
   String get searchNoResults;
 
   /// No description provided for @searchFailed.
@@ -1135,6 +1135,96 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'还没有在播放的歌'**
   String get nothingPlaying;
+
+  /// No description provided for @searchKindSong.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌曲'**
+  String get searchKindSong;
+
+  /// No description provided for @searchKindSinger.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌手'**
+  String get searchKindSinger;
+
+  /// No description provided for @searchKindAlbum.
+  ///
+  /// In zh, this message translates to:
+  /// **'专辑'**
+  String get searchKindAlbum;
+
+  /// No description provided for @searchKindPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单'**
+  String get searchKindPlaylist;
+
+  /// No description provided for @searchKindVideo.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频'**
+  String get searchKindVideo;
+
+  /// No description provided for @searchKindLyric.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌词'**
+  String get searchKindLyric;
+
+  /// No description provided for @searchTotalItems.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {count} 个结果'**
+  String searchTotalItems(int count);
+
+  /// No description provided for @singerStats.
+  ///
+  /// In zh, this message translates to:
+  /// **'{songs} 首歌 · {albums} 张专辑'**
+  String singerStats(int songs, int albums);
+
+  /// No description provided for @searchKindUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户'**
+  String get searchKindUser;
+
+  /// No description provided for @mvUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个视频暂时无法播放'**
+  String get mvUnavailable;
+
+  /// No description provided for @userFansFollows.
+  ///
+  /// In zh, this message translates to:
+  /// **'粉丝 {fans} · 关注 {follows}'**
+  String userFansFollows(String fans, String follows);
+
+  /// No description provided for @userBriefStats.
+  ///
+  /// In zh, this message translates to:
+  /// **'粉丝 {fans} · 歌单 {count}'**
+  String userBriefStats(String fans, int count);
+
+  /// No description provided for @userPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单 {count}'**
+  String userPlaylists(int count);
+
+  /// No description provided for @userNoPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有公开的歌单'**
+  String get userNoPlaylists;
+
+  /// No description provided for @userFans.
+  ///
+  /// In zh, this message translates to:
+  /// **'粉丝 {fans}'**
+  String userFans(String fans);
 }
 
 class _AppLocalizationsDelegate

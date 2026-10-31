@@ -4,7 +4,7 @@
 use crate::api::error::ApiError;
 use crate::api::types::*;
 use crate::qq::audio_cache::cache;
-use crate::qq::{client, detail, history, library, login, music, quality};
+use crate::qq::{client, detail, history, library, login, music, mv, quality, user};
 
 #[flutter_rust_bridge::frb(init)]
 pub fn init_app() {
@@ -16,8 +16,9 @@ pub fn init_core(data_dir: String) -> Result<(), ApiError> {
     Ok(client::init(std::path::Path::new(&data_dir))?)
 }
 
-pub async fn search_songs(keyword: String, page: u32, page_size: u32) -> Result<SearchResult, ApiError> {
-    Ok(music::search_songs(&keyword, page, page_size).await?)
+/// 按分类搜索第 `page` 页（从 1 开始）。
+pub async fn search(keyword: String, kind: SearchKind, page: u32, page_size: u32) -> Result<SearchResult, ApiError> {
+    Ok(music::search(&keyword, kind, page, page_size).await?)
 }
 
 pub async fn get_hot_search() -> Result<HotSearch, ApiError> {
@@ -145,6 +146,21 @@ pub async fn get_singer_albums(mid: String, begin: u32, num: u32) -> Result<Vec<
 
 pub async fn get_album_detail(mid: String) -> Result<AlbumDetail, ApiError> {
     Ok(detail::album_detail(&mid).await?)
+}
+
+/// MV 资料和各清晰度的播放地址，`vid` 是视频搜索结果里的字符串 VID。
+pub async fn get_mv_detail(vid: String) -> Result<MvDetail, ApiError> {
+    Ok(mv::mv_detail(&vid).await?)
+}
+
+/// 其他用户的主页资料，`euin` 来自用户搜索结果。
+pub async fn get_user_profile(euin: String) -> Result<UserProfile, ApiError> {
+    Ok(user::user_profile(&euin).await?)
+}
+
+/// 其他用户的公开歌单，`page` 从 0 开始；`creator` 是填进歌单卡片的用户名。
+pub async fn get_user_public_playlists(euin: String, creator: String, page: u32, page_size: u32) -> Result<UserPlaylistPage, ApiError> {
+    Ok(user::user_playlists(&euin, &creator, page, page_size).await?)
 }
 
 /// 评论第 `page` 页（从 0 开始），`last_seq_no` 是上一页最后一条的 `seq_no`，第一页传空。

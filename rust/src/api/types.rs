@@ -153,10 +153,112 @@ pub struct TopListDetail {
     pub songs: Vec<Song>,
 }
 
+/// 搜索分类，对应 Windows 客户端搜索结果页的标签。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SearchKind {
+    Song,
+    Singer,
+    Album,
+    Playlist,
+    /// 官方 MV 和用户上传的视频混在一起。
+    Video,
+    /// 按歌词搜歌，结果仍是歌曲，另附命中的歌词片段。
+    Lyric,
+    User,
+}
+
+#[derive(Debug, Clone)]
+pub struct UserBrief {
+    /// 加密的账号编号（encrypt_uin），打开用户主页用；搜索结果里没有明文账号。
+    pub euin: String,
+    pub name: String,
+    pub avatar_url: String,
+    pub fans_count: u64,
+    pub playlist_count: u32,
+    /// 认证说明，比如“《鸣潮》先约电台团队推出的电台栏目”，可能为空。
+    pub description: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct UserProfile {
+    pub euin: String,
+    pub name: String,
+    pub avatar_url: String,
+    pub fans_count: u64,
+    pub follow_count: u64,
+    /// 公开歌单数；主页没有歌单标签时为 0。
+    pub playlist_count: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct UserPlaylistPage {
+    pub playlists: Vec<PlaylistBrief>,
+    pub has_more: bool,
+}
+
+/// MV 的一档清晰度。
+#[derive(Debug, Clone)]
+pub struct MvStream {
+    /// 画面高度：360 / 480 / 720 / 1080。
+    pub height: u32,
+    pub url: String,
+    pub size: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct MvDetail {
+    pub vid: String,
+    pub name: String,
+    pub cover_url: String,
+    pub singers: Vec<Singer>,
+    /// 用户上传的视频才有。
+    pub uploader: String,
+    pub duration_secs: u32,
+    pub play_count: u64,
+    /// 形如 2026-09-17，可能为空。
+    pub publish_date: String,
+    pub description: String,
+    /// 从低到高；没有权限或下架时为空。
+    pub streams: Vec<MvStream>,
+}
+
+#[derive(Debug, Clone)]
+pub struct VideoBrief {
+    /// 字符串 VID，取 MV 详情和播放地址用；不能用数字 mv_id 代替。
+    pub vid: String,
+    pub name: String,
+    pub cover_url: String,
+    pub duration_secs: u32,
+    pub play_count: u64,
+    /// 官方 MV 是歌手名，用户上传的是上传者昵称。
+    pub creator: String,
+    /// 用户上传，而不是官方 MV。
+    pub uploaded: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct SingerBrief {
+    pub mid: String,
+    pub name: String,
+    pub avatar_url: String,
+    pub song_count: u32,
+    pub album_count: u32,
+}
+
+/// 一页搜索结果，只有所搜分类对应的列表有内容。
 #[derive(Debug, Clone)]
 pub struct SearchResult {
     pub songs: Vec<Song>,
+    /// 歌词搜索时与 songs 一一对应的命中歌词，没找到命中行时为空字符串；其他分类为空列表。
+    pub lyric_snippets: Vec<String>,
+    pub singers: Vec<SingerBrief>,
+    pub albums: Vec<AlbumBrief>,
+    pub playlists: Vec<PlaylistBrief>,
+    pub videos: Vec<VideoBrief>,
+    pub users: Vec<UserBrief>,
     pub total: u32,
+    /// 还有下一页。返回条数可能多于请求的每页条数，不能用条数判断。
+    pub has_more: bool,
 }
 
 /// 推荐页的一个区块；一个区块要么是歌曲，要么是歌单。

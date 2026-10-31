@@ -88,6 +88,90 @@ async fn desktop_search_pagination() {
 
 #[tokio::test]
 #[ignore]
+async fn desktop_category_search_pagination() {
+    use rust_lib_kanade::api::types::{SearchKind, SearchResult};
+    fn ids(kind: SearchKind, r: &SearchResult) -> Vec<String> {
+        match kind {
+            SearchKind::Song | SearchKind::Lyric => r.songs.iter().map(|x| x.mid.clone()).collect(),
+            SearchKind::Singer => r.singers.iter().map(|x| x.mid.clone()).collect(),
+            SearchKind::Album => r.albums.iter().map(|x| x.mid.clone()).collect(),
+            SearchKind::Playlist => r.playlists.iter().map(|x| x.id.clone()).collect(),
+            SearchKind::Video => r.videos.iter().map(|x| x.vid.clone()).collect(),
+            SearchKind::User => r.users.iter().map(|x| x.euin.clone()).collect(),
+        }
+    }
+    use_desktop_test_login();
+    for kind in [SearchKind::Song, SearchKind::Album, SearchKind::Playlist, SearchKind::Video, SearchKind::Lyric, SearchKind::Singer, SearchKind::User] {
+        let first = music::search("周杰伦", kind, 1, 10).await.unwrap();
+        let first_ids = ids(kind, &first);
+        assert!(!first_ids.is_empty(), "{kind:?} 第一页为空");
+        if kind == SearchKind::Lyric {
+            assert_eq!(first.lyric_snippets.len(), first.songs.len());
+        }
+        // 用户的 euin 是账号标识，不打印
+        let sample = if kind == SearchKind::User { vec![] } else { first_ids[..first_ids.len().min(3)].to_vec() };
+        println!("{kind:?}: total={} has_more={} first={sample:?}", first.total, first.has_more);
+        if !first.has_more {
+            continue;
+        }
+        let second = music::search("周杰伦", kind, 2, 10).await.unwrap();
+        let second_ids = ids(kind, &second);
+        assert!(!second_ids.is_empty(), "{kind:?} 第二页为空");
+        assert!(second_ids.iter().all(|id| !first_ids.contains(id)), "{kind:?} 第二页与第一页重复");
+    }
+}
+
+#[tokio::test]
+#[ignore]
+async fn desktop_user_homepage_playlists() {
+    use rust_lib_kanade::api::types::SearchKind;
+    use rust_lib_kanade::qq::user;
+    use_desktop_test_login();
+    let users = music::search("周杰伦", SearchKind::User, 1, 10).await.unwrap().users;
+    let mut checked = false;
+    for u in users.iter().filter(|u| u.playlist_count > 10).take(1) {
+        let profile = user::user_profile(&u.euin).await.unwrap();
+        assert!(!profile.name.is_empty());
+        assert!(profile.playlist_count > 10, "主页没有歌单标签");
+        let first = user::user_playlists(&u.euin, &profile.name, 0, 10).await.unwrap();
+        let second = user::user_playlists(&u.euin, &profile.name, 1, 10).await.unwrap();
+        assert!(first.has_more && !second.playlists.is_empty());
+        assert!(second.playlists.iter().all(|p| first.playlists.iter().all(|q| q.id != p.id)), "歌单第二页与第一页重复");
+        let detail = music::playlist_detail(&first.playlists[0].id).await.unwrap();
+        assert!(!detail.songs.is_empty(), "用户歌单打不开");
+        println!("{}: {} 个歌单，第一个《{}》{} 首", profile.name, profile.playlist_count, detail.title, detail.songs.len());
+        checked = true;
+    }
+    assert!(checked, "搜索结果里没有带歌单的用户");
+}
+
+#[tokio::test]
+#[ignore]
+async fn desktop_mv_streams() {
+    use rust_lib_kanade::api::types::SearchKind;
+    use rust_lib_kanade::qq::mv;
+    use_desktop_test_login();
+    let videos = music::search("周杰伦", SearchKind::Video, 1, 10).await.unwrap().videos;
+    let official = videos.iter().find(|v| !v.uploaded).expect("没有官方 MV");
+    let d = mv::mv_detail(&official.vid).await.unwrap();
+    assert!(!d.name.is_empty() && d.duration_secs > 0);
+    assert!(!d.streams.is_empty(), "{} 没有可播放的清晰度", d.name);
+    let low = &d.streams[0];
+    let response = reqwest::Client::new().get(&low.url).header("Range", "bytes=0-1023").send().await.unwrap();
+    assert_eq!(response.status(), reqwest::StatusCode::PARTIAL_CONTENT);
+    let bytes = response.bytes().await.unwrap();
+    assert_eq!(&bytes[4..8], b"ftyp", "不是 MP4");
+    println!("{}: {:?}", d.name, d.streams.iter().map(|x| x.height).collect::<Vec<_>>());
+    // 用户上传的视频走同一套接口
+    let uploaded = music::search("鸣潮", SearchKind::Video, 1, 20).await.unwrap().videos;
+    for v in uploaded.iter().filter(|v| v.uploaded).take(2) {
+        let d = mv::mv_detail(&v.vid).await.unwrap();
+        println!("上传 {}: {:?}", d.name, d.streams.iter().map(|x| x.height).collect::<Vec<_>>());
+    }
+}
+
+#[tokio::test]
+#[ignore]
 async fn desktop_search_and_stream() {
     use_desktop_test_login();
     let result = music::search_songs("纯音乐 钢琴", 1, 20).await.unwrap();
