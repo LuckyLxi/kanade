@@ -40,6 +40,19 @@ class Cover extends StatelessWidget {
               width: size,
               height: size,
               fit: BoxFit.cover,
+              // 网络加载完才淡入；内存缓存里同步拿到的直接显示，滚回来不会再闪一次
+              frameBuilder: (_, child, frame, sync) {
+                if (sync) return child;
+                return ColoredBox(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  child: AnimatedOpacity(
+                    opacity: frame == null ? 0 : 1,
+                    duration: const Duration(milliseconds: 280),
+                    curve: Curves.easeOut,
+                    child: child,
+                  ),
+                );
+              },
               errorBuilder: (_, _, _) => placeholder,
             ),
     );
