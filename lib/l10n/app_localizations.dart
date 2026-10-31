@@ -338,12 +338,6 @@ abstract class AppLocalizations {
   /// **'{quality}（{reason}）'**
   String qualityWithReason(String quality, String reason);
 
-  /// 请求的音质没有权限，自动降级
-  ///
-  /// In zh, this message translates to:
-  /// **'{actual}（无权获取{requested}）'**
-  String qualityDowngraded(String actual, String requested);
-
   /// No description provided for @qualityLow.
   ///
   /// In zh, this message translates to:

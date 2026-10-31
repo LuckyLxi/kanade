@@ -40,7 +40,6 @@
   "qualityNoneForSong": "No qualities available for this song",
   "qualityNone": "No qualities available",
   "qualityWithReason": "{quality} ({reason})",
-  "qualityDowngraded": "{actual} (no access to {requested})",
   "qualityLow": "Smooth 96k",
   "qualityStandard": "Standard 128k",
   "qualityHigh": "High 320k",

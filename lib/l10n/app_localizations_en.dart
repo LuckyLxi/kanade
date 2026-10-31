@@ -168,11 +168,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String qualityDowngraded(String actual, String requested) {
-    return '$actual (no access to $requested)';
-  }
-
-  @override
   String get qualityLow => 'Smooth 96k';
 
   @override

@@ -150,11 +150,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String qualityDowngraded(String actual, String requested) {
-    return '$actual（无权获取$requested）';
-  }
-
-  @override
   String get qualityLow => '流畅 96k';
 
   @override
