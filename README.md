@@ -2,7 +2,7 @@ QQ 音乐第三方客户端，支持 Windows 和 Android。
 
 > 本项目仅供个人学习和技术交流，与腾讯 / QQ 音乐没有任何关系。
 > 所有音乐内容的版权归各自权利人所有；能播放哪些歌完全取决于你自己账号的权限。
-> 本项目只请求官方提供的普通音频格式，**不破解、不处理任何加密格式**。请勿用于商业用途。
+> 本项目只请求官方提供的普通音频格式，**不破解、不处理任何加密格式**。
 
 <p align="center">
   <img src="docs/screenshots/desktop.png" width="90%">
@@ -49,11 +49,15 @@ QQ 音乐第三方客户端，支持 Windows 和 Android。
 需要先安装 [Flutter](https://flutter.dev) 和 [Rust](https://rustup.rs)
 
 ```bash
-git clone <仓库地址>
+git clone https://github.com/LuckyLxi/kanade.git
 cd kanade
 flutter pub get
 flutter run -d windows
 ```
+
+## 许可证
+
+本项目采用 [GNU General Public License v3.0](LICENSE)（GPL-3.0-only）。第三方代码保留各自的许可证和版权声明。
 
 ## 致谢
 
