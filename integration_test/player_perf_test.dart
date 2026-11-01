@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' show Timeline;
 import 'dart:io';
 import 'dart:ui';
 
@@ -34,14 +35,17 @@ void main() {
     final art = await tester.runAsync(() => loadCoverArt(bigCoverUrl(player.current!)));
 
     final cases = <String, Route<void> Function()>{
+      // 冷启动先测真实转场，避免背景 / 歌词用例提前预热首次绘制。
+      'bar': () => PlayerPage.route(anchor: DesktopPlayerBar.anchor),
       'black': () => slide(const ColoredBox(color: Colors.black)),
       'bg': () => slide(PlayerBackground(art: art, animate: true)),
       'lyrics': () => slide(const ColoredBox(color: Colors.black, child: LyricView(fontSize: 36))),
       'full': PlayerPage.route,
-      // 从播放栏变形出来：开头有一段玻璃跟着形状长大
-      'bar': () => PlayerPage.route(anchor: DesktopPlayerBar.anchor),
     };
-    final report = StringBuffer();
+    final view = tester.view;
+    final report = StringBuffer(
+      'view ${view.physicalSize.width} x ${view.physicalSize.height}, dpr ${view.devicePixelRatio}\n',
+    );
     for (final MapEntry(key: name, value: make) in cases.entries) {
       for (var round = 0; round < 2; round++) {
         final r = await tester.runAsync(() => _measure(() => nav.push(make()), () => nav.pop()));
@@ -56,7 +60,10 @@ void main() {
 
 Future<String> _measure(void Function() open, void Function() close) async {
   final timings = <FrameTiming>[];
-  void onTimings(List<FrameTiming> t) => timings.addAll(t);
+  final openedAt = Timeline.now;
+  // 引擎可能批量补报注册回调之前的帧，不能把首页启动的编译算进转场。
+  void onTimings(List<FrameTiming> t) =>
+      timings.addAll(t.where((frame) => frame.timestampInMicroseconds(FramePhase.buildStart) >= openedAt));
   final before = ProcessInfo.currentRss;
   var peak = before;
   final sampler = Timer.periodic(const Duration(milliseconds: 10), (_) {

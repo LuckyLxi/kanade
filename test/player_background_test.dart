@@ -17,6 +17,7 @@ void main() {
       final motion = ValueNotifier(Offset.zero);
       addTearDown(motion.dispose);
       final key = GlobalKey();
+      await tester.runAsync(warmUpPlayerBackground);
       await tester.pumpWidget(
         RepaintBoundary(
           key: key,
@@ -27,9 +28,6 @@ void main() {
             child: const PlayerBackground(art: null, animate: false),
           ),
         ),
-      );
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 100)),
       );
       await tester.pumpAndSettle();
       Future<Uint8List> pixels() async {
@@ -47,6 +45,11 @@ void main() {
       }
 
       final initial = (await tester.runAsync(pixels))!;
+      expect(
+        initial.sublist(0, 3),
+        isNot(orderedEquals(initial.sublist(96 * 48 * 4, 96 * 48 * 4 + 3))),
+        reason: 'warm-up must make the shader available on the first frame',
+      );
       motion.value = const Offset(0, 12);
       await tester.pumpAndSettle();
       final moved = (await tester.runAsync(pixels))!;
@@ -129,6 +132,8 @@ void main() {
         reason: 'the resized background fills the viewport',
       );
       expect(tester.binding.hasScheduledFrame, isFalse);
+      await show(animate: false, size: Size.zero);
+      await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox.shrink());
       expect(tester.takeException(), isNull);
     },

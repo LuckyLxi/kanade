@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math';
 import 'dart:ui' as ui;
@@ -39,6 +40,7 @@ final _artCache = <String, CoverArt>{};
 
 /// 正在生成的素材，同一张封面同时被预取和播放页请求时只算一次。
 final _artLoading = <String, Future<CoverArt>>{};
+Future<void>? _coverWarmUp;
 
 /// 还没取到封面时用的默认图：默认主色画几团光斑，第一次用到时才生成。
 final _fallbackImage = () {
@@ -58,6 +60,33 @@ Future<void>? _programLoading;
 /// 加载背景 shader。迷你播放器预取封面时就会调用，打开播放页时一般已经好了。
 Future<void> _loadProgram() => _programLoading ??=
     ui.FragmentProgram.fromAsset('shaders/player_background.frag').then((p) => _program = p);
+
+/// 预加载并实际绘制一次，提前完成 Windows / Skia 的首次 GPU 编译。
+/// 只加载 FragmentProgram 不会执行绘制，编译开销仍会落在首次转场里。
+Future<void> warmUpPlayerBackground({CoverArt? art}) async {
+  await _loadProgram();
+  final shader = _program!.fragmentShader();
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  final pixelRatio = ui.PlatformDispatcher.instance.views.first.devicePixelRatio;
+  canvas.scale(pixelRatio);
+  const size = Size(64, 64);
+  _BackgroundPainter.paintShader(canvas, size, shader, Paint(), art, art, 0, 1);
+  final picture = recorder.endRecording();
+  try {
+    final extent = (64 * pixelRatio).ceil();
+    // toImage 的 Skia 输出格式不同；与实际绘制用同一路径，并等待 GPU 完成。
+    final image = picture.toImageSync(extent, extent);
+    try {
+      await image.toByteData();
+    } finally {
+      image.dispose();
+    }
+  } finally {
+    picture.dispose();
+    shader.dispose();
+  }
+}
 
 /// 已经生成好的素材，播放页第一帧就能直接用，不用等异步。
 CoverArt? cachedCoverArt(String url) => _artCache[httpsUrl(url)];
@@ -105,6 +134,9 @@ Future<CoverArt> _build(String url) async {
     );
     final blurred = await rec.endRecording().toImage(_artSize, _artSize);
     final art = CoverArt(palette, blurred);
+    if (Platform.isWindows) {
+      await (_coverWarmUp ??= warmUpPlayerBackground(art: art));
+    }
     _artCache[url] = art;
     // 只留最近 12 张；被挤掉的图可能还在画，交给 GC 回收，不手动 dispose
     while (_artCache.length > 12) {
@@ -254,13 +286,15 @@ class _PlayerBackgroundState extends State<PlayerBackground> with TickerProvider
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: CustomPaint(
         size: Size.infinite,
-        painter: _BackgroundPainter(this),
+        painter: _BackgroundPainter(
+          this,
+          MediaQuery.maybeDevicePixelRatioOf(context) ?? View.of(context).devicePixelRatio,
+        ),
         // 每帧都变，告诉引擎别尝试光栅缓存
         willChange: true,
       ),
@@ -269,14 +303,17 @@ class _PlayerBackgroundState extends State<PlayerBackground> with TickerProvider
 }
 
 class _BackgroundPainter extends CustomPainter {
-  _BackgroundPainter(this.s) : super(repaint: Listenable.merge([s._phase, s._fade, s._shaderReady]));
+  _BackgroundPainter(this.s, this.pixelRatio) : super(repaint: Listenable.merge([s._phase, s._fade, s._shaderReady]));
 
   final _PlayerBackgroundState s;
+  final double pixelRatio;
 
   static final _paint = Paint();
+  static final _imagePaint = Paint()..filterQuality = FilterQuality.low;
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
     final t = Curves.easeInOut.transform(s._fade.value);
     final full = Offset.zero & size;
     final program = _program;
@@ -287,14 +324,45 @@ class _BackgroundPainter extends CustomPainter {
       return;
     }
     final shader = s._shader ??= program.fragmentShader();
+    if (!Platform.isWindows) {
+      paintShader(canvas, size, shader, _paint, s._from, s._to, s._phase.value, t);
+      return;
+    }
+    // Windows / Skia 会为转场中的裁剪和透明度组合另编译背景 shader。
+    // 按窗口像素比先绘成纹理，转场只合成图片，复用已经预热的背景程序。
+    final recorder = ui.PictureRecorder();
+    final imageCanvas = Canvas(recorder)..scale(pixelRatio);
+    paintShader(imageCanvas, size, shader, _paint, s._from, s._to, s._phase.value, t);
+    final picture = recorder.endRecording();
+    final image = picture.toImageSync((size.width * pixelRatio).ceil(), (size.height * pixelRatio).ceil());
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+      full,
+      _imagePaint,
+    );
+    image.dispose();
+    picture.dispose();
+  }
+
+  static void paintShader(
+    Canvas canvas,
+    Size size,
+    ui.FragmentShader shader,
+    Paint paint,
+    CoverArt? fromArt,
+    CoverArt? toArt,
+    double phase,
+    double t,
+  ) {
     shader
       ..setFloat(0, size.width)
       ..setFloat(1, size.height)
       ..setFloat(2, _artSize + 0.0)
-      ..setFloat(3, s._phase.value * 2 * pi)
+      ..setFloat(3, phase * 2 * pi)
       ..setFloat(4, t);
-    final from = s._from?.palette ?? fallbackPalette;
-    final to = s._to?.palette ?? fallbackPalette;
+    final from = fromArt?.palette ?? fallbackPalette;
+    final to = toArt?.palette ?? fallbackPalette;
     for (var i = 0; i < 4; i++) {
       final c = Color.lerp(from[i], to[i], t)!;
       shader
@@ -304,12 +372,12 @@ class _BackgroundPainter extends CustomPainter {
     }
     shader
       // 硬件只做双线性，shader 里再拼成双三次
-      ..setImageSampler(0, s._from?.blurred ?? _fallbackImage, filterQuality: FilterQuality.low)
-      ..setImageSampler(1, s._to?.blurred ?? _fallbackImage, filterQuality: FilterQuality.low);
-    canvas.drawRect(full, _paint..shader = shader);
-    _paint.shader = null;
+      ..setImageSampler(0, fromArt?.blurred ?? _fallbackImage, filterQuality: FilterQuality.low)
+      ..setImageSampler(1, toArt?.blurred ?? _fallbackImage, filterQuality: FilterQuality.low);
+    canvas.drawRect(Offset.zero & size, paint..shader = shader);
+    paint.shader = null;
   }
 
   @override
-  bool shouldRepaint(_BackgroundPainter old) => old.s != s;
+  bool shouldRepaint(_BackgroundPainter old) => old.s != s || old.pixelRatio != pixelRatio;
 }

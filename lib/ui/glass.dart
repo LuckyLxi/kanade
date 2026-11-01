@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -87,7 +88,15 @@ abstract final class KanadeGlass {
     quality: navigationQuality,
   ).copyWith(glassColor: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.16));
 
-  static Future<void> initialize() => LiquidGlassWidgets.initialize(enablePerformanceMonitor: false);
+  static Future<void> initialize() async {
+    await LiquidGlassWidgets.initialize(enablePerformanceMonitor: false);
+    if (Platform.isWindows) {
+      // 窗口首帧完成后再预热实际 GPU 绘制，不只把 shader 文件加载进内存。
+      unawaited(
+        WidgetsBinding.instance.waitUntilFirstFrameRasterized.then((_) => LightweightLiquidGlass.warmUpRendering()),
+      );
+    }
+  }
 
   static Widget wrap({required Widget child}) => LiquidGlassWidgets.wrap(
     brightnessResolver: Theme.maybeBrightnessOf,

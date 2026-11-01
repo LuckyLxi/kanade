@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kanade/app.dart';
@@ -23,7 +25,15 @@ Future<(PlayerController, NavigatorState)> launchWithSong(
   await setup?.call();
 
   // 测试里默认不接系统媒体卡片
-  await tester.pumpWidget(KanadeGlass.wrap(child: AppProviders(mediaSession: mediaSession, child: const KanadeApp())));
+  // 与 main 保持一致，避免 Windows 无障碍桥接错误干扰转场测量。
+  await tester.pumpWidget(
+    ExcludeSemantics(
+      excluding: Platform.isWindows,
+      child: KanadeGlass.wrap(
+        child: AppProviders(mediaSession: mediaSession, child: const KanadeApp()),
+      ),
+    ),
+  );
   final player = tester.element(find.byType(HomeShell)).read<PlayerController>();
 
   final songs = await tester.runAsync(() async {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
@@ -15,10 +16,11 @@ import 'src/rust/api/music.dart' as api;
 import 'src/rust/frb_generated.dart';
 import 'ui/glass.dart';
 import 'ui/home_shell.dart';
+import 'ui/player_page.dart';
 import 'ui/theme.dart';
 import 'ui/title_bar.dart';
 
-/// 启动前的初始化：播放器、Rust 层和它的数据目录、窗口、玻璃着色器。main 和集成测试共用。
+/// 启动前的初始化：播放器、Rust 层和它的数据目录、窗口、着色器。main 和集成测试共用。
 Future<void> initApp() async {
   MediaKit.ensureInitialized();
   await RustLib.init();
@@ -27,6 +29,9 @@ Future<void> initApp() async {
   await api.initCore(dataDir: dir.path);
   // 预热玻璃着色器，避免第一次出现玻璃时闪白
   await KanadeGlass.initialize();
+  if (Platform.isWindows) {
+    unawaited(WidgetsBinding.instance.waitUntilFirstFrameRasterized.then((_) => PlayerPage.warmUp()));
+  }
 }
 
 /// 全部状态对象。[mediaSession] 为 false 时不接系统媒体卡片（集成测试用）。

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'dart:ui' show ImageFilter, lerpDouble;
 
 import 'package:flutter/gestures.dart';
@@ -45,6 +46,37 @@ class PlayerPage extends StatefulWidget {
   /// 给了 [anchor] 时播放页从那个播放条变形出来，关闭时变回去；不给就从屏幕底边升上来。
   static Route<void> route({PlayerBarAnchor? anchor, bool showQueue = false}) =>
       PlayerRoute(anchor: anchor, showQueue: showQueue);
+
+  /// Windows 首次转场前准备背景和封面投影的 GPU 绘制程序。
+  static Future<void> warmUp() async {
+    await warmUpPlayerBackground();
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final pixelRatio = ui.PlatformDispatcher.instance.views.first.devicePixelRatio;
+    canvas.scale(pixelRatio);
+    for (final lifted in [false, true]) {
+      for (final t in [0.1, 0.5, 1.0]) {
+        final painter = BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [albumArtShadow(lifted: lifted).scale(t)],
+        ).createBoxPainter();
+        painter.paint(canvas, const Offset(100, 100), ImageConfiguration(size: Size.square(54 + 346 * t)));
+        painter.dispose();
+      }
+    }
+    final picture = recorder.endRecording();
+    try {
+      final extent = (600 * pixelRatio).ceil();
+      final image = picture.toImageSync(extent, extent);
+      try {
+        await image.toByteData();
+      } finally {
+        image.dispose();
+      }
+    } finally {
+      picture.dispose();
+    }
+  }
 
   @override
   State<PlayerPage> createState() => _PlayerPageState();

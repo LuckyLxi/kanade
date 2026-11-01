@@ -183,6 +183,50 @@ class LightweightLiquidGlass extends StatefulWidget {
     }
   }
 
+  /// Rasterizes the empty-backdrop path used by standalone overlay surfaces.
+  /// Loading a FragmentProgram alone does not compile its GPU draw variants.
+  static Future<void> warmUpRendering() async {
+    await preWarm();
+    final program = _cachedProgram;
+    if (program == null) return;
+    final shader = program.fragmentShader();
+    final renderer = _RenderLightweightGlass(
+      shader: shader,
+      settings: const LiquidGlassSettings(),
+      shape: const LiquidRoundedRectangle(borderRadius: 14),
+      skipBlur: true,
+      glowIntensity: 0,
+      densityFactor: 1,
+      indicatorWeight: 0,
+      backdropLuma: 0.5,
+    );
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    const size = Size(64, 64);
+    final pixelRatio = ui.PlatformDispatcher.instance.views.first.devicePixelRatio;
+    canvas.scale(pixelRatio);
+    shader.setImageSampler(0, dummyImage, filterQuality: FilterQuality.medium);
+    for (final offset in [Offset.zero, const Offset(0.5, 0.5)]) {
+      renderer._updateShaderUniforms(
+          size, offset * pixelRatio, Offset(pixelRatio, pixelRatio), Offset.zero, const Size(1, 1));
+      canvas.drawRect(offset & size, Paint()..shader = shader);
+    }
+    final picture = recorder.endRecording();
+    try {
+      final extent = (65 * pixelRatio).ceil();
+      final image = picture.toImageSync(extent, extent);
+      try {
+        await image.toByteData();
+      } finally {
+        image.dispose();
+      }
+    } finally {
+      picture.dispose();
+      renderer.dispose();
+      shader.dispose();
+    }
+  }
+
   @override
   State<LightweightLiquidGlass> createState() => _LightweightLiquidGlassState();
 }
