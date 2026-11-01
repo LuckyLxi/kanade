@@ -132,7 +132,12 @@ class GlassBackScaffold extends StatelessWidget {
                 settings: KanadeGlass.navigationSettings(context),
                 quality: KanadeGlass.navigationQuality,
                 semanticLabel: MaterialLocalizations.of(context).backButtonTooltip,
-                onPressed: () => Navigator.maybePop(context),
+                onPressed: () async {
+                  final nav = Navigator.of(context);
+                  // 套在 PlayerBarPage 里的第一页：里面那层退不了，交给外面那层
+                  final outer = nav.context.findAncestorStateOfType<NavigatorState>();
+                  if (!await nav.maybePop()) outer?.maybePop();
+                },
                 icon: Icon(Icons.arrow_back_rounded, color: scheme.onSurface),
               ),
             ),

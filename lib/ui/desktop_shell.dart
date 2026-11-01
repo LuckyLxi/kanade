@@ -237,32 +237,46 @@ class _SidebarPlaylistsState extends State<_SidebarPlaylists> {
 /// 桌面底部整宽的玻璃播放栏：左边歌曲信息，中间播放控制和进度，右边歌词 / 队列 / 音量。
 /// 玻璃里只放普通控件，并且图标颜色要显式给（玻璃层会改写继承的图标颜色）。
 class DesktopPlayerBar extends StatefulWidget {
-  const DesktopPlayerBar({super.key});
+  const DesktopPlayerBar({super.key, this.barAnchor});
 
   static const height = 84.0;
 
-  /// 播放页从这里变形出来。
-  static final anchor = PlayerBarAnchor(
-    coverRadius: 12,
-    face: (_) => const Material(type: MaterialType.transparency, child: _DesktopBarContent(showCover: false)),
-  );
+  /// 窗口底部那条播放栏的锚点，播放页从这里变形出来。
+  static final anchor = newAnchor();
+
+  /// 另外摆一条播放栏时（比如从播放页进的歌手页）给它自己的锚点。
+  static PlayerBarAnchor newAnchor() {
+    late final PlayerBarAnchor a;
+    a = PlayerBarAnchor(
+      coverRadius: 12,
+      face: (_) => Material(
+        type: MaterialType.transparency,
+        child: _DesktopBarContent(anchor: a, showCover: false),
+      ),
+    );
+    return a;
+  }
+
+  /// 不给就是 [DesktopPlayerBar.anchor]。
+  final PlayerBarAnchor? barAnchor;
 
   @override
   State<DesktopPlayerBar> createState() => _DesktopPlayerBarState();
 }
 
 class _DesktopPlayerBarState extends State<DesktopPlayerBar> with TickerProviderStateMixin {
-  late final _drag = PlayerBarDrag(DesktopPlayerBar.anchor, this);
+  late final _anchor = widget.barAnchor ?? DesktopPlayerBar.anchor;
+  late final _drag = PlayerBarDrag(_anchor, this);
 
   @override
   Widget build(BuildContext context) {
     final hasSong = context.select<PlayerController, bool>((p) => p.current != null);
     final bar = GestureDetector(
-      key: DesktopPlayerBar.anchor.barKey,
+      key: _anchor.barKey,
       // 栏里的空白处也要接住点击，不能漏到下面的列表上
       behavior: HitTestBehavior.opaque,
       // 点空白处打开播放页；栏里的按钮和滑条会先接住自己的点击
-      onTap: hasSong ? () => PlayerRoute.open(context, anchor: DesktopPlayerBar.anchor) : null,
+      onTap: hasSong ? () => PlayerRoute.open(context, anchor: _anchor) : null,
       // 按住往上拖打开播放页
       onVerticalDragUpdate: hasSong ? (d) => _drag.update(context, d) : null,
       onVerticalDragEnd: hasSong ? (d) => _drag.end(context, d.velocity.pixelsPerSecond.dy) : null,
@@ -276,13 +290,13 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> with TickerProvider
         clipBehavior: Clip.antiAlias,
         child: Material(
           type: MaterialType.transparency,
-          child: hasSong ? const _DesktopBarContent(showCover: true) : const _DesktopBarIdle(),
+          child: hasSong ? _DesktopBarContent(anchor: _anchor, showCover: true) : const _DesktopBarIdle(),
         ),
       ),
     );
     // 播放页盖在上面时由转场层画它，这里藏起来
     return ValueListenableBuilder(
-      valueListenable: DesktopPlayerBar.anchor.hidden,
+      valueListenable: _anchor.hidden,
       child: bar,
       builder: (_, hidden, bar) => Opacity(opacity: hidden ? 0 : 1, child: bar),
     );
@@ -291,8 +305,9 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> with TickerProvider
 
 /// 播放栏里的内容。[showCover] 为 false 时是变形转场画的副本，封面由转场层单独飞。
 class _DesktopBarContent extends StatelessWidget {
-  const _DesktopBarContent({required this.showCover});
+  const _DesktopBarContent({required this.anchor, required this.showCover});
 
+  final PlayerBarAnchor anchor;
   final bool showCover;
 
   @override
@@ -305,8 +320,7 @@ class _DesktopBarContent extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final liked = context.select<LibraryController, bool>((c) => c.isLiked(song));
     final muted = scheme.onSurfaceVariant;
-    void openPlayer({bool queue = false}) =>
-        PlayerRoute.open(context, anchor: DesktopPlayerBar.anchor, showQueue: queue);
+    void openPlayer({bool queue = false}) => PlayerRoute.open(context, anchor: anchor, showQueue: queue);
 
     return Padding(
       // 两端是半圆，内容往里收一点
@@ -320,7 +334,7 @@ class _DesktopBarContent extends StatelessWidget {
                 // 封面和歌名的点击交给外层播放栏打开播放页，不画水波纹
                 showCover
                     ? KeyedSubtree(
-                        key: DesktopPlayerBar.anchor.coverKey,
+                        key: anchor.coverKey,
                         child: Cover(song.coverUrl, size: 54, radius: 12),
                       )
                     : const SizedBox.square(dimension: 54),

@@ -5,6 +5,7 @@ import '../l10n/l10n_ext.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'keyed_route.dart';
 import 'comments_page.dart';
 import 'glass.dart';
 import 'singer_page.dart';
@@ -17,7 +18,7 @@ class AlbumPage extends StatelessWidget {
   final String mid;
   final String name;
 
-  static Route<void> route(String mid, String name) => MaterialPageRoute(builder: (_) => AlbumPage(mid: mid, name: name));
+  static Route<void> route(String mid, String name) => keyedPage('album:$mid', (_) => AlbumPage(mid: mid, name: name));
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +74,7 @@ class _Head extends StatelessWidget {
             children: [
               for (final s in d.singers)
                 InkWell(
-                  onTap: s.mid.isEmpty ? null : () => Navigator.of(context).push(SingerPage.route(s.mid, s.name)),
+                  onTap: s.mid.isEmpty ? null : () => openPage(context, SingerPage.route(s.mid, s.name)),
                   child: Text(s.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 ),
             ],

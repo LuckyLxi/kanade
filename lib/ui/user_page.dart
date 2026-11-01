@@ -5,6 +5,7 @@ import '../auth/auth_controller.dart';
 import '../l10n/l10n_ext.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'keyed_route.dart';
 import 'follow_button.dart';
 import 'glass.dart';
 import 'profile_layout.dart';
@@ -21,9 +22,8 @@ class UserPage extends StatelessWidget {
   final String euin;
   final String name;
 
-  static Route<void> route(String euin, String name) => MaterialPageRoute(
-    builder: (_) => UserPage(euin: euin, name: name),
-  );
+  static Route<void> route(String euin, String name) =>
+      keyedPage('user:$euin', (_) => UserPage(euin: euin, name: name));
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +235,7 @@ class _PlaylistTile extends StatelessWidget {
         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
       ),
       subtitle: p.songCount > 0 ? Text(l.songCount(p.songCount)) : null,
-      onTap: () => Navigator.of(context).push(SongListPage.playlist(p.id, p.title)),
+      onTap: () => openPage(context, SongListPage.playlist(p.id, p.title)),
     );
   }
 }

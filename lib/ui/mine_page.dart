@@ -15,6 +15,7 @@ import '../library/library_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/error.dart';
 import '../src/rust/api/types.dart';
+import 'keyed_route.dart';
 import 'playlist_actions.dart';
 import 'settings_page.dart';
 import 'smooth_scroll.dart';
@@ -173,7 +174,7 @@ class _LoggedInState extends State<_LoggedIn> {
           child: Row(
             children: [
               GestureDetector(
-                onTap: () => Navigator.of(context).push(UserPage.route(user.uin, user.nickname)),
+                onTap: () => openPage(context, UserPage.route(user.uin, user.nickname)),
                 child: Container(
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
@@ -293,7 +294,7 @@ class _LoggedInState extends State<_LoggedIn> {
                             onPressed: () => showPlaylistActions(context, own[p.id]!),
                           )
                         : Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-                    onTap: () => Navigator.of(context).push(SongListPage.playlist(p.id, p.title)),
+                    onTap: () => openPage(context, SongListPage.playlist(p.id, p.title)),
                     onLongPress: canEditPlaylist(own[p.id]) ? () => showPlaylistActions(context, own[p.id]!) : null,
                   ),
               ],

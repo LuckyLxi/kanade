@@ -9,6 +9,7 @@ import '../library/library_controller.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'keyed_route.dart';
 import 'glass.dart';
 import 'playlist_actions.dart';
 import 'smooth_scroll.dart';
@@ -45,8 +46,9 @@ class SongListPage extends StatelessWidget {
   /// 头部有搜索钮，点开后顶栏变成搜索框，按歌名、歌手筛选。
   final bool searchable;
 
-  static Route<void> playlist(String id, String title) => MaterialPageRoute(
-    builder: (context) => SongListPage(
+  static Route<void> playlist(String id, String title) => keyedPage(
+    'playlist:$id',
+    (context) => SongListPage(
       title: title,
       searchable: true,
       load: () async {
@@ -85,8 +87,9 @@ class SongListPage extends StatelessWidget {
   );
 
   /// 当前歌曲的相似推荐，加载与重试复用歌曲列表页。
-  static Route<void> similar(Song song, String title) => MaterialPageRoute(
-    builder: (_) => SongListPage(
+  static Route<void> similar(Song song, String title) => keyedPage(
+    'similar:${song.mid}',
+    (_) => SongListPage(
       title: title,
       load: () async => (
         title: title,

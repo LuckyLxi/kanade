@@ -6,6 +6,7 @@ import '../l10n/l10n_ext.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'keyed_route.dart';
 import 'album_page.dart';
 import 'follow_button.dart';
 import 'glass.dart';
@@ -21,9 +22,8 @@ class SingerPage extends StatelessWidget {
   final String mid;
   final String name;
 
-  static Route<void> route(String mid, String name) => MaterialPageRoute(
-    builder: (_) => SingerPage(mid: mid, name: name),
-  );
+  static Route<void> route(String mid, String name) =>
+      keyedPage('singer:$mid', (_) => SingerPage(mid: mid, name: name));
 
   @override
   Widget build(BuildContext context) {
@@ -503,7 +503,7 @@ class _AlbumCard extends StatelessWidget {
       width: 120,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.of(context).push(AlbumPage.route(album.mid, album.name)),
+        onTap: () => openPage(context, AlbumPage.route(album.mid, album.name)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -540,7 +540,7 @@ class AlbumTile extends StatelessWidget {
         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
       ),
       subtitle: Text([album.singerName, album.publishDate].where((s) => s.isNotEmpty).join(' · ')),
-      onTap: () => Navigator.of(context).push(AlbumPage.route(album.mid, album.name)),
+      onTap: () => openPage(context, AlbumPage.route(album.mid, album.name)),
     );
   }
 }

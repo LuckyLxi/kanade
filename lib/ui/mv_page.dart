@@ -8,6 +8,7 @@ import '../l10n/l10n_ext.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'keyed_route.dart';
 import 'singer_page.dart';
 import 'widgets.dart';
 
@@ -132,7 +133,7 @@ class _BodyState extends State<_Body> {
               leading: ClipOval(child: Cover(singerAvatar(s.mid), size: 40, radius: 0)),
               title: Text(s.name),
               trailing: const Icon(Icons.chevron_right),
-              onTap: s.mid.isEmpty ? null : () => Navigator.of(context).push(SingerPage.route(s.mid, s.name)),
+              onTap: s.mid.isEmpty ? null : () => openPage(context, SingerPage.route(s.mid, s.name)),
             ),
         ],
         if (d.description.isNotEmpty)

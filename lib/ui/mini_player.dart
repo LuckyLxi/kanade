@@ -28,17 +28,24 @@ class MiniPlayer extends StatefulWidget {
     this.coverShift = 0,
     this.capsuleWidth,
     this.onExpand,
+    this.barAnchor,
   });
 
   static const height = 64.0;
   static const _coverSize = 44.0;
   static const _circleCover = 46.0;
 
-  /// 播放页从这里变形出来。
-  static final anchor = PlayerBarAnchor(
+  /// 底部导航上方那条播放条的锚点，播放页从这里变形出来。
+  static final anchor = newAnchor();
+
+  /// 另外摆一条播放条时（比如从播放页进的歌手页）给它自己的锚点。
+  static PlayerBarAnchor newAnchor() => PlayerBarAnchor(
     coverRadius: _coverSize / 2,
     face: (_) => const Material(type: MaterialType.transparency, child: _MiniFace()),
   );
+
+  /// 不给就是 [MiniPlayer.anchor]。
+  final PlayerBarAnchor? barAnchor;
 
   final bool round;
   final double faceOpacity;
@@ -56,7 +63,8 @@ class MiniPlayer extends StatefulWidget {
 class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
   /// 左右滑时歌名跟着手指的位移。
   late final _swipe = AnimationController.unbounded(vsync: this);
-  late final _drag = PlayerBarDrag(MiniPlayer.anchor, this);
+  late final _anchor = widget.barAnchor ?? MiniPlayer.anchor;
+  late final _drag = PlayerBarDrag(_anchor, this);
 
   @override
   void dispose() {
@@ -91,9 +99,9 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
     final round = widget.round;
     final swipe = touchPlatform && !round;
     final bar = GestureDetector(
-      key: MiniPlayer.anchor.barKey,
+      key: _anchor.barKey,
       behavior: HitTestBehavior.opaque,
-      onTap: round ? widget.onExpand : () => PlayerRoute.open(context, anchor: MiniPlayer.anchor),
+      onTap: round ? widget.onExpand : () => PlayerRoute.open(context, anchor: _anchor),
       onVerticalDragUpdate: round ? null : (d) => _drag.update(context, d),
       onVerticalDragEnd: round ? null : (d) => _drag.end(context, d.velocity.pixelsPerSecond.dy),
       onVerticalDragCancel: round ? null : () => _drag.end(context, 0),
@@ -130,7 +138,7 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
                     width: d,
                     height: d,
                     child: KeyedSubtree(
-                      key: MiniPlayer.anchor.coverKey,
+                      key: _anchor.coverKey,
                       child: Cover(song.coverUrl, size: d, radius: d / 2),
                     ),
                   ),
@@ -143,7 +151,7 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
     );
     // 播放页盖在上面时由转场层画它，这里藏起来
     return ValueListenableBuilder(
-      valueListenable: MiniPlayer.anchor.hidden,
+      valueListenable: _anchor.hidden,
       child: bar,
       builder: (_, hidden, bar) => Opacity(opacity: hidden ? 0 : 1, child: bar),
     );

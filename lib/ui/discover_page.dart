@@ -7,6 +7,7 @@ import '../l10n/l10n_ext.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'keyed_route.dart';
 import 'smooth_scroll.dart';
 import 'song_list_page.dart';
 import 'toast.dart';
@@ -183,7 +184,7 @@ class _PlaylistRow extends StatelessWidget {
               badge: p.playCount > BigInt.zero
                   ? '▶ ${formatCount(AppLocalizations.of(context), p.playCount.toInt())}'
                   : null,
-              onTap: () => Navigator.of(context).push(SongListPage.playlist(p.id, p.title)),
+              onTap: () => openPage(context, SongListPage.playlist(p.id, p.title)),
             ),
           );
         },

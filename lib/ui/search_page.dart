@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../l10n/l10n_ext.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'keyed_route.dart';
 import 'video_tile.dart';
 import 'singer_page.dart';
 import 'smooth_scroll.dart';
@@ -291,7 +292,7 @@ class _SearchPageState extends State<SearchPage> {
           leading: Cover(s.avatarUrl, size: 52, radius: 26),
           title: Text(s.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           subtitle: Text(l.singerStats(s.songCount, s.albumCount)),
-          onTap: () => Navigator.of(context).push(SingerPage.route(s.mid, s.name)),
+          onTap: () => openPage(context, SingerPage.route(s.mid, s.name)),
         );
       case SearchKind.album:
         return AlbumTile(r.albums[i]);
@@ -309,7 +310,7 @@ class _SearchPageState extends State<SearchPage> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          onTap: () => Navigator.of(context).push(SongListPage.playlist(p.id, p.title)),
+          onTap: () => openPage(context, SongListPage.playlist(p.id, p.title)),
         );
       case SearchKind.video:
         return VideoTile(r.videos[i]);
@@ -328,7 +329,7 @@ class _SearchPageState extends State<SearchPage> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          onTap: () => Navigator.of(context).push(UserPage.route(u.euin, u.name)),
+          onTap: () => openPage(context, UserPage.route(u.euin, u.name)),
         );
     }
   }

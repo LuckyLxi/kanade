@@ -10,6 +10,7 @@ import '../src/rust/api/types.dart';
 import 'album_page.dart';
 import 'comments_page.dart';
 import 'mv_page.dart';
+import 'player_bar_page.dart';
 import 'sheet.dart';
 import 'singer_page.dart';
 import 'song_list_page.dart';
@@ -82,7 +83,7 @@ Future<bool> removeFromPlaylist(BuildContext context, MyPlaylist playlist, Song 
 void openSinger(BuildContext context, Song song) {
   final singers = song.singers.where((s) => s.mid.isNotEmpty).toList();
   if (singers.length == 1) {
-    Navigator.of(context).push(SingerPage.route(singers.first.mid, singers.first.name));
+    pushFromPlayer(context, SingerPage.route(singers.first.mid, singers.first.name));
     return;
   }
   showKanadeSheet<void>(
@@ -96,7 +97,7 @@ void openSinger(BuildContext context, Song song) {
             chevron: true,
             onTap: () {
               Navigator.pop(sheet);
-              Navigator.of(context).push(SingerPage.route(s.mid, s.name));
+              pushFromPlayer(context, SingerPage.route(s.mid, s.name));
             },
           ),
       ],
@@ -168,7 +169,7 @@ Future<void> showSongActions(BuildContext context, Song song, {VoidCallback? onR
                 leading: const Icon(Icons.manage_search_rounded),
                 title: l.findSimilarSongs,
                 chevron: true,
-                onTap: () => run(() => Navigator.of(context).push(SongListPage.similar(song, l.similarSongsTitle(song.name)))),
+                onTap: () => run(() => pushFromPlayer(context, SongListPage.similar(song, l.similarSongsTitle(song.name)))),
               ),
               if (hasSinger)
                 SheetRow(
@@ -182,7 +183,7 @@ Future<void> showSongActions(BuildContext context, Song song, {VoidCallback? onR
                   leading: const Icon(Icons.album_outlined),
                   title: l.albumNamed(song.albumName),
                   chevron: true,
-                  onTap: () => run(() => Navigator.of(context).push(AlbumPage.route(song.albumMid, song.albumName))),
+                  onTap: () => run(() => pushFromPlayer(context, AlbumPage.route(song.albumMid, song.albumName))),
                 ),
               if (onRemove != null)
                 SheetRow(
