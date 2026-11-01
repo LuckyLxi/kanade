@@ -210,11 +210,9 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
           // 背景每帧都在动，前景单独一层，避免跟着重绘
           RepaintBoundary(
             child: SafeArea(
-              child: Column(
-                children: [
-                  _Grabber(onTap: () => Navigator.pop(context)),
-                  Expanded(child: wide ? _wide(p, song, cover) : _narrow(p, song, cover)),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: wide ? _wide(p, song, cover) : _narrow(p, song, cover),
               ),
             ),
           ),
@@ -396,30 +394,6 @@ class _ClipAbove extends CustomClipper<Rect> {
 
   @override
   bool shouldReclip(_ClipAbove old) => true;
-}
-
-class _Grabber extends StatelessWidget {
-  const _Grabber({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(0, 8, 0, 14),
-        child: Center(
-          child: Container(
-            width: 40,
-            height: 5,
-            decoration: BoxDecoration(color: Colors.white38, borderRadius: BorderRadius.circular(3)),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// 大封面的投影：播放时浮起来、阴影更深。飞行中的封面也用它，落地时阴影不会突然冒出来。
