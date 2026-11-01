@@ -1,4 +1,4 @@
-package com.kanade.kanade
+package com.lxi.kanade
 
 import android.content.Intent
 import android.net.Uri

@@ -125,7 +125,7 @@ class _AndroidSink extends BaseAudioHandler with SeekHandler implements _Sink {
   static Future<_AndroidSink> create(PlayerController p, Future<void> Function() onLike) => AudioService.init(
         builder: () => _AndroidSink(p, onLike),
         config: const AudioServiceConfig(
-          androidNotificationChannelId: 'com.kanade.kanade.playback',
+          androidNotificationChannelId: 'com.lxi.kanade.playback',
           androidNotificationChannelName: 'Playback',
           androidNotificationOngoing: true,
         ),
