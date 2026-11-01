@@ -1,4 +1,5 @@
 use crate::frb_generated::StreamSink;
+use std::sync::Mutex;
 use windows::{
     Foundation::{self, TypedEventHandler},
     Media::{
@@ -16,9 +17,18 @@ use super::{
     timeline::PlaybackTimeline,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
+enum RegisteredEvent {
+    Button(Foundation::EventRegistrationToken),
+    Position(Foundation::EventRegistrationToken),
+    Shuffle(Foundation::EventRegistrationToken),
+    Repeat(Foundation::EventRegistrationToken),
+}
+
+#[derive(Debug)]
 pub struct SMTCInternal {
     pub media_player: Box<windows::Media::Playback::MediaPlayer>,
+    events: Mutex<Vec<RegisteredEvent>>,
 }
 
 impl SMTCInternal {
@@ -30,7 +40,10 @@ impl SMTCInternal {
         media_player.CommandManager()?.SetIsEnabled(false)?;
 
         smtc.SetIsEnabled(enabled.unwrap_or(true))?;
-        Ok(Self { media_player })
+        Ok(Self {
+            media_player,
+            events: Mutex::new(Vec::new()),
+        })
     }
 
     pub fn update_config(&self, config: SMTCConfig) -> anyhow::Result<()> {
@@ -194,7 +207,11 @@ impl SMTCInternal {
         let media_player = &self.media_player;
         let smtc = media_player.SystemMediaTransportControls()?;
 
-        smtc.ButtonPressed(&handler)?;
+        let token = smtc.ButtonPressed(&handler)?;
+        self.events
+            .lock()
+            .unwrap()
+            .push(RegisteredEvent::Button(token));
 
         anyhow::Result::Ok(())
     }
@@ -218,7 +235,11 @@ impl SMTCInternal {
         let media_player = &self.media_player;
         let smtc = media_player.SystemMediaTransportControls()?;
 
-        smtc.PlaybackPositionChangeRequested(&handler)?;
+        let token = smtc.PlaybackPositionChangeRequested(&handler)?;
+        self.events
+            .lock()
+            .unwrap()
+            .push(RegisteredEvent::Position(token));
 
         anyhow::Result::Ok(())
     }
@@ -237,7 +258,11 @@ impl SMTCInternal {
         let media_player = &self.media_player;
         let smtc = media_player.SystemMediaTransportControls()?;
 
-        smtc.ShuffleEnabledChangeRequested(&handler)?;
+        let token = smtc.ShuffleEnabledChangeRequested(&handler)?;
+        self.events
+            .lock()
+            .unwrap()
+            .push(RegisteredEvent::Shuffle(token));
 
         anyhow::Result::Ok(())
     }
@@ -270,8 +295,41 @@ impl SMTCInternal {
         let media_player = &self.media_player;
         let smtc = media_player.SystemMediaTransportControls()?;
 
-        smtc.AutoRepeatModeChangeRequested(&handler)?;
+        let token = smtc.AutoRepeatModeChangeRequested(&handler)?;
+        self.events
+            .lock()
+            .unwrap()
+            .push(RegisteredEvent::Repeat(token));
 
         anyhow::Result::Ok(())
+    }
+}
+
+impl Drop for SMTCInternal {
+    fn drop(&mut self) {
+        // Release the handlers (and their Dart stream sinks) while the VM is
+        // still running, rather than leaving them for COM apartment teardown.
+        if let Ok(smtc) = self.media_player.SystemMediaTransportControls() {
+            for event in self.events.get_mut().unwrap().drain(..) {
+                let result = match event {
+                    RegisteredEvent::Button(token) => smtc.RemoveButtonPressed(token),
+                    RegisteredEvent::Position(token) => {
+                        smtc.RemovePlaybackPositionChangeRequested(token)
+                    }
+                    RegisteredEvent::Shuffle(token) => {
+                        smtc.RemoveShuffleEnabledChangeRequested(token)
+                    }
+                    RegisteredEvent::Repeat(token) => {
+                        smtc.RemoveAutoRepeatModeChangeRequested(token)
+                    }
+                };
+                if let Err(error) = result {
+                    eprintln!("Failed to unregister SMTC event: {error}");
+                }
+            }
+        }
+        if let Err(error) = self.media_player.Close() {
+            eprintln!("Failed to close SMTC media player: {error}");
+        }
     }
 }

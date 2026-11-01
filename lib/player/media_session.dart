@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show AppExitResponse;
 
 import 'package:audio_service/audio_service.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:smtc_windows/smtc_windows.dart';
 
 import '../data/data_ext.dart';
@@ -34,12 +35,29 @@ class MediaSession {
     _locale.addListener(_sync);
     _p.position.addListener(_onPosition);
     _sync();
+    if (Platform.isWindows) {
+      _lifecycle = AppLifecycleListener(onExitRequested: _onExitRequested);
+    }
   }
 
   final PlayerController _p;
   final LibraryController _library;
   final LocaleController _locale;
   final _Sink _sink;
+  AppLifecycleListener? _lifecycle;
+  Future<AppExitResponse>? _exitRequest;
+
+  Future<AppExitResponse> _onExitRequested() => _exitRequest ??= _closeWindowsSession();
+
+  Future<AppExitResponse> _closeWindowsSession() async {
+    _p.removeListener(_sync);
+    _library.removeListener(_sync);
+    _locale.removeListener(_sync);
+    _p.position.removeListener(_onPosition);
+    await (_sink as _WindowsSink).dispose();
+    _lifecycle?.dispose();
+    return AppExitResponse.exit;
+  }
 
   String? _songKey;
   bool? _playing;
@@ -197,7 +215,7 @@ class _AndroidSink extends BaseAudioHandler with SeekHandler implements _Sink {
 
 class _WindowsSink implements _Sink {
   _WindowsSink(this._p) {
-    _smtc.buttonPressStream.listen((b) {
+    _buttons = _smtc.buttonPressStream.listen((b) {
       switch (b) {
         case PressedButton.play:
           _p.play();
@@ -218,6 +236,12 @@ class _WindowsSink implements _Sink {
   }
 
   final PlayerController _p;
+  late final StreamSubscription<PressedButton> _buttons;
+
+  Future<void> dispose() async {
+    await _buttons.cancel();
+    await _smtc.dispose();
+  }
 
   /// 没在放歌时不显示卡片，第一次有歌时再打开。
   final _smtc = SMTCWindows(
