@@ -4,6 +4,57 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
+namespace {
+
+constexpr wchar_t kWindowSettingsKey[] = L"Software\\com.kanade\\kanade";
+constexpr wchar_t kWindowPositionValue[] = L"WindowPosition";
+
+void RestoreWindowPosition(HWND window) {
+  RECT bounds;
+  GetWindowRect(window, &bounds);
+  const LONG width = bounds.right - bounds.left;
+  const LONG height = bounds.bottom - bounds.top;
+
+  POINT position{};
+  DWORD position_size = sizeof(position);
+  const LSTATUS result = RegGetValue(
+      HKEY_CURRENT_USER, kWindowSettingsKey, kWindowPositionValue,
+      RRF_RT_REG_BINARY, nullptr, &position, &position_size);
+  const RECT saved_bounds = {position.x, position.y, position.x + width,
+                            position.y + height};
+  if (result != ERROR_SUCCESS || position_size != sizeof(position) ||
+      !MonitorFromRect(&saved_bounds, MONITOR_DEFAULTTONULL)) {
+    MONITORINFO monitor_info{};
+    monitor_info.cbSize = sizeof(monitor_info);
+    if (!GetMonitorInfo(MonitorFromWindow(window, MONITOR_DEFAULTTOPRIMARY),
+                        &monitor_info)) {
+      return;
+    }
+    const RECT& work = monitor_info.rcWork;
+    position.x = work.left + (work.right - work.left - width) / 2;
+    position.y = work.top + (work.bottom - work.top - height) / 2;
+  }
+
+  // Position the hidden window before creating the Flutter rendering surface.
+  SetWindowPos(window, nullptr, position.x, position.y, 0, 0,
+               SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+void SaveWindowPosition(HWND window) {
+  // Minimized/maximized coordinates must not replace the normal position.
+  if (IsIconic(window) || IsZoomed(window)) {
+    return;
+  }
+  RECT bounds;
+  if (GetWindowRect(window, &bounds)) {
+    const POINT position = {bounds.left, bounds.top};
+    RegSetKeyValue(HKEY_CURRENT_USER, kWindowSettingsKey, kWindowPositionValue,
+                   REG_BINARY, &position, sizeof(position));
+  }
+}
+
+}  // namespace
+
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
@@ -13,6 +64,8 @@ bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
     return false;
   }
+
+  RestoreWindowPosition(GetHandle());
 
   RECT frame = GetClientArea();
 
@@ -51,6 +104,11 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  // window_manager consumes WM_EXITSIZEMOVE, so save before forwarding it.
+  if (message == WM_EXITSIZEMOVE || message == WM_CLOSE) {
+    SaveWindowPosition(hwnd);
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
