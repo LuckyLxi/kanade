@@ -13,6 +13,7 @@ import 'glass.dart';
 import 'profile_layout.dart';
 import 'smooth_scroll.dart';
 import 'video_tile.dart';
+import 'song_tile.dart';
 import 'widgets.dart';
 
 /// 歌手页：顶部大图，下面是精选、歌曲、专辑、视频、详情五个分类。

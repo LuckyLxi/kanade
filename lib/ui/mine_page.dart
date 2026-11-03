@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -9,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/auth_controller.dart';
+import '../auth/qr_login_controller.dart';
 import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
@@ -373,110 +373,49 @@ class QrLoginDialog extends StatefulWidget {
 
 const _appLogin = MethodChannel('kanade/app_login');
 
-enum _QrState { loading, loadFailed, waiting, scanned, expired, refused, failed }
-
 class _QrLoginDialogState extends State<QrLoginDialog> {
-  QrCode? _qr;
-  _QrState _state = _QrState.loading;
-  Object? _error;
-  bool _expired = false;
-  Timer? _timer;
-  bool _polling = false;
+  late final _login = QrLoginController(
+    widget.kind,
+    onSuccess: (user) {
+      context.read<AuthController>().onLoggedIn(user);
+      Navigator.of(context).pop();
+    },
+  );
+
+  QrCode? get _qr => _login.qr;
+  bool get _expired => _login.expired;
+  Object? get _error => _login.error;
 
   @override
   void initState() {
     super.initState();
-    _refresh();
+    _login.addListener(_onLoginChanged);
+    _login.refresh();
   }
+
+  void _onLoginChanged() => setState(() {});
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _login.removeListener(_onLoginChanged);
+    _login.dispose();
     super.dispose();
   }
 
-  Future<void> _refresh() async {
-    _timer?.cancel();
-    setState(() {
-      _qr = null;
-      _expired = false;
-      _state = _QrState.loading;
-    });
-    try {
-      final qr = await api.createLoginQr(kind: widget.kind);
-      if (!mounted) return;
-      setState(() {
-        _qr = qr;
-        _state = _QrState.waiting;
-      });
-      _timer = Timer.periodic(const Duration(seconds: 2), (_) => _poll());
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _state = _QrState.loadFailed;
-          _error = e;
-        });
-      }
-    }
-  }
-
-  Future<void> _poll() async {
-    final qr = _qr;
-    if (qr == null || _polling) return;
-    _polling = true;
-    try {
-      final s = await api.pollLoginQr(kind: widget.kind, qrsig: qr.qrsig);
-      if (!mounted) return;
-      switch (s) {
-        case QrStatus_Waiting():
-          break;
-        case QrStatus_Scanned():
-          setState(() => _state = _QrState.scanned);
-        case QrStatus_Expired():
-          _timer?.cancel();
-          setState(() {
-            _expired = true;
-            _state = _QrState.expired;
-          });
-        case QrStatus_Refused():
-          _timer?.cancel();
-          setState(() {
-            _expired = true;
-            _state = _QrState.refused;
-          });
-        case QrStatus_Success(:final user):
-          _timer?.cancel();
-          context.read<AuthController>().onLoggedIn(user);
-          Navigator.of(context).pop();
-      }
-    } catch (e) {
-      _timer?.cancel();
-      if (mounted) {
-        setState(() {
-          _expired = true;
-          _state = _QrState.failed;
-          _error = e;
-        });
-      }
-    } finally {
-      _polling = false;
-    }
-  }
-
   String _status(AppLocalizations l) {
-    return switch (_state) {
-      _QrState.loading => l.qrLoading,
-      _QrState.loadFailed => l.qrFailed(errorText(l, _error!)),
-      _QrState.waiting => switch (widget.kind) {
+    return switch (_login.state) {
+      QrLoginState.loading => l.qrLoading,
+      QrLoginState.loadFailed => l.qrFailed(errorText(l, _error!)),
+      QrLoginState.waiting => switch (widget.kind) {
         LoginKind.qq => l.qrScanHintQq,
         LoginKind.wechat => l.qrScanHintWechat,
         LoginKind.qqMusic => l.qrScanHintQqMusic,
       },
-      _QrState.scanned => l.qrScanned,
-      _QrState.expired => l.qrExpired,
-      _QrState.refused => l.qrRefused,
+      QrLoginState.scanned => l.qrScanned,
+      QrLoginState.expired => l.qrExpired,
+      QrLoginState.refused => l.qrRefused,
       // LoginFailed 的文案本身就带“登录失败”
-      _QrState.failed =>
+      QrLoginState.failed =>
         _error is ApiError_LoginFailed ? errorText(l, _error!) : l.errorLoginFailed(errorText(l, _error!)),
     };
   }
@@ -488,7 +427,9 @@ class _QrLoginDialogState extends State<QrLoginDialog> {
     if (old == null) return;
     final QrCode ticket;
     try {
-      ticket = await api.createQqAppLogin();
+      final prepared = await _login.prepareQqAppLogin();
+      if (prepared == null) return;
+      ticket = prepared;
     } catch (e) {
       if (mounted) {
         final l = AppLocalizations.of(context);
@@ -497,8 +438,6 @@ class _QrLoginDialogState extends State<QrLoginDialog> {
       return;
     }
     if (!mounted) return;
-    // 之后轮询跳转票据；画面上的二维码保留，但已不再被轮询
-    setState(() => _qr = QrCode(image: old.image, qrsig: ticket.qrsig, url: ticket.url));
     final target = Uri.parse(
       'wtloginmqq://ptlogin/qlogin?qrcode=${Uri.encodeComponent(ticket.url)}'
       '&schemacallback=${Uri.encodeComponent('kanade-auth://authorize/qq')}',
@@ -595,7 +534,7 @@ class _QrLoginDialogState extends State<QrLoginDialog> {
         ],
       ),
       actions: [
-        if (_expired) TextButton(onPressed: _refresh, child: Text(l.qrRefresh)),
+        if (_expired) TextButton(onPressed: _login.refresh, child: Text(l.qrRefresh)),
         TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(l.cancel)),
       ],
     );

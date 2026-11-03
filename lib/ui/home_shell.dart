@@ -14,9 +14,9 @@ import 'discover_page.dart';
 import 'glass.dart';
 import 'mine_page.dart';
 import 'mini_player.dart';
+import 'overlay_layout_state.dart';
 import 'search_page.dart';
 import 'song_list_page.dart';
-import 'toast.dart';
 import 'widgets.dart';
 
 /// 底部（窄屏）或侧边（宽屏）导航。每个标签页有自己的 Navigator，
@@ -102,7 +102,24 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
   static final _springCollapse = SpringDescription.withDampingRatio(mass: 1, stiffness: 190, ratio: 0.8);
 
   @override
+  void initState() {
+    super.initState();
+    MiniPlayer.anchor.hidden.addListener(_reportPlayerVisibility);
+    DesktopPlayerBar.anchor.hidden.addListener(_reportPlayerVisibility);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _reportPlayerVisibility();
+    });
+  }
+
+  void _reportPlayerVisibility() {
+    OverlayLayoutState.instance.playerVisible.value =
+        MiniPlayer.anchor.hidden.value || DesktopPlayerBar.anchor.hidden.value;
+  }
+
+  @override
   void dispose() {
+    MiniPlayer.anchor.hidden.removeListener(_reportPlayerVisibility);
+    DesktopPlayerBar.anchor.hidden.removeListener(_reportPlayerVisibility);
     _shape.dispose();
     _fuse.dispose();
     _drop.dispose();
@@ -170,8 +187,10 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
 
   /// 告诉提示浮在哪：在导航栏和播放条之外。构建期间不能通知监听者，推到这一帧之后。
   void _reportChrome(EdgeInsets insets) {
-    if (Toast.chrome.value == insets) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) => Toast.chrome.value = insets);
+    if (OverlayLayoutState.instance.chrome.value == insets) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) OverlayLayoutState.instance.chrome.value = insets;
+    });
   }
 
   /// 玻璃条浮在内容上方，内容本身铺满全屏；把被遮住的高度加进 padding，

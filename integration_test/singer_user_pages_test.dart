@@ -9,6 +9,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:kanade/app.dart';
 import 'package:kanade/l10n/l10n_ext.dart';
 import 'package:kanade/src/rust/api/music.dart' as api;
+import 'package:kanade/ui/song_tile.dart';
 import 'package:kanade/ui/singer_page.dart';
 import 'package:kanade/ui/mine_page.dart';
 import 'package:kanade/ui/follow_button.dart';

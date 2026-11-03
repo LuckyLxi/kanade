@@ -3,8 +3,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
-import 'desktop_shell.dart';
-import 'mini_player.dart';
+import 'overlay_layout_state.dart';
 
 enum ToastKind { info, success, liked, error }
 
@@ -17,9 +16,6 @@ void showToast(BuildContext context, String text, {ToastKind kind = ToastKind.in
 /// 毛玻璃胶囊提示：居中浮在导航栏和播放条上方，播放页打开时挪到顶上。
 /// 同一时间只有一条，新的来了旧的就淡出。
 abstract final class Toast {
-  /// 浮在内容上的玻璃（导航栏、播放条）占掉的地方，由 HomeShell 报上来，含底部安全区。
-  static final chrome = ValueNotifier(EdgeInsets.zero);
-
   static ValueNotifier<bool>? _leaving;
 
   /// 异步回来后 context 可能已经没了，先拿好 Overlay 再调这个。
@@ -66,7 +62,7 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
   late final Timer _timer;
   bool _left = false;
 
-  static final _placement = Listenable.merge([Toast.chrome, MiniPlayer.anchor.hidden, DesktopPlayerBar.anchor.hidden]);
+  static final _placement = Listenable.merge([OverlayLayoutState.instance.chrome, OverlayLayoutState.instance.playerVisible]);
 
   @override
   void initState() {
@@ -156,8 +152,8 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
       listenable: _placement,
       builder: (context, child) {
         // 播放页底下是播放控制，提示放到顶上；开关播放页、播放条变形时都平滑挪过去，不跳
-        final onPlayer = MiniPlayer.anchor.hidden.value || DesktopPlayerBar.anchor.hidden.value;
-        final chrome = onPlayer ? EdgeInsets.zero : Toast.chrome.value;
+        final onPlayer = OverlayLayoutState.instance.playerVisible.value;
+        final chrome = onPlayer ? EdgeInsets.zero : OverlayLayoutState.instance.chrome.value;
         final from = onPlayer ? -1.0 : 1.0;
         const duration = Duration(milliseconds: 420);
         const curve = Curves.easeInOutCubic;

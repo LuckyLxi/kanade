@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -10,6 +9,7 @@ import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'audio_source.dart';
 import 'player_error.dart';
+import 'player_session_store.dart';
 
 enum PlayMode { sequence, repeatOne, shuffle }
 
@@ -94,7 +94,7 @@ class PlayerController extends ChangeNotifier {
   int index = -1;
 
   static const _defaultQualityKey = 'default_quality';
-  static const _sessionKey = 'last_session';
+  final _sessionStore = PlayerSessionStore();
   static const _modeKey = 'play_mode';
   static const _volumeKey = 'volume';
 
@@ -456,69 +456,23 @@ class PlayerController extends ChangeNotifier {
   /// 记下队列、当前歌曲和播放模式，下次启动时播放栏还显示这首。
   void _saveSession() {
     if (current == null) return;
-    api.setPref(
-      key: _sessionKey,
-      value: jsonEncode({'queue': [for (final s in queue) _songToJson(s)], 'index': index, 'mode': mode.name}),
-    );
+    _sessionStore.write(queue, index, mode.name);
   }
 
   /// 恢复上次的队列，只显示不播放。电台模式恢复成普通列表。
   void _restoreSession() {
-    final raw = api.getPref(key: _sessionKey);
-    if (raw == null) return;
-    try {
-      final m = jsonDecode(raw) as Map<String, dynamic>;
-      final songs = [for (final s in m['queue'] as List) _songFromJson(s as Map<String, dynamic>)];
-      final i = m['index'] as int;
-      if (i < 0 || i >= songs.length) return;
-      queue = songs;
-      index = i;
-      // 旧版本只把模式存在会话里
-      if (api.getPref(key: _modeKey) == null) mode = PlayMode.values.asNameMap()[m['mode']] ?? mode;
-      duration = Duration(seconds: songs[i].durationSecs);
-      _restored = true;
-    } catch (_) {
-      return;
-    }
+    final session = _sessionStore.read();
+    if (session == null) return;
+    queue = session.queue;
+    index = session.index;
+    // 旧版本只把模式存在会话里
+    if (api.getPref(key: _modeKey) == null) mode = PlayMode.values.asNameMap()[session.mode] ?? mode;
+    duration = Duration(seconds: queue[index].durationSecs);
+    _restored = true;
     // 播放页打开时就能看到歌词和音质
     unawaited(refreshQualities());
     _loadLyric(queue[index], _token);
   }
-
-  static Map<String, Object?> _songToJson(Song s) => {
-        'id': s.id,
-        'mid': s.mid,
-        'name': s.name,
-        'singers': [for (final g in s.singers) {'mid': g.mid, 'name': g.name}],
-        'albumMid': s.albumMid,
-        'albumName': s.albumName,
-        'durationSecs': s.durationSecs,
-        'mediaMid': s.mediaMid,
-        'coverUrl': s.coverUrl,
-        'vip': s.vip,
-        'hasHq': s.hasHq,
-        'hasFlac': s.hasFlac,
-        'mvVid': s.mvVid,
-      };
-
-  static Song _songFromJson(Map<String, dynamic> m) => Song(
-        id: m['id'] as int,
-        mid: m['mid'] as String,
-        name: m['name'] as String,
-        singers: [
-          for (final g in m['singers'] as List)
-            Singer(mid: (g as Map)['mid'] as String, name: g['name'] as String),
-        ],
-        albumMid: m['albumMid'] as String,
-        albumName: m['albumName'] as String,
-        durationSecs: m['durationSecs'] as int,
-        mediaMid: m['mediaMid'] as String,
-        coverUrl: m['coverUrl'] as String,
-        vip: m['vip'] as bool,
-        hasHq: m['hasHq'] as bool,
-        hasFlac: m['hasFlac'] as bool,
-        mvVid: m['mvVid'] as String? ?? '',
-      );
 
   /// 当前应高亮的歌词行。
   int lyricIndexAt(Duration pos) {

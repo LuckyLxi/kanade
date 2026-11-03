@@ -10,6 +10,7 @@ import 'comments_page.dart';
 import 'glass.dart';
 import 'singer_page.dart';
 import 'smooth_scroll.dart';
+import 'song_tile.dart';
 import 'widgets.dart';
 
 class AlbumPage extends StatelessWidget {

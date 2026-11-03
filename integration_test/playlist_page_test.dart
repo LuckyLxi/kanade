@@ -9,11 +9,11 @@ import 'package:kanade/app.dart';
 import 'package:kanade/l10n/l10n_ext.dart';
 import 'package:kanade/src/rust/api/music.dart' as api;
 import 'package:kanade/src/rust/api/types.dart';
+import 'package:kanade/ui/song_tile.dart';
 import 'package:kanade/ui/discover_page.dart';
 import 'package:kanade/ui/home_shell.dart';
 import 'package:kanade/ui/song_list_page.dart';
 import 'package:kanade/ui/theme.dart';
-import 'package:kanade/ui/widgets.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// 只浏览：打开一个公开歌单，收起头部，再用顶栏搜索筛歌。不播放、不收藏。

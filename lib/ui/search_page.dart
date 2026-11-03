@@ -11,6 +11,7 @@ import 'singer_page.dart';
 import 'smooth_scroll.dart';
 import 'song_list_page.dart';
 import 'user_page.dart';
+import 'song_tile.dart';
 import 'widgets.dart';
 
 class SearchPage extends StatefulWidget {

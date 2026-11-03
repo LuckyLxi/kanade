@@ -13,6 +13,7 @@ import 'singer_page.dart' show AlbumTile;
 import 'smooth_scroll.dart';
 import 'song_list_page.dart';
 import 'video_tile.dart';
+import 'song_tile.dart';
 import 'widgets.dart';
 
 /// 用户主页：头像、数字和简介，下面是创建的歌单、我喜欢（歌曲 / 歌单 / 专辑 / 视频）。

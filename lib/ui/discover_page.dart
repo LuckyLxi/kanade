@@ -11,6 +11,7 @@ import 'keyed_route.dart';
 import 'smooth_scroll.dart';
 import 'song_list_page.dart';
 import 'toast.dart';
+import 'song_tile.dart';
 import 'widgets.dart';
 
 /// 发现页：顶上固定两颗胶囊切换“推荐”和“排行榜”，也可以左右滑。

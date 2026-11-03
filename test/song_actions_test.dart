@@ -10,7 +10,7 @@ import 'package:kanade/src/rust/frb_generated.dart';
 import 'package:kanade/ui/mv_page.dart';
 import 'package:kanade/ui/sheet.dart';
 import 'package:kanade/ui/song_list_page.dart';
-import 'package:kanade/ui/widgets.dart';
+import 'package:kanade/ui/song_tile.dart';
 import 'package:provider/provider.dart';
 
 class _Api implements RustLibApi {
@@ -183,15 +183,21 @@ void main() {
 
   testWidgets('empty similar songs cannot start playback', (tester) async {
     api.similar = () async => [];
-    await _show(tester, _song());
+    final player = await _show(tester, _song());
     await _more(tester);
     await tester.tap(find.text('查找相似歌曲'));
     await tester.pumpAndSettle();
     expect(find.byType(SongTile), findsNothing);
-    final play = find.descendant(
-      of: find.byType(SongListPage),
-      matching: find.byType(FilledButton),
-    );
-    expect(tester.widget<FilledButton>(play).onPressed, isNull);
+    for (final icon in [Icons.play_arrow_rounded, Icons.shuffle_rounded]) {
+      final play = find.descendant(
+        of: find.byType(SongListPage),
+        matching: find.widgetWithIcon(IconButton, icon),
+      );
+      expect(play, findsOneWidget);
+      expect(tester.widget<IconButton>(play).onPressed, isNull);
+      await tester.tap(play);
+      await tester.pump();
+    }
+    expect(player.played, isNull);
   });
 }
