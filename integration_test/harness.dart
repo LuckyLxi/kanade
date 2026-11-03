@@ -3,12 +3,29 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kanade/app.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:kanade/player/player_controller.dart';
 import 'package:kanade/src/rust/api/music.dart' as api;
 import 'package:kanade/src/rust/api/types.dart';
 import 'package:kanade/ui/glass.dart';
 import 'package:kanade/ui/home_shell.dart';
 import 'package:provider/provider.dart';
+
+/// 集成测试用的初始化：把 App 的数据库复制到临时目录再启动，登录态和设置照旧，
+/// 但测试的读写和被 flutter drive 直接杀掉都只落在副本上。
+/// 和真实 App 共用 kanade.db 时，接口缓存表已经坏过好几次。
+Future<void> initTestApp() async {
+  final live = await getApplicationSupportDirectory();
+  final copy = Directory('${Directory.systemTemp.path}/kanade_test_data');
+  if (copy.existsSync()) copy.deleteSync(recursive: true);
+  copy.createSync();
+  // -shm 是共享内存索引，打开时会按 -wal 重建，不用复制
+  for (final name in ['kanade.db', 'kanade.db-wal']) {
+    final f = File('${live.path}/$name');
+    if (f.existsSync()) f.copySync('${copy.path}/$name');
+  }
+  await initApp(dataDir: copy.path);
+}
 
 /// 启动完整应用，静音播放榜单第一首，等歌词和封面素材就绪。
 /// 返回播放器和根导航，用来打开播放页做测量。
@@ -21,7 +38,7 @@ Future<(PlayerController, NavigatorState)> launchWithSong(
   bool mediaSession = false,
   String? songKeyword,
 }) async {
-  await initApp();
+  await initTestApp();
   await setup?.call();
 
   // 测试里默认不接系统媒体卡片
@@ -46,15 +63,7 @@ Future<(PlayerController, NavigatorState)> launchWithSong(
     final top = groups.first.lists.first;
     return (await api.getToplistDetail(topId: top.topId, period: top.period)).songs;
   });
-  // 测试里静音。音量会存下来，结束时把存的值改回去，别把用户的音量留成 0；
-  // 那时播放器已经销毁（销毁时会把当前音量写进去），只能直接改存储
-  // 测试和真正的 App 用同一个数据库，上次的播放队列也一起还原
-  final savedVolume = api.getPref(key: 'volume');
-  final savedSession = api.getPref(key: 'last_session');
-  addTearDown(() {
-    api.setPref(key: 'volume', value: savedVolume ?? '100');
-    if (savedSession != null) api.setPref(key: 'last_session', value: savedSession);
-  });
+  // 测试里静音。改的是数据库副本，不会把用户的音量留成 0
   await tester.runAsync(() async {
     await player.setVolume(0);
     final playing = player.playList(songs!, 0);

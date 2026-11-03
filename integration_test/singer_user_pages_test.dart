@@ -19,6 +19,8 @@ import 'package:kanade/ui/video_tile.dart';
 import 'package:kanade/ui/widgets.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'harness.dart';
+
 /// 只浏览页面，不点击关注、创建或播放按钮。HAR 只用于定位原有公开主页样本。
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -36,7 +38,7 @@ void main() {
       File('${out.path}/$name.png').writeAsBytesSync(png!.buffer.asUint8List());
     });
 
-    await initApp();
+    await initTestApp();
     await windowManager.setSize(const Size(430, 900));
     await tester.pumpWidget(
       AppProviders(

@@ -21,12 +21,12 @@ import 'ui/theme.dart';
 import 'ui/title_bar.dart';
 
 /// 启动前的初始化：播放器、Rust 层和它的数据目录、窗口、着色器。main 和集成测试共用。
-Future<void> initApp() async {
+/// 集成测试传 [dataDir] 用数据库副本，别和真正的 App 共用 kanade.db。
+Future<void> initApp({String? dataDir}) async {
   MediaKit.ensureInitialized();
   await RustLib.init();
   await setupWindow();
-  final dir = await getApplicationSupportDirectory();
-  await api.initCore(dataDir: dir.path);
+  await api.initCore(dataDir: dataDir ?? (await getApplicationSupportDirectory()).path);
   // 预热玻璃着色器，避免第一次出现玻璃时闪白
   await KanadeGlass.initialize();
   if (Platform.isWindows) {

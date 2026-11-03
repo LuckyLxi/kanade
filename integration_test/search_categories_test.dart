@@ -14,6 +14,8 @@ import 'package:kanade/ui/search_page.dart';
 import 'package:kanade/ui/widgets.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'harness.dart';
+
 /// 依次切换搜索结果的六个分类并截图，存到系统临时目录的 kanade_search_frames 里。
 /// flutter drive -d windows --driver=test_driver/integration_test.dart --target=integration_test/search_categories_test.dart
 void main() {
@@ -37,7 +39,7 @@ void main() {
     });
     Future<void> settle([int ms = 2500]) => tester.runAsync(() => Future<void>.delayed(Duration(milliseconds: ms)));
 
-    await initApp();
+    await initTestApp();
     await windowManager.setSize(const Size(430, 900));
     await tester.pumpWidget(KanadeGlass.wrap(child: const AppProviders(mediaSession: false, child: KanadeApp())));
     await settle();

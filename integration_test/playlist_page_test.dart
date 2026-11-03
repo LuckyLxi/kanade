@@ -16,6 +16,8 @@ import 'package:kanade/ui/song_list_page.dart';
 import 'package:kanade/ui/theme.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'harness.dart';
+
 /// 只浏览：打开一个公开歌单，收起头部，再用顶栏搜索筛歌。不播放、不收藏。
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -38,7 +40,7 @@ void main() {
       await wait(700);
     }
 
-    await initApp();
+    await initTestApp();
     await windowManager.setSize(const Size(430, 900));
     final found = (await tester.runAsync(
       () => api.search(keyword: '周杰伦', kind: SearchKind.playlist, page: 1, pageSize: 10),
