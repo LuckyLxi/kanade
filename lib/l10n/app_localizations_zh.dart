@@ -686,6 +686,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get createPlaylist => '新建歌单';
 
   @override
+  String get create => '创建';
+
+  @override
+  String get playlistSyncHint => '会同步到你的 QQ 音乐账号';
+
+  @override
   String get playlistCreated => '已新建歌单';
 
   @override

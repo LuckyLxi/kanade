@@ -1298,6 +1298,18 @@ abstract class AppLocalizations {
   /// **'新建歌单'**
   String get createPlaylist;
 
+  /// No description provided for @create.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建'**
+  String get create;
+
+  /// No description provided for @playlistSyncHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'会同步到你的 QQ 音乐账号'**
+  String get playlistSyncHint;
+
   /// No description provided for @playlistCreated.
   ///
   /// In zh, this message translates to:

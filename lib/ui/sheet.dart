@@ -22,7 +22,7 @@ Future<T?> showKanadeSheet<T>({
 }
 
 /// 卡片底色和里面分组的底色，亮色模式下是白卡片 + 浅灰分组。
-(Color, Color) _sheetColors(ColorScheme scheme) => scheme.brightness == Brightness.dark
+(Color, Color) sheetColors(ColorScheme scheme) => scheme.brightness == Brightness.dark
     ? (scheme.surfaceContainer, scheme.surfaceContainerHigh)
     : (scheme.surface, scheme.surfaceContainer);
 
@@ -39,8 +39,10 @@ class _SheetFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final scheme = Theme.of(context).colorScheme;
-    final (bg, _) = _sheetColors(scheme);
-    final available = media.size.height - media.padding.top - media.padding.bottom - 16;
+    final (bg, _) = sheetColors(scheme);
+    // 有输入框时键盘弹起，卡片要贴着键盘上沿
+    final bottom = media.padding.bottom + media.viewInsets.bottom;
+    final available = media.size.height - media.padding.top - bottom - 16;
     final content = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -49,7 +51,7 @@ class _SheetFrame extends StatelessWidget {
       ],
     );
     return Padding(
-      padding: EdgeInsets.fromLTRB(8, 0, 8, 8 + media.padding.bottom),
+      padding: EdgeInsets.fromLTRB(8, 0, 8, 8 + bottom),
       child: Material(
         color: bg,
         clipBehavior: Clip.antiAlias,
@@ -161,7 +163,7 @@ class SheetQuickAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final (_, group) = _sheetColors(scheme);
+    final (_, group) = sheetColors(scheme);
     return Material(
       color: group,
       borderRadius: BorderRadius.circular(16),
@@ -198,7 +200,7 @@ class SheetGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final (_, group) = _sheetColors(scheme);
+    final (_, group) = sheetColors(scheme);
     return Material(
       color: group,
       borderRadius: BorderRadius.circular(16),

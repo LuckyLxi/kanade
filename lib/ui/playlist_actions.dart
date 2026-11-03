@@ -65,7 +65,7 @@ Future<PlaylistEdit?> showPlaylistActions(BuildContext context, MyPlaylist playl
 Future<PlaylistEdit?> _rename(BuildContext context, MyPlaylist playlist) async {
   final l = AppLocalizations.of(context);
   final library = context.read<LibraryController>();
-  final name = await _playlistName(context, l.renamePlaylist, initial: playlist.name);
+  final name = await _playlistName(context, l.renamePlaylist, action: l.ok, initial: playlist.name);
   if (name == null || name == playlist.name || !context.mounted) return null;
   try {
     await library.renamePlaylist(playlist, name);
@@ -105,22 +105,26 @@ Future<PlaylistEdit?> _delete(BuildContext context, MyPlaylist playlist) async {
   }
 }
 
-Future<String?> _playlistName(BuildContext context, String title, {String initial = ''}) => showDialog<String>(
-  context: context,
-  builder: (_) => _PlaylistNameDialog(title: title, initial: initial),
-);
+Future<String?> _playlistName(BuildContext context, String title, {required String action, String initial = ''}) =>
+    showKanadeSheet<String>(
+      context: context,
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      builder: (_) => _PlaylistNameSheet(title: title, action: action, initial: initial),
+    );
 
-class _PlaylistNameDialog extends StatefulWidget {
-  const _PlaylistNameDialog({required this.title, required this.initial});
+/// 新建和重命名共用：标题 + 一行输入框，确认按钮在输入框右边，下滑或点空白处取消。
+class _PlaylistNameSheet extends StatefulWidget {
+  const _PlaylistNameSheet({required this.title, required this.action, required this.initial});
 
   final String title;
+  final String action;
   final String initial;
 
   @override
-  State<_PlaylistNameDialog> createState() => _PlaylistNameDialogState();
+  State<_PlaylistNameSheet> createState() => _PlaylistNameSheetState();
 }
 
-class _PlaylistNameDialogState extends State<_PlaylistNameDialog> {
+class _PlaylistNameSheetState extends State<_PlaylistNameSheet> {
   late final _controller = TextEditingController(text: widget.initial);
 
   @override
@@ -137,21 +141,56 @@ class _PlaylistNameDialogState extends State<_PlaylistNameDialog> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    return AlertDialog(
-      title: Text(widget.title),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        maxLength: 40,
-        decoration: InputDecoration(hintText: l.playlistNameHint),
-        onSubmitted: (_) => _submit(),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(l.cancel)),
+    final scheme = Theme.of(context).colorScheme;
+    final (_, fill) = sheetColors(scheme);
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: scheme.outline),
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SheetHeader(title: widget.title, subtitle: l.playlistSyncHint),
         ValueListenableBuilder(
           valueListenable: _controller,
-          builder: (_, value, _) =>
-              FilledButton(onPressed: value.text.trim().isEmpty ? null : _submit, child: Text(l.ok)),
+          builder: (_, value, _) => Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  autofocus: true,
+                  maxLength: 40,
+                  onSubmitted: (_) => _submit(),
+                  decoration: InputDecoration(
+                    hintText: l.playlistNameHint,
+                    filled: true,
+                    fillColor: fill,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    counterText: '',
+                    suffixText: '${value.text.characters.length}/40',
+                    suffixStyle: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                    border: border,
+                    enabledBorder: border,
+                    focusedBorder: border.copyWith(borderSide: BorderSide(color: scheme.onSurfaceVariant)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                // 白底黑字（亮色模式反过来），抗色只留给播放相关
+                style: FilledButton.styleFrom(
+                  backgroundColor: scheme.onSurface,
+                  foregroundColor: scheme.surface,
+                  minimumSize: const Size(64, 46),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: value.text.trim().isEmpty ? null : _submit,
+                child: Text(widget.action),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -161,7 +200,7 @@ class _PlaylistNameDialogState extends State<_PlaylistNameDialog> {
 Future<MyPlaylist?> createPlaylist(BuildContext context) async {
   final l = AppLocalizations.of(context);
   final library = context.read<LibraryController>();
-  final name = await _playlistName(context, l.createPlaylist);
+  final name = await _playlistName(context, l.createPlaylist, action: l.create);
   if (name == null || !context.mounted) return null;
   try {
     final playlist = await library.createPlaylist(name);

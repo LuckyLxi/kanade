@@ -200,6 +200,8 @@
   "follow": "Follow",
   "followed": "Following",
   "createPlaylist": "Create playlist",
+  "create": "Create",
+  "playlistSyncHint": "Syncs to your QQ Music account",
   "playlistCreated": "Playlist created",
   "savedPlaylists": "Saved playlists",
   "savedAlbums": "Saved albums",

@@ -730,6 +730,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createPlaylist => 'Create playlist';
 
   @override
+  String get create => 'Create';
+
+  @override
+  String get playlistSyncHint => 'Syncs to your QQ Music account';
+
+  @override
   String get playlistCreated => 'Playlist created';
 
   @override
