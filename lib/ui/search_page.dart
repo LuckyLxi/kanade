@@ -396,10 +396,26 @@ class _SearchPageState extends State<SearchPage> {
                 ),
               ),
             ),
-            title: Text(k.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-            trailing: k.description.isEmpty
-                ? null
-                : Text(k.description, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            // 说明放在标题行里而不是 trailing：trailing 不限宽，窗口缩放时后台的这页会被排得很窄，
+            // 说明占满整行就触发 ListTile 的断言。标题最多占 3/4、说明最多 1/4 并靠右，再窄也只是省略
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(flex: 3, child: Text(k.title, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                if (k.description.isNotEmpty)
+                  Flexible(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Text(
+                        k.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             onTap: () => _searchFor(k.query),
           ),
       ],
