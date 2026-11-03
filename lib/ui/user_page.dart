@@ -285,7 +285,7 @@ class _Head extends StatelessWidget {
               ),
             ],
           ),
-          if (p.intro.isNotEmpty) ...[const SizedBox(height: 16), _Intro(p.intro)],
+          if (p.intro.isNotEmpty) ...[const SizedBox(height: 16), IntroText(p.intro)],
           if (!p.isSelf) ...[
             const SizedBox(height: 12),
             SizedBox(height: 44, child: FollowButton(followed: followed, onChanged: onFollow)),
@@ -314,16 +314,16 @@ class _Stat extends StatelessWidget {
 }
 
 /// 简介默认两行，放不下才出现“展开”。
-class _Intro extends StatefulWidget {
-  const _Intro(this.text);
+class IntroText extends StatefulWidget {
+  const IntroText(this.text, {super.key});
 
   final String text;
 
   @override
-  State<_Intro> createState() => _IntroState();
+  State<IntroText> createState() => _IntroTextState();
 }
 
-class _IntroState extends State<_Intro> {
+class _IntroTextState extends State<IntroText> {
   bool _open = false;
 
   @override
