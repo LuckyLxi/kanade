@@ -458,6 +458,36 @@ abstract class AppLocalizations {
   /// **'退出登录'**
   String get logout;
 
+  /// No description provided for @notLoggedIn.
+  ///
+  /// In zh, this message translates to:
+  /// **'未登录'**
+  String get notLoggedIn;
+
+  /// No description provided for @loginMethods.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择登录方式'**
+  String get loginMethods;
+
+  /// No description provided for @loginQqHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'用手机 QQ 扫一扫'**
+  String get loginQqHint;
+
+  /// No description provided for @loginWechatHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'用微信扫一扫'**
+  String get loginWechatHint;
+
+  /// No description provided for @loginQqMusicHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'在 QQ 音乐 App 里确认'**
+  String get loginQqMusicHint;
+
   /// No description provided for @loginPrompt.
   ///
   /// In zh, this message translates to:

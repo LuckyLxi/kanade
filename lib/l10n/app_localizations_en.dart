@@ -228,6 +228,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get logout => 'Log out';
 
   @override
+  String get notLoggedIn => 'Not logged in';
+
+  @override
+  String get loginMethods => 'Choose how to log in';
+
+  @override
+  String get loginQqHint => 'Scan with QQ on your phone';
+
+  @override
+  String get loginWechatHint => 'Scan with WeChat';
+
+  @override
+  String get loginQqMusicHint => 'Confirm in the QQ Music app';
+
+  @override
   String get loginPrompt =>
       'Log in to sync your playlists and play songs your account has access to';
 

@@ -210,6 +210,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get logout => '退出登录';
 
   @override
+  String get notLoggedIn => '未登录';
+
+  @override
+  String get loginMethods => '选择登录方式';
+
+  @override
+  String get loginQqHint => '用手机 QQ 扫一扫';
+
+  @override
+  String get loginWechatHint => '用微信扫一扫';
+
+  @override
+  String get loginQqMusicHint => '在 QQ 音乐 App 里确认';
+
+  @override
   String get loginPrompt => '登录后可以同步你的歌单，并播放账号有权限的歌曲';
 
   @override

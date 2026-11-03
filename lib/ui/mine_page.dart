@@ -20,6 +20,7 @@ import 'playlist_actions.dart';
 import 'settings_page.dart';
 import 'smooth_scroll.dart';
 import 'song_list_page.dart';
+import 'theme.dart';
 import 'toast.dart';
 import 'user_page.dart';
 import 'widgets.dart';
@@ -57,53 +58,132 @@ class _LoggedOut extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.account_circle_outlined, size: 72),
-            const SizedBox(height: 12),
-            Text(l.loginPrompt, textAlign: TextAlign.center),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
+    final scheme = Theme.of(context).colorScheme;
+    void qr(LoginKind kind) => showDialog(
+      context: context,
+      builder: (_) => QrLoginDialog(kind: kind),
+    );
+    // 头部和已登录时的头像栏对齐，登录后页面不跳
+    return ListView(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: scheme.outline, width: 2),
+                ),
+                child: CircleAvatar(
+                  radius: 27,
+                  backgroundColor: scheme.surfaceContainerHigh,
+                  child: Icon(Icons.person_outline, color: scheme.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l.notLoggedIn, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    Text(l.loginPrompt, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+          child: Text(l.loginMethods, style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant)),
+        ),
+        _LoginMethod(
+          icon: Icons.qr_code,
+          title: l.loginQq,
+          hint: l.loginQqHint,
+          primary: true,
+          onTap: () => qr(LoginKind.qq),
+        ),
+        _LoginMethod(
+          icon: Icons.qr_code_2,
+          title: l.loginWechat,
+          hint: l.loginWechatHint,
+          onTap: () => qr(LoginKind.wechat),
+        ),
+        _LoginMethod(
+          icon: Icons.music_note,
+          title: l.loginQqMusic,
+          hint: l.loginQqMusicHint,
+          onTap: () => qr(LoginKind.qqMusic),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: TextButton(
+            style: TextButton.styleFrom(foregroundColor: scheme.onSurfaceVariant),
+            onPressed: () => showDialog(context: context, builder: (_) => const CookieLoginDialog()),
+            child: Text(l.loginCookie),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+}
+
+/// 未登录页的一行登录方式。primary 的那行图标用抗色，其余灰色。
+class _LoginMethod extends StatelessWidget {
+  const _LoginMethod({
+    required this.icon,
+    required this.title,
+    required this.hint,
+    this.primary = false,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String hint;
+  final bool primary;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Material(
+        color: scheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+            child: Row(
               children: [
-                FilledButton.icon(
-                  icon: const Icon(Icons.qr_code),
-                  label: Text(l.loginQq),
-                  onPressed: () => showDialog(
-                    context: context,
-                    builder: (_) => const QrLoginDialog(kind: LoginKind.qq),
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: primary ? KanadeColors.lime : scheme.surfaceContainerHighest,
+                  child: Icon(icon, size: 20, color: primary ? Colors.black : scheme.onSurface),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 2),
+                      Text(hint, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                    ],
                   ),
                 ),
-                FilledButton.tonalIcon(
-                  icon: const Icon(Icons.qr_code_2),
-                  label: Text(l.loginWechat),
-                  onPressed: () => showDialog(
-                    context: context,
-                    builder: (_) => const QrLoginDialog(kind: LoginKind.wechat),
-                  ),
-                ),
-                FilledButton.tonalIcon(
-                  icon: const Icon(Icons.music_note),
-                  label: Text(l.loginQqMusic),
-                  onPressed: () => showDialog(
-                    context: context,
-                    builder: (_) => const QrLoginDialog(kind: LoginKind.qqMusic),
-                  ),
-                ),
+                Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
               ],
             ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => showDialog(context: context, builder: (_) => const CookieLoginDialog()),
-              child: Text(l.loginCookie),
-            ),
-          ],
+          ),
         ),
       ),
     );
