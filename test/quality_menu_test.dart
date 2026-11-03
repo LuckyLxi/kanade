@@ -57,7 +57,8 @@ Future<void> _showMenu(WidgetTester tester, _Player player, {Locale locale = con
         locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(appBar: AppBar(title: const QualityMenu())),
+        // 菜单从按钮往上长，按钮放在下方，展开后的选项才在屏幕里点得到
+        home: const Scaffold(body: Align(alignment: Alignment(0, 0.8), child: QualityMenu())),
       ),
     ),
   );
@@ -107,21 +108,24 @@ void main() {
     expect(find.text('暂无可用音质'), findsOneWidget);
   });
 
-  testWidgets('降级播放时显示实际音质和请求的音质', (tester) async {
+  testWidgets('降级播放时按钮只显示实际音质', (tester) async {
     final player = _Player()
       ..quality = Quality.master
       ..actualQuality = Quality.high;
     addTearDown(player.dispose);
     await _showMenu(tester, player);
-    expect(find.text('高品质 320k（无权获取臻品母带）'), findsOneWidget);
+    expect(find.text('高品质 320k'), findsOneWidget);
+    expect(find.textContaining('臻品母带'), findsNothing);
   });
 
   testWidgets('音质加载中不可打开菜单', (tester) async {
     final player = _Player()..qualitiesLoading = true;
     addTearDown(player.dispose);
     await _showMenu(tester, player);
-    final menu = tester.widget<PopupMenuButton<Quality>>(find.byType(PopupMenuButton<Quality>));
-    expect(menu.enabled, isFalse);
+    await tester.tap(find.byType(QualityMenu));
+    // 按钮里的转圈一直在转，pumpAndSettle 等不到结束
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('臻品母带'), findsNothing);
   });
 
   testWidgets('音质请求失败后允许重新获取', (tester) async {
