@@ -43,6 +43,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get retry => '重试';
 
   @override
+  String get loading => '加载中';
+
+  @override
   String get cancel => '取消';
 
   @override

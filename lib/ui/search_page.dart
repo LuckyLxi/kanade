@@ -250,7 +250,7 @@ class _SearchPageState extends State<SearchPage> {
           child: TextButton(onPressed: _retry, child: Text(l.searchFailed(errorText(l, r.error!)), textAlign: TextAlign.center)),
         );
       }
-      return Center(child: r.loading || r.page == 0 ? const CircularProgressIndicator() : Text(l.searchNoResults));
+      return Center(child: r.loading || r.page == 0 ? const PageLoading() : Text(l.searchNoResults));
     }
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
@@ -359,7 +359,7 @@ class _SearchPageState extends State<SearchPage> {
     final hot = _hot;
     if (hot == null) {
       // 热搜加载失败时退回原来的提示，不影响搜索
-      return Center(child: _hotError != null ? Text(l.searchPrompt) : const CircularProgressIndicator());
+      return Center(child: _hotError != null ? Text(l.searchPrompt) : const PageLoading());
     }
     final theme = Theme.of(context);
     return ListView(

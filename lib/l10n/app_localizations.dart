@@ -164,6 +164,12 @@ abstract class AppLocalizations {
   /// **'重试'**
   String get retry;
 
+  /// No description provided for @loading.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载中'**
+  String get loading;
+
   /// No description provided for @cancel.
   ///
   /// In zh, this message translates to:

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
@@ -69,6 +70,9 @@ class AsyncView<T> extends StatefulWidget {
 class _AsyncViewState<T> extends State<AsyncView<T>> {
   late Future<T> _future = widget.load();
 
+  /// 加载动画出现过（等了超过 [PageLoading.delay]）才让内容淡入，很快加载完的直接显示。
+  final _since = Stopwatch()..start();
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<T>(
@@ -82,16 +86,119 @@ class _AsyncViewState<T> extends State<AsyncView<T>> {
               children: [
                 Text(l.loadFailed(errorText(l, snap.error!)), textAlign: TextAlign.center),
                 const SizedBox(height: 12),
-                FilledButton.tonal(onPressed: () => setState(() { _future = widget.load(); }), child: Text(l.retry)),
+                FilledButton.tonal(onPressed: () => setState(() { _future = widget.load(); _since.reset(); }), child: Text(l.retry)),
               ],
             ),
           );
         }
-        if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        return widget.builder(context, snap.data as T);
+        if (!snap.hasData) return const PageLoading();
+        return _FadeIn(enabled: _since.elapsed > PageLoading.delay, child: widget.builder(context, snap.data as T));
       },
     );
   }
+}
+
+/// 页面加载中：五根抗色律动条 + “加载中”，和列表里正在播放的小律动条同一个样子。
+/// 先等 [delay] 再淡入，加载很快时不闪一下；没出现之前不跑动画。
+class PageLoading extends StatefulWidget {
+  const PageLoading({super.key});
+
+  static const delay = Duration(milliseconds: 300);
+
+  @override
+  State<PageLoading> createState() => _PageLoadingState();
+}
+
+class _PageLoadingState extends State<PageLoading> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+  late final Timer _timer;
+  bool _shown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(PageLoading.delay, () {
+      _c.repeat();
+      setState(() => _shown = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: AnimatedOpacity(
+        opacity: _shown ? 1 : 0,
+        duration: const Duration(milliseconds: 200),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 30,
+              child: AnimatedBuilder(
+                animation: _c,
+                builder: (_, _) => Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    for (var i = 0; i < 5; i++) ...[
+                      if (i > 0) const SizedBox(width: 5),
+                      Container(
+                        width: 5,
+                        // 五根依次错开五分之一个周期，像一道波
+                        height: 6 + 24 * (0.5 - 0.5 * math.cos((_c.value - i / 5) * 2 * math.pi)),
+                        decoration: BoxDecoration(color: scheme.primary, borderRadius: BorderRadius.circular(3)),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              AppLocalizations.of(context).loading,
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 加载完的内容淡入一次。[enabled] 只在第一次建出来时看，之后重建不会再淡入。
+class _FadeIn extends StatefulWidget {
+  const _FadeIn({required this.enabled, required this.child});
+
+  final bool enabled;
+  final Widget child;
+
+  @override
+  State<_FadeIn> createState() => _FadeInState();
+}
+
+class _FadeInState extends State<_FadeIn> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+    value: widget.enabled ? 0 : 1,
+  )..forward();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(opacity: _c, child: widget.child);
 }
 
 /// 页面里的区块标题，右侧可选一个“全部”。

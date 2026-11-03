@@ -268,10 +268,7 @@ class _SingerBodyState extends State<_SingerBody> {
         final tags = snap.data;
         if (tags == null) {
           return const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator()),
-            ),
+            child: Padding(padding: EdgeInsets.all(32), child: PageLoading()),
           );
         }
         if (tags.isEmpty) {

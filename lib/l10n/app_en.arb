@@ -11,6 +11,7 @@
   "language": "Language",
   "languageSystem": "System default",
   "retry": "Retry",
+  "loading": "Loading",
   "cancel": "Cancel",
   "loadFailed": "Failed to load: {error}",
   "recommendedPlaylists": "Recommended playlists",
