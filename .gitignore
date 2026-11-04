@@ -58,3 +58,8 @@ app.*.map.json
 /qqmusic-pc*.etl
 /qqmusic-pc*.pcapng
 /qqmusic-pc*.sockets.jsonl
+
+# Android release signing
+/android/key.properties
+*.jks
+*.keystore

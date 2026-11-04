@@ -1,0 +1,167 @@
+name: Release
+
+# 推送 v 开头的 tag（如 v1.2.0、v1.3.0-beta.1）时自动构建并发布
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: "3.47.8"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          # v1.2.3-beta.1 -> 1.2.3-beta.1
+          echo "name=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - run: flutter pub get
+
+      - name: Build Windows
+        run: flutter build windows --release --build-name=${{ steps.ver.outputs.name }} --build-number=${{ github.run_number }}
+
+      - name: Package zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath "dist/kanade-${{ steps.ver.outputs.tag }}-windows-x64.zip"
+
+      - name: Package installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc "/DAppVersion=${{ steps.ver.outputs.name }}" "/DSourceDir=$PWD\build\windows\x64\runner\Release" "/DOutputDir=$PWD\dist" "/DOutputName=kanade-${{ steps.ver.outputs.tag }}-windows-x64-setup" windows/packaging/kanade.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Resolve version
+        id: ver
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "name=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      # 配置了签名 secrets 就用正式签名；没配置则回退到 debug 签名（每次构建的签名不同，无法覆盖安装）
+      - name: Set up signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::未配置 ANDROID_KEYSTORE_BASE64，APK 将使用 debug 签名"
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.jks
+          cat > android/key.properties <<EOF
+          storeFile=release.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      - run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release --target-platform android-arm64 --build-name=${{ steps.ver.outputs.name }} --build-number=${{ github.run_number }}
+
+      - name: Rename APK
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/kanade-${{ steps.ver.outputs.tag }}-android-arm64-v8a.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/*
+
+  release:
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate changelog
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          prev=$(git describe --tags --abbrev=0 --match "v*" "${tag}^" 2>/dev/null || true)
+          if [ -n "$prev" ]; then range="${prev}..${tag}"; else range="${tag}"; fi
+
+          log=$(git log "$range" --no-merges --format='%s (%h)')
+
+          section() {
+            local title="$1" pattern="$2" lines
+            lines=$(printf '%s\n' "$log" | grep -E "$pattern" | sed -E 's/^[a-z]+(\([^)]*\))?!?: */- /' || true)
+            if [ -n "$lines" ]; then printf '### %s\n\n%s\n\n' "$title" "$lines"; fi
+          }
+
+          {
+            echo "## 更新内容"
+            echo
+            section "新功能" '^feat(\(.*\))?!?:'
+            section "问题修复" '^fix(\(.*\))?!?:'
+            section "性能优化" '^perf(\(.*\))?!?:'
+            section "重构" '^refactor(\(.*\))?!?:'
+            section "文档" '^docs(\(.*\))?!?:'
+            others=$(printf '%s\n' "$log" | grep -vE '^(feat|fix|perf|refactor|docs)(\(.*\))?!?:' | sed '/^$/d; s/^/- /' || true)
+            if [ -n "$others" ]; then printf '### 其他\n\n%s\n\n' "$others"; fi
+            if [ -n "$prev" ]; then
+              echo "**完整对比**: https://github.com/${GITHUB_REPOSITORY}/compare/${prev}...${tag}"
+            fi
+          } > CHANGELOG.md
+
+          cat CHANGELOG.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body_path: CHANGELOG.md
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: dist/*
