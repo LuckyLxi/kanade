@@ -260,6 +260,48 @@ abstract class AppLocalizations {
   /// **'搜索歌曲、歌手、专辑、视频'**
   String get searchHint;
 
+  /// No description provided for @recognizeSong.
+  ///
+  /// In zh, this message translates to:
+  /// **'听歌识曲'**
+  String get recognizeSong;
+
+  /// No description provided for @recognizeListening.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在听…'**
+  String get recognizeListening;
+
+  /// No description provided for @recognizeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'让麦克风靠近正在播放的音乐'**
+  String get recognizeHint;
+
+  /// No description provided for @recognizeElapsed.
+  ///
+  /// In zh, this message translates to:
+  /// **'{seconds} 秒'**
+  String recognizeElapsed(int seconds);
+
+  /// No description provided for @recognizeNotFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'没听出来是哪首歌'**
+  String get recognizeNotFound;
+
+  /// No description provided for @recognizeAgain.
+  ///
+  /// In zh, this message translates to:
+  /// **'再识别一次'**
+  String get recognizeAgain;
+
+  /// No description provided for @recognizeNoMic.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有麦克风权限'**
+  String get recognizeNoMic;
+
   /// No description provided for @searchPrompt.
   ///
   /// In zh, this message translates to:

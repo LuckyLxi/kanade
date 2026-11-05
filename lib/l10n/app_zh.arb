@@ -70,6 +70,18 @@
     }
   },
   "searchHint": "搜索歌曲、歌手、专辑、视频",
+  "recognizeSong": "听歌识曲",
+  "recognizeListening": "正在听…",
+  "recognizeHint": "让麦克风靠近正在播放的音乐",
+  "recognizeElapsed": "{seconds} 秒",
+  "@recognizeElapsed": {
+    "placeholders": {
+      "seconds": {"type": "int"}
+    }
+  },
+  "recognizeNotFound": "没听出来是哪首歌",
+  "recognizeAgain": "再识别一次",
+  "recognizeNoMic": "没有麦克风权限",
   "searchPrompt": "输入关键词后回车搜索",
   "searchHot": "热搜榜",
   "searchRecommended": "猜你想搜",

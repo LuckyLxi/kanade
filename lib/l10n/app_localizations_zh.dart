@@ -103,6 +103,29 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchHint => '搜索歌曲、歌手、专辑、视频';
 
   @override
+  String get recognizeSong => '听歌识曲';
+
+  @override
+  String get recognizeListening => '正在听…';
+
+  @override
+  String get recognizeHint => '让麦克风靠近正在播放的音乐';
+
+  @override
+  String recognizeElapsed(int seconds) {
+    return '$seconds 秒';
+  }
+
+  @override
+  String get recognizeNotFound => '没听出来是哪首歌';
+
+  @override
+  String get recognizeAgain => '再识别一次';
+
+  @override
+  String get recognizeNoMic => '没有麦克风权限';
+
+  @override
   String get searchPrompt => '输入关键词后回车搜索';
 
   @override

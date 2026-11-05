@@ -104,6 +104,16 @@ Future<List<QualityOption>> getSongQualities({required String mid}) =>
 Future<Lyric> getLyric({required String mid, required PlatformInt64 id}) =>
     RustLib.instance.api.crateApiMusicGetLyric(mid: mid, id: id);
 
+/// 听歌识曲：`pcm` 是从开始录到现在的全部录音（8 kHz、16 位小端、单声道），
+/// 同一次识别的多次调用传同一个 `session_id`。还没认出来时返回 None，继续录音再试。
+Future<Song?> recognizeSong({
+  required PlatformInt64 sessionId,
+  required List<int> pcm,
+}) => RustLib.instance.api.crateApiMusicRecognizeSong(
+  sessionId: sessionId,
+  pcm: pcm,
+);
+
 Future<List<TopListGroup>> getToplists() =>
     RustLib.instance.api.crateApiMusicGetToplists();
 

@@ -4,7 +4,7 @@
 use crate::api::error::ApiError;
 use crate::api::types::*;
 use crate::qq::audio_cache::cache;
-use crate::qq::{client, detail, history, library, login, music, mv, quality, social, user};
+use crate::qq::{client, detail, history, library, login, music, mv, quality, recognize, social, user};
 
 #[flutter_rust_bridge::frb(init)]
 pub fn init_app() {
@@ -99,6 +99,12 @@ pub async fn get_song_qualities(mid: String) -> Result<Vec<QualityOption>, ApiEr
 
 pub async fn get_lyric(mid: String, id: i64) -> Result<Lyric, ApiError> {
     Ok(music::lyric(&mid, id).await?)
+}
+
+/// 听歌识曲：`pcm` 是从开始录到现在的全部录音（8 kHz、16 位小端、单声道），
+/// 同一次识别的多次调用传同一个 `session_id`。还没认出来时返回 None，继续录音再试。
+pub async fn recognize_song(session_id: i64, pcm: Vec<u8>) -> Result<Option<Song>, ApiError> {
+    Ok(recognize::recognize(session_id, &pcm).await?)
 }
 
 pub async fn get_toplists() -> Result<Vec<TopListGroup>, ApiError> {

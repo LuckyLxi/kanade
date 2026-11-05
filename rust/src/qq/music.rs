@@ -458,7 +458,7 @@ pub(crate) fn webkit_comm() -> Value {
 }
 
 /// 推荐卡片里的歌曲只有 id，没有播放所需的 mid，按 id 批量补全。
-async fn tracks_by_id(ids: &[i64]) -> Result<Value> {
+pub(super) async fn tracks_by_id(ids: &[i64]) -> Result<Value> {
     if ids.is_empty() {
         return Ok(json!([]));
     }

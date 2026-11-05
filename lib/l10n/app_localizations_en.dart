@@ -115,6 +115,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchHint => 'Search songs, artists, albums, videos';
 
   @override
+  String get recognizeSong => 'Recognize song';
+
+  @override
+  String get recognizeListening => 'Listening…';
+
+  @override
+  String get recognizeHint => 'Hold the microphone near the music';
+
+  @override
+  String recognizeElapsed(int seconds) {
+    return '${seconds}s';
+  }
+
+  @override
+  String get recognizeNotFound => 'Couldn\'t recognize this song';
+
+  @override
+  String get recognizeAgain => 'Try again';
+
+  @override
+  String get recognizeNoMic => 'Microphone access denied';
+
+  @override
   String get searchPrompt => 'Type a keyword and press Enter';
 
   @override

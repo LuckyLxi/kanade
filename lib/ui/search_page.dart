@@ -6,6 +6,7 @@ import '../l10n/l10n_ext.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'keyed_route.dart';
+import 'recognize_sheet.dart';
 import 'video_tile.dart';
 import 'singer_page.dart';
 import 'smooth_scroll.dart';
@@ -192,7 +193,14 @@ class _SearchPageState extends State<SearchPage> {
           elevation: const WidgetStatePropertyAll(0),
           onSubmitted: _search,
           trailing: [
-            if (_controller.text.isNotEmpty) IconButton(icon: const Icon(Icons.clear), onPressed: _clear),
+            if (_controller.text.isNotEmpty)
+              IconButton(icon: const Icon(Icons.clear), onPressed: _clear)
+            else
+              IconButton(
+                icon: const Icon(Icons.mic_none_rounded),
+                tooltip: l.recognizeSong,
+                onPressed: () => showRecognizeSheet(context),
+              ),
           ],
           onChanged: _onChanged,
         ),
