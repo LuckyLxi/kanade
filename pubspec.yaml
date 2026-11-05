@@ -49,7 +49,9 @@ dependencies:
   url_launcher: ^6.3.3
   gal: ^2.3.3
   window_manager: ^0.5.2
-  audio_service: ^0.18.19
+  # 0.18.19 打了补丁：通知栏封面缓存上限从 1/8 Java 堆改成 4MB，后台不再越播越多
+  audio_service:
+    path: third_party/audio_service
   # 1.1.0 是用 flutter_rust_bridge 2.11.1 生成的，跟项目的 2.12.0 对不上会直接不工作，
   # 拷过来用 2.12.0 重新生成了绑定
   smtc_windows:
