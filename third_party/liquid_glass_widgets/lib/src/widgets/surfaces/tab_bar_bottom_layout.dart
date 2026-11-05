@@ -54,6 +54,7 @@ class TabBarBottomLayout extends StatefulWidget {
     this.iconLabelSpacing = 4,
     this.enableBlend = true,
     this.blendAmount = 10,
+    this.sharedLayer = false,
     this.settings,
     this.showIndicator = true,
     this.indicatorColor,
@@ -112,6 +113,10 @@ class TabBarBottomLayout extends StatefulWidget {
   final double iconLabelSpacing;
   final bool enableBlend;
   final double blendAmount;
+
+  /// [LOCAL PATCH]: don't create a glass layer; the pill's glass joins the
+  /// ancestor AdaptiveLiquidGlassLayer (whose settings then apply).
+  final bool sharedLayer;
   final LiquidGlassSettings? settings;
   final bool showIndicator;
   final Color? indicatorColor;
@@ -286,14 +291,7 @@ class _TabBarBottomLayoutState extends State<TabBarBottomLayout>
         ? (int i) => widget.onTabSelected(widget.tabs.length - 1 - i)
         : widget.onTabSelected;
 
-    final pillLayer = AdaptiveLiquidGlassLayer(
-      clipExpansion:
-          const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
-      settings: effectiveSettings,
-      quality: effectiveQuality,
-      platformViewBackdrop: widget.platformViewBackdrop,
-      blendAmount: widget.enableBlend ? widget.blendAmount : 0,
-      child: Padding(
+    final Widget pillContent = Padding(
         padding: EdgeInsets.symmetric(
           horizontal: widget.horizontalPadding,
           vertical: widget.verticalPadding,
@@ -452,8 +450,21 @@ class _TabBarBottomLayoutState extends State<TabBarBottomLayout>
             return content;
           },
         ),
-      ),
     );
+
+    // [LOCAL PATCH]: with sharedLayer the pill's glass joins the ancestor
+    // AdaptiveLiquidGlassLayer, so it can blend with glass outside the bar.
+    final pillLayer = widget.sharedLayer
+        ? pillContent
+        : AdaptiveLiquidGlassLayer(
+            clipExpansion:
+                const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
+            settings: effectiveSettings,
+            quality: effectiveQuality,
+            platformViewBackdrop: widget.platformViewBackdrop,
+            blendAmount: widget.enableBlend ? widget.blendAmount : 0,
+            child: pillContent,
+          );
 
     if (widget.bottomAccessory == null) return pillLayer;
 

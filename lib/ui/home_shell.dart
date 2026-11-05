@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
@@ -83,11 +84,18 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
   /// 播放条的形状：0 胶囊，1 圆球。用弹簧驱动，会稍微冲过头再回来。
   late final _shape = AnimationController.unbounded(vsync: this);
 
-  /// 进二级页面的第一段：导航栏和播放条融成一整块（0 分开，1 融合成导航栏那么大的一块）。
-  late final _fuse = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+  /// 进二级页面的第一段：播放条融进导航栏（每条边 0 原位，1 到导航栏胶囊的位置）。
+  /// 四条边各挂一根弹簧：往哪边走哪条边先到，另一条慢半拍跟上，像橡皮筋。
+  late final _fuse = _Edges(this);
 
-  /// 第二段：融合后的那一块弹成底部的胶囊（0 导航栏的形状，1 底部胶囊）。
-  late final _drop = AnimationController.unbounded(vsync: this);
+  /// 第二段：融合后的那一块落成底部的胶囊（每条边 0 导航栏胶囊，1 底部胶囊）。
+  late final _drop = _Edges(this);
+
+  /// 导航栏被吸进播放条的程度（0 原样，1 缩小贴着播放条）。返回时用弹簧，冒出来会冲过头弹一下。
+  late final _absorb = AnimationController.unbounded(vsync: this);
+
+  /// 导航栏上图标和文字的显示程度。
+  late final _navFace = AnimationController(vsync: this, value: 1);
 
   /// 播放条第一次出现：从导航栏右端分裂出来。
   late final _appear = AnimationController(vsync: this, duration: const Duration(milliseconds: 640), value: 1);
@@ -96,10 +104,21 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
   int _nestedRun = 0;
 
   static final _spring = SpringDescription.withDampingRatio(mass: 1, stiffness: 420, ratio: 0.72);
-  static final _springBack = SpringDescription.withDampingRatio(mass: 1, stiffness: 520, ratio: 0.95);
 
   /// 收成圆球慢一点，展开回胶囊还是用快的。
   static final _springCollapse = SpringDescription.withDampingRatio(mass: 1, stiffness: 190, ratio: 0.8);
+
+  // 进二级页面的边弹簧：前导边硬一点先到，后跟边软一点、晚一点出发
+  static final _lead = SpringDescription.withDampingRatio(mass: 1, stiffness: 520, ratio: 0.72);
+  static final _trail = SpringDescription.withDampingRatio(mass: 1, stiffness: 260, ratio: 0.66);
+  static final _dropLead = SpringDescription.withDampingRatio(mass: 1, stiffness: 560, ratio: 0.68);
+  static final _dropTrail = SpringDescription.withDampingRatio(mass: 1, stiffness: 240, ratio: 0.6);
+  static final _side = SpringDescription.withDampingRatio(mass: 1, stiffness: 480, ratio: 0.75);
+  static final _navBounce = SpringDescription.withDampingRatio(mass: 1, stiffness: 420, ratio: 0.58);
+
+  /// 有 Impeller 的高画质玻璃时，导航栏和播放条放进同一个玻璃层，融合时真的粘成一块；
+  /// 其他平台照旧各画各的，融合时导航栏整个淡掉。
+  static bool get _blendGlass => KanadeGlass.navigationQuality == GlassQuality.premium;
 
   @override
   void initState() {
@@ -123,6 +142,8 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
     _shape.dispose();
     _fuse.dispose();
     _drop.dispose();
+    _absorb.dispose();
+    _navFace.dispose();
     _appear.dispose();
     super.dispose();
   }
@@ -136,7 +157,8 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
       _shapeTarget = _collapsed ? 1 : 0;
       _shape.value = _shapeTarget;
       _nestedShown = _nested;
-      _fuse.value = _drop.value = _nested ? 1 : 0;
+      _fuse.value = _drop.value = _absorb.value = _nested ? 1 : 0;
+      _navFace.value = _nested ? 0 : 1;
       _appear.forward(from: 0);
     }
     _hadSong = hasSong;
@@ -151,24 +173,82 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
     }
   }
 
-  /// 进二级页面：先融合（圆球滑进导航栏连成一块，封面快速挪到左端），再弹成底部的胶囊。
-  /// 退出来倒着走：胶囊缩回导航栏的形状，再从右端分裂出圆球。
+  /// 进二级页面：播放条融进导航栏（导航栏缩小着被吸进去，两块玻璃粘成一块），
+  /// 融到一半就往底部落。往下走时下边先到，上边慢半拍；圆球展开时左边先冲出去。
+  /// 退出来倒着走：上边先往上，分出来以后导航栏带着回弹冒出来。
+  /// 半路又切回去时，新的一轮从每条边当前的位置和速度接着走。
   Future<void> _runNested(bool nested) async {
     final run = ++_nestedRun;
-    try {
-      if (nested) {
-        if (_fuse.value < 1) {
-          await _fuse.animateTo(1, curve: Curves.easeInOutCubic).orCancel;
-        }
-        if (run == _nestedRun) await _springTo(_drop, 1, _spring).orCancel;
-      } else {
-        if (_drop.value.abs() > 0.001) await _springTo(_drop, 0, _springBack).orCancel;
-        _drop.value = 0;
-        if (run == _nestedRun) await _fuse.animateBack(0, curve: Curves.easeInOutCubic).orCancel;
-      }
-    } on TickerCanceled {
-      // 半路又切回去了，新的那一轮接着当前的位置走
+    bool live() => mounted && run == _nestedRun;
+    Future<bool> wait(int ms) async {
+      await Future<void>.delayed(Duration(milliseconds: ms));
+      return live();
     }
+
+    final round = _shapeTarget == 1;
+    if (nested) {
+      _springTo(_fuse.bottom, 1, _lead);
+      _springTo(_fuse.left, 1, round ? _lead : _side);
+      _springTo(_fuse.right, 1, round ? _trail : _side);
+      unawaited(_absorbNav(run));
+      if (!await wait(20)) return;
+      final top = _fuse.top.value;
+      _springTo(_fuse.top, 1, _trail);
+      if (!await _reached(_fuse.top, top, 1, 0.55, run)) return;
+      _springTo(_drop.bottom, 1, _dropLead);
+      _springTo(_drop.left, 1, _side);
+      _springTo(_drop.right, 1, _side);
+      if (!await _reached(_fuse.top, top, 1, 0.6, run)) return;
+      _springTo(_drop.top, 1, _dropTrail);
+    } else {
+      _absorb.stop();
+      _navFace.stop();
+      _springTo(_drop.top, 0, _dropLead);
+      _springTo(_drop.left, 0, _side);
+      _springTo(_drop.right, 0, _side);
+      if (!await wait(30)) return;
+      final bottom = _drop.bottom.value;
+      _springTo(_drop.bottom, 0, _dropTrail);
+      if (!await _reached(_drop.bottom, bottom, 0, 0.5, run)) return;
+      final top = _fuse.top.value;
+      _springTo(_fuse.top, 0, _lead);
+      _springTo(_fuse.left, 0, round ? _trail : _side);
+      _springTo(_fuse.right, 0, round ? _lead : _side);
+      if (!await _reached(_drop.bottom, bottom, 0, 0.55, run)) return;
+      _springTo(_fuse.bottom, 0, _trail);
+      if (!await _reached(_fuse.top, top, 0, 0.5, run)) return;
+      _springTo(_absorb, 0, _navBounce);
+      _navFace.animateTo(1, duration: const Duration(milliseconds: 200), curve: Curves.easeOutCubic);
+    }
+  }
+
+  /// 进二级页面时导航栏缩小着被吸进去，图标稍晚一点淡掉。
+  Future<void> _absorbNav(int run) async {
+    await Future<void>.delayed(const Duration(milliseconds: 40));
+    if (!mounted || run != _nestedRun) return;
+    _absorb.animateTo(1, duration: const Duration(milliseconds: 260), curve: Curves.easeInCubic);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    if (!mounted || run != _nestedRun) return;
+    _navFace.animateTo(0, duration: const Duration(milliseconds: 220));
+  }
+
+  /// 等 [c] 从 [from] 往 [to] 走到 [at] 成。它停下了、或者又开始了新的一轮，也不再等。
+  /// 返回这一轮是否还有效。
+  Future<bool> _reached(AnimationController c, double from, double to, double at, int run) async {
+    bool hit() => (to - from).abs() < 1e-6 || (c.value - from) / (to - from) >= at;
+    if (!hit() && c.isAnimating) {
+      final done = Completer<void>();
+      void check() {
+        if (run != _nestedRun || hit() || !c.isAnimating) {
+          if (!done.isCompleted) done.complete();
+        }
+      }
+
+      c.addListener(check);
+      await done.future;
+      c.removeListener(check);
+    }
+    return mounted && run == _nestedRun;
   }
 
   /// 上下滑页面（手指拖动的）超过一点距离就收起播放条。
@@ -253,20 +333,13 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
                             ),
                           ),
                         ),
-                        Expanded(
-                          child: _insetBottom(context, barSpace, body),
-                        ),
+                        Expanded(child: _insetBottom(context, barSpace, body)),
                       ],
                     ),
                   ),
                 ),
               ),
-              Positioned(
-                left: gap,
-                right: gap,
-                bottom: gap + mq.padding.bottom,
-                child: const DesktopPlayerBar(),
-              ),
+              Positioned(left: gap, right: gap, bottom: gap + mq.padding.bottom, child: const DesktopPlayerBar()),
             ],
           ),
         ),
@@ -304,6 +377,7 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
           ],
           quality: KanadeGlass.navigationQuality,
           settings: KanadeGlass.navigationSettings(context),
+          sharedLayer: _blendGlass,
           indicatorSettings: KanadeGlass.indicatorSettings,
           // 指示器是一颗透明透镜，选中态靠抗色图标区分
           indicatorColor: foreground.withValues(alpha: 0.1),
@@ -331,11 +405,12 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
         EdgeInsets.only(bottom: safeBottom + (hasSong && _collapsed && !_nested ? navHeight + 6 : inset + 4)),
       );
       final chrome = AnimatedBuilder(
-        animation: Listenable.merge([_shape, _fuse, _drop, _appear]),
+        animation: Listenable.merge([_shape, ..._fuse.all, ..._drop.all, _absorb, _navFace, _appear]),
         builder: (context, _) {
           final s = _shape.value;
-          final f = _fuse.value;
-          final d = _drop.value;
+          // 整体进度看上下两条边的平均
+          final f = ((_fuse.top.value + _fuse.bottom.value) / 2).clamp(0.0, 1.0);
+          final d = ((_drop.top.value + _drop.bottom.value) / 2).clamp(0.0, 1.0);
           final a = _appear.value;
           final round = s.clamp(0.0, 1.0);
           // 收成圆球时导航栏往左让，和圆球一起居中；圆球和导航栏的玻璃胶囊一样高、对齐
@@ -347,30 +422,61 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
           // 导航栏里那块玻璃胶囊本身的位置
           final pill = Rect.fromLTWH(navLeft + pillInset, navTop + navPad, navWidth - pillInset * 2, circleSize);
           final circle = Rect.fromLTWH(pill.right + circleGap, pill.top, circleSize, circleSize);
-          final capsule = Rect.fromLTWH(
+          final capsule = Rect.fromLTWH(16, navTop - miniGap - MiniPlayer.height, screenWidth - 32, MiniPlayer.height);
+          final bottom = Rect.fromLTWH(
             16,
-            navTop - miniGap - MiniPlayer.height,
+            screenHeight - safeBottom - 8 - MiniPlayer.height,
             screenWidth - 32,
             MiniPlayer.height,
           );
-          final bottom = Rect.fromLTWH(16, screenHeight - safeBottom - 8 - MiniPlayer.height, screenWidth - 32, MiniPlayer.height);
-          // 一级页面里的样子（胶囊 / 圆球）→ 融成导航栏那块 → 弹成底部胶囊
-          var bar = f < 1 ? Rect.lerp(Rect.lerp(capsule, circle, s), pill, f)! : Rect.lerp(pill, bottom, d)!;
-          // 歌名和按钮：收成圆、融合时淡掉，落到底部时再出来
+          // 一级页面里的样子（胶囊 / 圆球）→ 融成导航栏那块 → 落成底部胶囊，每条边各走各的
+          final start = Rect.lerp(capsule, circle, s)!;
+          double edge(double a, double b, double c, AnimationController fuse, AnimationController drop) =>
+              lerpDouble(lerpDouble(a, b, fuse.value)!, c, drop.value)!;
+          final left = edge(start.left, pill.left, bottom.left, _fuse.left, _drop.left);
+          final top = edge(start.top, pill.top, bottom.top, _fuse.top, _drop.top);
+          final right = edge(start.right, pill.right, bottom.right, _fuse.right, _drop.right);
+          final bottomEdge = edge(start.bottom, pill.bottom, bottom.bottom, _fuse.bottom, _drop.bottom);
+          var bar = Rect.fromLTRB(left, top, math.max(left, right), math.max(top, bottomEdge));
+          // 歌名和按钮：收成圆、融合时淡掉，落到底部时再错开出来；返回时等它和导航栏快分开了才出来
           final face = math.max(
-            (1 - round / 0.4).clamp(0.0, 1.0) * (1 - f / 0.3).clamp(0.0, 1.0),
-            f < 1 ? 0.0 : ((d - 0.3) / 0.5).clamp(0.0, 1.0),
+            (1 - round / 0.4).clamp(0.0, 1.0) * (1 - const Interval(0, 0.25).transform(f)),
+            const Interval(0.35, 0.85).transform(d),
           );
-          // 从圆球融进去时封面先待在右端，导航栏淡掉后快速挪到左端
-          final coverShift = round * (1 - const Interval(0.5, 0.85, curve: Curves.easeInOut).transform(f));
-          // 有播放条时导航栏淡掉、被它吸进去；没有播放条就像原来一样整条往下滑走
-          final navOpacity = hasSong ? 1 - const Interval(0.3, 0.7).transform(f) : 1.0;
-          final navSlide = hasSong ? 0.0 : f * navHeight * 1.6;
+          // 从圆球融进去时封面先待在右端，融到一半快速挪到左端
+          final coverShift = round * (1 - const Interval(0.4, 0.8, curve: Curves.easeInOut).transform(f));
+          // 有播放条时导航栏缩小着被吸进去，落到底部时藏进胶囊里；没有播放条就像原来一样整条往下滑走
+          final Rect navRect;
+          if (hasSong) {
+            final k = _absorb.value;
+            final sx = lerpDouble(1, 0.78, k)!, sy = lerpDouble(1, 0.8, k)!;
+            final ox = bar.center.dx, oy = pill.center.dy + 4 * k;
+            final absorbed = Rect.fromLTRB(
+              ox + (pill.left - ox) * sx,
+              oy + (pill.top - pill.center.dy) * sy,
+              ox + (pill.right - ox) * sx,
+              oy + (pill.bottom - pill.center.dy) * sy,
+            );
+            navRect = Rect.lerp(absorbed, bar.deflate(4), d)!;
+          } else {
+            navRect = pill.translate(0, f * navHeight * 1.6);
+          }
+          // 把导航栏里那块胶囊（组件内的位置）映射到 navRect
+          final navScaleX = navRect.width / pill.width, navScaleY = navRect.height / pill.height;
+          final navTransform = Matrix4.translationValues(
+            navRect.left - navLeft - pillInset * navScaleX,
+            navRect.top - navTop - navPad * navScaleY,
+            0,
+          )..multiply(Matrix4.diagonal3Values(navScaleX, navScaleY, 1));
+          // 导航栏的图标在播放条压上来之前就淡完，不和歌名叠在一起
+          final navFace = hasSong ? math.min(_navFace.value, 1 - const Interval(0.2, 0.6).transform(f)) : 1.0;
+          // 同一个玻璃层里两块玻璃靠近时才开始粘连，一级页面里分开的时候不粘
+          final blend = 18 * (f / 0.15).clamp(0.0, 1.0);
           var opacity = 1.0;
           if (a < 1) {
             // 第一次出现：一颗小圆从导航栏胶囊的右端分裂出来，长大挪到位（二级页面里从胶囊右端长出来）
             final seed = Rect.fromCircle(
-              center: f >= 1
+              center: d > 0.5
                   ? bottom.centerRight - const Offset(MiniPlayer.height / 2, 0)
                   : s > 0.5
                   ? Offset(pill.right - circleSize / 2, pill.center.dy)
@@ -380,7 +486,7 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
             bar = Rect.lerp(seed, bar, Curves.easeOutBack.transform(a))!;
             opacity = (a / 0.2).clamp(0.0, 1.0);
           }
-          return Stack(
+          final stack = Stack(
             children: [
               if (hasSong)
                 Positioned.fromRect(
@@ -392,22 +498,35 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
                       faceOpacity: face,
                       coverShift: coverShift,
                       capsuleWidth: capsule.width,
+                      grouped: _blendGlass,
+                      faceStagger: f > 0.001 || d > 0.001,
                       onExpand: () => setState(() => _collapsed = false),
                     ),
                   ),
                 ),
-              // 融合时导航栏盖在播放条上面淡掉，看起来是被吸进去
+              // 融合时导航栏缩小着贴到播放条上。同一个玻璃层里 Opacity 只淡掉图标，玻璃留着和播放条粘在一起；
+              // 各画各的时候整个导航栏淡掉
               Positioned(
                 left: navLeft,
-                top: navTop + navSlide,
+                top: navTop,
                 width: navWidth,
                 height: navHeight,
                 child: IgnorePointer(
                   ignoring: _nested,
-                  child: Opacity(opacity: navOpacity, child: tabBar),
+                  child: Transform(
+                    transform: navTransform,
+                    child: Opacity(opacity: navFace.clamp(0.0, 1.0), child: tabBar),
+                  ),
                 ),
               ),
             ],
+          );
+          if (!_blendGlass) return stack;
+          return AdaptiveLiquidGlassLayer(
+            settings: KanadeGlass.navigationSettings(context),
+            quality: KanadeGlass.navigationQuality,
+            blendAmount: blend,
+            child: stack,
           );
         },
       );
@@ -547,5 +666,30 @@ class _DepthObserver extends NavigatorObserver {
   void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
     depth--;
     onChanged();
+  }
+}
+
+/// 播放条矩形的四条边，各自一个弹簧驱动的进度（0 起点，1 终点）。
+class _Edges {
+  _Edges(TickerProvider vsync)
+    : top = AnimationController.unbounded(vsync: vsync),
+      bottom = AnimationController.unbounded(vsync: vsync),
+      left = AnimationController.unbounded(vsync: vsync),
+      right = AnimationController.unbounded(vsync: vsync);
+
+  final AnimationController top, bottom, left, right;
+
+  List<AnimationController> get all => [top, bottom, left, right];
+
+  set value(double v) {
+    for (final c in all) {
+      c.value = v;
+    }
+  }
+
+  void dispose() {
+    for (final c in all) {
+      c.dispose();
+    }
   }
 }

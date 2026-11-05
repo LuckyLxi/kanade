@@ -205,6 +205,7 @@ class GlassTabBar extends StatefulWidget with GlassDynamicPreferredSize {
     bool enableBlend = true,
     bool groupBackdrop = true,
     double blendAmount = 10,
+    bool sharedLayer = false,
     LiquidGlassSettings? settings,
     bool showIndicator = true,
     Color? indicatorColor,
@@ -245,6 +246,7 @@ class GlassTabBar extends StatefulWidget with GlassDynamicPreferredSize {
   }) : this._(
           key: key,
           placement: _GlassTabBarPlacement.bottom,
+          sharedLayer: sharedLayer,
           tabs: tabs,
           selectedIndex: selectedIndex,
           onTabSelected: onTabSelected,
@@ -831,6 +833,7 @@ class GlassTabBar extends StatefulWidget with GlassDynamicPreferredSize {
       this.enableBlend = true,
       this.groupBackdrop = true,
       this.blendAmount = 10,
+      this.sharedLayer = false,
       this.showIndicator = true,
       this.magnification = 1.15,
       this.innerBlur = 0.0,
@@ -1031,6 +1034,12 @@ class GlassTabBar extends StatefulWidget with GlassDynamicPreferredSize {
 
   /// Blend amount for the shared glass layer. Defaults to 10.
   final double blendAmount;
+
+  /// [LOCAL PATCH] (bottom placement only): the bar creates no glass layer of
+  /// its own; the pill's glass joins the ancestor [AdaptiveLiquidGlassLayer]
+  /// and blends with that layer's other grouped glass. The ancestor's
+  /// settings apply instead of [settings].
+  final bool sharedLayer;
 
   /// Whether the bar's glass reads the backdrop together, in one
   /// [GlassBackdropGroup]: the pill, the search and minimize pills. The
@@ -1378,6 +1387,7 @@ class _GlassTabBarState extends State<GlassTabBar> {
   /// Dispatches to [TabBarBottomLayout] — the iOS 26-style bottom placement engine.
   Widget _buildBottom(BuildContext context) {
     return TabBarBottomLayout(
+      sharedLayer: widget.sharedLayer,
       tabs: widget.tabs,
       selectedIndex: widget.selectedIndex,
       onTabSelected: widget.onTabSelected,

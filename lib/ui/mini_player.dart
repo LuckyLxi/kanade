@@ -29,6 +29,8 @@ class MiniPlayer extends StatefulWidget {
     this.capsuleWidth,
     this.onExpand,
     this.barAnchor,
+    this.grouped = false,
+    this.faceStagger = false,
   });
 
   static const height = 64.0;
@@ -55,6 +57,12 @@ class MiniPlayer extends StatefulWidget {
   final double? capsuleWidth;
 
   final VoidCallback? onExpand;
+
+  /// 玻璃不自己建一层，加入外面的 [AdaptiveLiquidGlassLayer]，和导航栏融成一块。
+  final bool grouped;
+
+  /// 歌名和按钮按 [faceOpacity] 错开出现，而不是整块一起淡入淡出。
+  final bool faceStagger;
 
   @override
   State<MiniPlayer> createState() => _MiniPlayerState();
@@ -112,39 +120,67 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
         builder: (context, box) {
           final w = box.maxWidth, h = box.maxHeight;
           // 胶囊里 44，圆球和导航栏那么高时 46
-          final d = lerpDouble(MiniPlayer._coverSize, MiniPlayer._circleCover, ((MiniPlayer.height - h) / 6).clamp(0.0, 1.0))!;
-          return GlassContainer(
-            useOwnLayer: true,
-            settings: KanadeGlass.navigationSettings(context),
-            quality: KanadeGlass.navigationQuality,
-            shape: LiquidRoundedRectangle(borderRadius: math.min(w, h) / 2),
-            clipBehavior: Clip.antiAlias,
-            child: Material(
-              type: MaterialType.transparency,
-              child: Stack(
-                children: [
-                  if (widget.faceOpacity > 0)
-                    Positioned(
-                      left: 0,
-                      top: (h - MiniPlayer.height) / 2,
-                      width: widget.capsuleWidth ?? w,
-                      height: MiniPlayer.height,
-                      child: Opacity(opacity: widget.faceOpacity.clamp(0.0, 1.0), child: _MiniFace(swipe: _swipe)),
-                    ),
+          final d = lerpDouble(
+            MiniPlayer._coverSize,
+            MiniPlayer._circleCover,
+            ((MiniPlayer.height - h) / 6).clamp(0.0, 1.0),
+          )!;
+          final face = widget.faceOpacity.clamp(0.0, 1.0);
+          final shape = LiquidRoundedRectangle(borderRadius: math.min(w, h) / 2);
+          final content = Material(
+            type: MaterialType.transparency,
+            child: Stack(
+              children: [
+                if (widget.faceOpacity > 0)
                   Positioned(
-                    // 封面平时待在左端的半圆里，收成圆时是右边缩进来
-                    left: lerpDouble((h - d) / 2, w - (h + d) / 2, widget.coverShift),
-                    top: (h - d) / 2,
-                    width: d,
-                    height: d,
-                    child: KeyedSubtree(
-                      key: _anchor.coverKey,
-                      child: Cover(song.coverUrl, size: d, radius: d / 2),
-                    ),
+                    left: 0,
+                    top: (h - MiniPlayer.height) / 2,
+                    width: widget.capsuleWidth ?? w,
+                    height: MiniPlayer.height,
+                    child: widget.faceStagger
+                        ? _MiniFace(swipe: _swipe, reveal: face)
+                        : Opacity(
+                            opacity: face,
+                            child: _MiniFace(swipe: _swipe),
+                          ),
                   ),
-                ],
-              ),
+                Positioned(
+                  // 封面平时待在左端的半圆里，收成圆时是右边缩进来
+                  left: lerpDouble((h - d) / 2, w - (h + d) / 2, widget.coverShift),
+                  top: (h - d) / 2,
+                  width: d,
+                  height: d,
+                  child: KeyedSubtree(
+                    key: _anchor.coverKey,
+                    child: Cover(song.coverUrl, size: d, radius: d / 2),
+                  ),
+                ),
+              ],
             ),
+          );
+          if (!widget.grouped) {
+            return GlassContainer(
+              useOwnLayer: true,
+              settings: KanadeGlass.navigationSettings(context),
+              quality: KanadeGlass.navigationQuality,
+              shape: shape,
+              clipBehavior: Clip.antiAlias,
+              child: content,
+            );
+          }
+          // 分组的玻璃连同里面的内容都由外面的玻璃层来画，外面套 Opacity 藏不住；
+          // 播放页盖上来时干脆不挂玻璃，只留透明的内容占位
+          return ValueListenableBuilder(
+            valueListenable: _anchor.hidden,
+            child: content,
+            builder: (_, hidden, content) => hidden
+                ? content!
+                : GlassContainer(
+                    quality: KanadeGlass.navigationQuality,
+                    shape: shape,
+                    clipBehavior: Clip.antiAlias,
+                    child: content,
+                  ),
           );
         },
       ),
@@ -160,9 +196,12 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
 
 /// 胶囊上除封面以外的部分：歌名、播放键（桌面没有手势，再加上一首 / 下一首）、进度线。
 class _MiniFace extends StatelessWidget {
-  const _MiniFace({this.swipe});
+  const _MiniFace({this.swipe, this.reveal});
 
   final Animation<double>? swipe;
+
+  /// 给了就错开出现：歌名先从左边滑进来，按钮晚一点弹出来；不给就是整块一起显示。
+  final double? reveal;
 
   @override
   Widget build(BuildContext context) {
@@ -170,6 +209,15 @@ class _MiniFace extends StatelessWidget {
     final song = p.current;
     if (song == null) return const SizedBox.shrink();
     final scheme = Theme.of(context).colorScheme;
+    final reveal = this.reveal;
+    final titleIn = reveal == null ? 1.0 : const Interval(0, 0.7).transform(reveal.clamp(0.0, 1.0));
+    final buttonsIn = reveal == null ? 1.0 : const Interval(0.3, 1).transform(reveal.clamp(0.0, 1.0));
+    Widget pop(Widget button) => buttonsIn >= 1
+        ? button
+        : Opacity(
+            opacity: buttonsIn,
+            child: Transform.scale(scale: 0.6 + 0.4 * Curves.easeOutBack.transform(buttonsIn), child: button),
+          );
     Widget title = Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,6 +249,12 @@ class _MiniFace extends StatelessWidget {
         ),
       );
     }
+    if (titleIn < 1) {
+      title = Opacity(
+        opacity: titleIn,
+        child: Transform.translate(offset: Offset((1 - titleIn) * -10, 0), child: title),
+      );
+    }
     return Stack(
       children: [
         Row(
@@ -208,49 +262,59 @@ class _MiniFace extends StatelessWidget {
             const SizedBox(width: 10 + MiniPlayer._coverSize + 12),
             Expanded(child: title),
             if (!touchPlatform)
-              IconButton(
-                onPressed: p.previous,
-                icon: Icon(Icons.skip_previous_rounded, color: scheme.onSurface),
+              pop(
+                IconButton(
+                  onPressed: p.previous,
+                  icon: Icon(Icons.skip_previous_rounded, color: scheme.onSurface),
+                ),
               ),
-            SizedBox.square(
-              dimension: 40,
-              child: p.loading || p.buffering
-                  ? Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary),
-                    )
-                  : IconButton.filled(
-                      padding: EdgeInsets.zero,
-                      onPressed: p.toggle,
-                      // 玻璃层会改写继承的图标颜色，这里显式指定
-                      icon: Icon(p.playing ? Icons.pause_rounded : Icons.play_arrow_rounded, color: scheme.onPrimary),
-                    ),
+            pop(
+              SizedBox.square(
+                dimension: 40,
+                child: p.loading || p.buffering
+                    ? Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary),
+                      )
+                    : IconButton.filled(
+                        padding: EdgeInsets.zero,
+                        onPressed: p.toggle,
+                        // 玻璃层会改写继承的图标颜色，这里显式指定
+                        icon: Icon(p.playing ? Icons.pause_rounded : Icons.play_arrow_rounded, color: scheme.onPrimary),
+                      ),
+              ),
             ),
             if (!touchPlatform)
-              IconButton(
-                onPressed: p.next,
-                icon: Icon(Icons.skip_next_rounded, color: scheme.onSurface),
+              pop(
+                IconButton(
+                  onPressed: p.next,
+                  icon: Icon(Icons.skip_next_rounded, color: scheme.onSurface),
+                ),
               ),
             // 手机上播放键和胶囊右端的半圆同心
             SizedBox(width: touchPlatform ? 12 : 8),
           ],
         ),
-        // 进度线只画在胶囊的直边上
-        Positioned(
-          left: MiniPlayer.height / 2,
-          right: MiniPlayer.height / 2,
-          bottom: 0,
-          child: ValueListenableBuilder(
-            valueListenable: p.position,
-            builder: (_, pos, _) => LinearProgressIndicator(
-              minHeight: 2,
-              backgroundColor: scheme.onSurface.withValues(alpha: 0.12),
-              value: p.duration.inMilliseconds == 0
-                  ? 0
-                  : (pos.inMilliseconds / p.duration.inMilliseconds).clamp(0.0, 1.0),
+        // 进度线只画在胶囊的直边上；手机上不画
+        if (!touchPlatform)
+          Positioned(
+            left: MiniPlayer.height / 2,
+            right: MiniPlayer.height / 2,
+            bottom: 0,
+            child: Opacity(
+              opacity: titleIn,
+              child: ValueListenableBuilder(
+                valueListenable: p.position,
+                builder: (_, pos, _) => LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: scheme.onSurface.withValues(alpha: 0.12),
+                  value: p.duration.inMilliseconds == 0
+                      ? 0
+                      : (pos.inMilliseconds / p.duration.inMilliseconds).clamp(0.0, 1.0),
+                ),
+              ),
             ),
           ),
-        ),
       ],
     );
   }
