@@ -303,6 +303,33 @@ pub struct RecommendFeed {
     pub radar_cover: String,
 }
 
+/// 专属乐流的卡片种类。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FeedCardKind {
+    /// 单曲：`songs` 只有一首，`tag` 是一句评论标签（可能为空）。
+    Song,
+    /// 一组三首，如“重温曾经你最爱听的歌”：`title` 是组名，`songs` 是这几首。
+    Group,
+    /// 歌单：`playlist` 有值。
+    Playlist,
+}
+
+#[derive(Debug, Clone)]
+pub struct FeedCard {
+    pub kind: FeedCardKind,
+    pub title: String,
+    pub tag: String,
+    pub songs: Vec<Song>,
+    pub playlist: Option<PlaylistBrief>,
+}
+
+/// 专属乐流的一页。`seen` 是这页卡片的去重标识，翻下一页时连同之前所有页的一起传回去。
+#[derive(Debug, Clone)]
+pub struct FeedColumnPage {
+    pub cards: Vec<FeedCard>,
+    pub seen: Vec<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct HotKeyword {
     pub title: String,

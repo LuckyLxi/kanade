@@ -9,7 +9,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'types.freezed.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 class AlbumBrief {
   final String mid;
@@ -213,6 +213,72 @@ enum CommentTarget {
 
   /// id 是专辑的数字 id
   album,
+}
+
+class FeedCard {
+  final FeedCardKind kind;
+  final String title;
+  final String tag;
+  final List<Song> songs;
+  final PlaylistBrief? playlist;
+
+  const FeedCard({
+    required this.kind,
+    required this.title,
+    required this.tag,
+    required this.songs,
+    this.playlist,
+  });
+
+  @override
+  int get hashCode =>
+      kind.hashCode ^
+      title.hashCode ^
+      tag.hashCode ^
+      songs.hashCode ^
+      playlist.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FeedCard &&
+          runtimeType == other.runtimeType &&
+          kind == other.kind &&
+          title == other.title &&
+          tag == other.tag &&
+          songs == other.songs &&
+          playlist == other.playlist;
+}
+
+/// 专属乐流的卡片种类。
+enum FeedCardKind {
+  /// 单曲：`songs` 只有一首，`tag` 是一句评论标签（可能为空）。
+  song,
+
+  /// 一组三首，如“重温曾经你最爱听的歌”：`title` 是组名，`songs` 是这几首。
+  group,
+
+  /// 歌单：`playlist` 有值。
+  playlist,
+}
+
+/// 专属乐流的一页。`seen` 是这页卡片的去重标识，翻下一页时连同之前所有页的一起传回去。
+class FeedColumnPage {
+  final List<FeedCard> cards;
+  final List<String> seen;
+
+  const FeedColumnPage({required this.cards, required this.seen});
+
+  @override
+  int get hashCode => cards.hashCode ^ seen.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FeedColumnPage &&
+          runtimeType == other.runtimeType &&
+          cards == other.cards &&
+          seen == other.seen;
 }
 
 class HotKeyword {

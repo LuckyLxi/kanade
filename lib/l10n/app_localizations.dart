@@ -224,6 +224,12 @@ abstract class AppLocalizations {
   /// **'电台没取到歌：{error}'**
   String radioFailed(String error);
 
+  /// No description provided for @feedColumnTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'「{name}」的专属乐流'**
+  String feedColumnTitle(String name);
+
   /// No description provided for @newSongs.
   ///
   /// In zh, this message translates to:

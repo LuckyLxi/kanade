@@ -129,6 +129,12 @@ pub async fn get_radar_songs(seed: Vec<i64>, page: u32) -> Result<Vec<Song>, Api
     Ok(music::radar_songs(&seed, page).await?)
 }
 
+/// 首页的专属乐流第 `page` 页（从 1 开始），`seen` 是之前各页 `seen` 的合集（需要登录）。
+/// 返回的卡片为空表示没有更多了。
+pub async fn get_feed_column(page: u32, seen: Vec<String>) -> Result<FeedColumnPage, ApiError> {
+    Ok(music::feed_column(page, &seen).await?)
+}
+
 pub async fn get_new_songs() -> Result<Vec<Song>, ApiError> {
     Ok(music::new_songs().await?)
 }

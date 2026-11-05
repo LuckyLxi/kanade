@@ -77,6 +77,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String feedColumnTitle(String name) {
+    return '「$name」的专属乐流';
+  }
+
+  @override
   String get newSongs => '新歌首发';
 
   @override

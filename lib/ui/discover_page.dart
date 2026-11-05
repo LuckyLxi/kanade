@@ -7,6 +7,7 @@ import '../l10n/l10n_ext.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'feed_column.dart';
 import 'keyed_route.dart';
 import 'smooth_scroll.dart';
 import 'song_list_page.dart';
@@ -129,6 +130,7 @@ class _RecommendTab extends StatelessWidget {
                   ..._songSection(context, section.title.isEmpty ? l.recommendedSongs : section.title, section.songs),
               ],
               if (newSongs.isNotEmpty) ..._songSection(context, l.newSongs, newSongs),
+              const FeedColumn(),
               const SliverToBoxAdapter(child: BottomSpacer()),
             ],
           ),

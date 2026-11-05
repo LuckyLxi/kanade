@@ -44,6 +44,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CachedAudio dco_decode_box_autoadd_cached_audio(dynamic raw);
 
   @protected
+  PlaylistBrief dco_decode_box_autoadd_playlist_brief(dynamic raw);
+
+  @protected
   Quality dco_decode_box_autoadd_quality(dynamic raw);
 
   @protected
@@ -70,6 +73,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CommentTarget dco_decode_comment_target(dynamic raw);
 
   @protected
+  FeedCard dco_decode_feed_card(dynamic raw);
+
+  @protected
+  FeedCardKind dco_decode_feed_card_kind(dynamic raw);
+
+  @protected
+  FeedColumnPage dco_decode_feed_column_page(dynamic raw);
+
+  @protected
   HotKeyword dco_decode_hot_keyword(dynamic raw);
 
   @protected
@@ -89,6 +101,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<Comment> dco_decode_list_comment(dynamic raw);
+
+  @protected
+  List<FeedCard> dco_decode_list_feed_card(dynamic raw);
 
   @protected
   List<HotKeyword> dco_decode_list_hot_keyword(dynamic raw);
@@ -170,6 +185,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CachedAudio? dco_decode_opt_box_autoadd_cached_audio(dynamic raw);
+
+  @protected
+  PlaylistBrief? dco_decode_opt_box_autoadd_playlist_brief(dynamic raw);
 
   @protected
   Quality? dco_decode_opt_box_autoadd_quality(dynamic raw);
@@ -308,6 +326,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CachedAudio sse_decode_box_autoadd_cached_audio(SseDeserializer deserializer);
 
   @protected
+  PlaylistBrief sse_decode_box_autoadd_playlist_brief(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   Quality sse_decode_box_autoadd_quality(SseDeserializer deserializer);
 
   @protected
@@ -334,6 +357,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CommentTarget sse_decode_comment_target(SseDeserializer deserializer);
 
   @protected
+  FeedCard sse_decode_feed_card(SseDeserializer deserializer);
+
+  @protected
+  FeedCardKind sse_decode_feed_card_kind(SseDeserializer deserializer);
+
+  @protected
+  FeedColumnPage sse_decode_feed_column_page(SseDeserializer deserializer);
+
+  @protected
   HotKeyword sse_decode_hot_keyword(SseDeserializer deserializer);
 
   @protected
@@ -353,6 +385,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<Comment> sse_decode_list_comment(SseDeserializer deserializer);
+
+  @protected
+  List<FeedCard> sse_decode_list_feed_card(SseDeserializer deserializer);
 
   @protected
   List<HotKeyword> sse_decode_list_hot_keyword(SseDeserializer deserializer);
@@ -444,6 +479,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CachedAudio? sse_decode_opt_box_autoadd_cached_audio(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  PlaylistBrief? sse_decode_opt_box_autoadd_playlist_brief(
     SseDeserializer deserializer,
   );
 
@@ -591,6 +631,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_playlist_brief(
+    PlaylistBrief self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_quality(Quality self, SseSerializer serializer);
 
   @protected
@@ -621,6 +667,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_comment_target(CommentTarget self, SseSerializer serializer);
 
   @protected
+  void sse_encode_feed_card(FeedCard self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_feed_card_kind(FeedCardKind self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_feed_column_page(
+    FeedColumnPage self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_hot_keyword(HotKeyword self, SseSerializer serializer);
 
   @protected
@@ -643,6 +701,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_comment(List<Comment> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_feed_card(List<FeedCard> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_hot_keyword(
@@ -764,6 +825,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_cached_audio(
     CachedAudio? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_playlist_brief(
+    PlaylistBrief? self,
     SseSerializer serializer,
   );
 

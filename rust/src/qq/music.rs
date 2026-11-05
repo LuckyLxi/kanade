@@ -519,6 +519,96 @@ pub async fn recommend_feed() -> Result<RecommendFeed> {
     Ok(RecommendFeed { sections, radar_seed, radar_cover })
 }
 
+/// 专属乐流（栏目 315）只有新版 Android 客户端（20.09）的版本号才返回，旧版本号给的是另一套栏目。
+/// 抓包和实测见 docs/qqmusic-feed-column-capture.md。
+const FEED_COLUMN_SHELF: &str = "315";
+
+/// 专属乐流第 `page` 页（从 1 开始），`seen` 是之前各页返回的 `seen` 合在一起。需要登录。
+/// 首页推荐的第 1 页里没有这个栏目，从推荐的第 2 页开始才是，所以服务端页码要加 1。
+pub async fn feed_column(page: u32, seen: &[String]) -> Result<FeedColumnPage> {
+    let c = core();
+    c.session().context(ApiError::NotLoggedIn)?;
+    let data = c
+        .musicu_with_comm(
+            "music.recommend.RecommendFeed",
+            "get_recommend_feed",
+            json!({
+                "direction": 1,
+                "page": page + 1,
+                "s_num": page + 1,
+                "v_cache": [],
+                "v_uniq": seen,
+                "ext": {"is_20_style": "1", "has_login": "1", "TwoColPages_proxy": "1", "IsTwoColumnFlow_proxy": "1", "two_col_page_proxy": "1"},
+            }),
+            json!({"cv": "20090808", "v": "20090808", "chid": "73387"}),
+        )
+        .await?;
+    let cards: Vec<&Value> = data["v_shelf"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|shelf| s(&shelf["id"]) == FEED_COLUMN_SHELF)
+        .flat_map(|shelf| shelf["v_niche"].as_array().into_iter().flatten())
+        .flat_map(|niche| niche["v_card"].as_array().into_iter().flatten())
+        .collect();
+    // 组卡只带第一首的完整信息，整页的组卡歌曲一次补全
+    let group_ids: Vec<i64> = cards
+        .iter()
+        .filter(|c| n(&c["subtype"]) == 206)
+        .flat_map(|c| c["card_extra_info"]["SongList"].as_array().into_iter().flatten().map(|x| n(&x["ID"])))
+        .filter(|id| *id > 0)
+        .collect();
+    let tracks: std::collections::HashMap<i64, Song> =
+        parse::songs(&tracks_by_id(&group_ids).await?).into_iter().map(|s| (s.id, s)).collect();
+    Ok(feed_column_page(&cards, &tracks))
+}
+
+fn feed_column_page(cards: &[&Value], tracks: &std::collections::HashMap<i64, Song>) -> FeedColumnPage {
+    let seen = cards.iter().map(|c| format!("{}_{}_{}", n(&c["type"]), n(&c["subtype"]), s(&c["id"]))).collect();
+    let cards = cards
+        .iter()
+        .filter_map(|c| match (n(&c["type"]), n(&c["subtype"])) {
+            (200, 0) => Some(FeedCard {
+                kind: FeedCardKind::Song,
+                title: String::new(),
+                tag: s(&c["tags"][0]["Tag"]),
+                songs: vec![parse::song(&c["card_extra_info"]["Tracks"][0])?],
+                playlist: None,
+            }),
+            (200, 206) => {
+                let songs: Vec<Song> = c["card_extra_info"]["SongList"]
+                    .as_array()?
+                    .iter()
+                    .filter_map(|x| tracks.get(&n(&x["ID"])).cloned())
+                    .collect();
+                (!songs.is_empty()).then(|| FeedCard {
+                    kind: FeedCardKind::Group,
+                    title: s(&c["title"]),
+                    tag: String::new(),
+                    songs,
+                    playlist: None,
+                })
+            }
+            (500, _) if !s(&c["id"]).is_empty() => Some(FeedCard {
+                kind: FeedCardKind::Playlist,
+                title: s(&c["title"]),
+                tag: String::new(),
+                songs: vec![],
+                playlist: Some(PlaylistBrief {
+                    id: s(&c["id"]),
+                    title: s(&c["title"]),
+                    cover_url: s(&c["cover"]),
+                    song_count: 0,
+                    play_count: n(&c["cnt"]) as u64,
+                    creator: String::new(),
+                }),
+            }),
+            _ => None,
+        })
+        .collect();
+    FeedColumnPage { cards, seen }
+}
+
 /// 刷歌模式入口卡的跳转形如 `qqmusic://qq.com/ui/jumpToRadarMode?p={"EntranceSongs":[id],...}`。
 /// 返回起始歌曲和卡片封面（动态的专辑图，可能为空）。
 fn radar_entry(feed: &Value) -> Option<(Vec<i64>, String)> {
@@ -671,6 +761,31 @@ pub async fn user_playlists() -> Result<Vec<PlaylistBrief>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_feed_column_cards() {
+        let feed = json!([
+            {"id": "376471754", "type": 200, "subtype": 0, "tags": [{"Tag": "“男女对唱”"}],
+             "card_extra_info": {"Tracks": [{"id": 376471754, "mid": "0026MOow3oTkqr", "name": "Midnight Crisis"}]}},
+            {"id": "1052115", "type": 200, "subtype": 206, "title": "重温曾经你最爱听的歌",
+             "card_extra_info": {"SongList": [{"ID": 1052115}, {"ID": 512682454}, {"ID": 999}]}},
+            {"id": "9525416362", "type": 500, "subtype": 0, "title": "歌单", "cover": "https://c", "cnt": 53012},
+            {"id": "1", "type": 1100, "subtype": 1100},
+        ]);
+        let cards: Vec<&Value> = feed.as_array().unwrap().iter().collect();
+        let tracks = parse::songs(&json!([{"id": 1052115, "mid": "00384U752Rv92T"}, {"id": 512682454, "mid": "000EH0I44RZINq"}]))
+            .into_iter()
+            .map(|s| (s.id, s))
+            .collect();
+        let page = feed_column_page(&cards, &tracks);
+        assert_eq!(page.seen, ["200_0_376471754", "200_206_1052115", "500_0_9525416362", "1100_1100_1"]);
+        assert_eq!(page.cards.len(), 3);
+        assert_eq!((page.cards[0].kind, page.cards[0].tag.as_str(), page.cards[0].songs[0].mid.as_str()), (FeedCardKind::Song, "“男女对唱”", "0026MOow3oTkqr"));
+        // 补全不到的歌跳过，组里剩下两首
+        assert_eq!((page.cards[1].kind, page.cards[1].songs.len()), (FeedCardKind::Group, 2));
+        let playlist = page.cards[2].playlist.as_ref().unwrap();
+        assert_eq!((page.cards[2].kind, playlist.id.as_str(), playlist.play_count), (FeedCardKind::Playlist, "9525416362", 53012));
+    }
 
     #[test]
     fn similar_songs_use_nested_tracks_and_preserve_order_and_mv() {

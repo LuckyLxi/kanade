@@ -77,6 +77,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String feedColumnTitle(String name) {
+    return 'Picked for $name';
+  }
+
+  @override
   String get newSongs => 'New releases';
 
   @override

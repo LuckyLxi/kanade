@@ -138,6 +138,13 @@ Future<List<Song>> getRadarSongs({
   required int page,
 }) => RustLib.instance.api.crateApiMusicGetRadarSongs(seed: seed, page: page);
 
+/// 首页的专属乐流第 `page` 页（从 1 开始），`seen` 是之前各页 `seen` 的合集（需要登录）。
+/// 返回的卡片为空表示没有更多了。
+Future<FeedColumnPage> getFeedColumn({
+  required int page,
+  required List<String> seen,
+}) => RustLib.instance.api.crateApiMusicGetFeedColumn(page: page, seen: seen);
+
 Future<List<Song>> getNewSongs() =>
     RustLib.instance.api.crateApiMusicGetNewSongs();
 
