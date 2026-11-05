@@ -35,8 +35,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\Kanade"; Filename: "{app}\kanade.exe"
-Name: "{autodesktop}\Kanade"; Filename: "{app}\kanade.exe"; Tasks: desktopicon
+Name: "{autoprograms}\Kanade"; Filename: "{app}\kanade.exe"; AppUserModelID: "LuckyLxi.Kanade"
+Name: "{autodesktop}\Kanade"; Filename: "{app}\kanade.exe"; AppUserModelID: "LuckyLxi.Kanade"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\kanade.exe"; Description: "{cm:LaunchProgram,Kanade}"; Flags: nowait postinstall skipifsilent
