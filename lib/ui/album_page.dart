@@ -8,6 +8,7 @@ import '../src/rust/api/types.dart';
 import 'keyed_route.dart';
 import 'comments_page.dart';
 import 'glass.dart';
+import 'locate_current.dart';
 import 'singer_page.dart';
 import 'smooth_scroll.dart';
 import 'song_tile.dart';
@@ -26,13 +27,54 @@ class AlbumPage extends StatelessWidget {
     return GlassBackScaffold(
       body: AsyncView<AlbumDetail>(
         load: () => api.getAlbumDetail(mid: mid),
-        builder: (context, d) => SmoothScroll(
-          builder: (context, scroll) => ListView.builder(
-            controller: scroll,
-            itemCount: d.songs.length + 1,
-            itemBuilder: (context, i) => i == 0 ? _Head(d) : SongTile(songs: d.songs, index: i - 1),
+        builder: (context, d) => SmoothScroll(builder: (context, scroll) => _Body(d, scroll)),
+      ),
+    );
+  }
+}
+
+/// 头部 + 歌曲列表。歌曲那段每行一样高，定位按钮才能直接算出某一首的位置。
+class _Body extends StatefulWidget {
+  const _Body(this.d, this.scroll);
+
+  final AlbumDetail d;
+  final ScrollController scroll;
+
+  @override
+  State<_Body> createState() => _BodyState();
+}
+
+class _BodyState extends State<_Body> {
+  final _listKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    final d = widget.d;
+    // 和原来的 ListView 一样，上下让出系统栏和播放条的高度
+    final padding = MediaQuery.paddingOf(context);
+    return LocateCurrentSong(
+      controller: widget.scroll,
+      listKey: _listKey,
+      songs: d.songs,
+      child: CustomScrollView(
+        controller: widget.scroll,
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.only(top: padding.top),
+            sliver: SliverToBoxAdapter(child: _Head(d)),
           ),
-        ),
+          if (d.songs.isNotEmpty)
+            SliverPrototypeExtentList.builder(
+              key: _listKey,
+              prototypeItem: SongTile(songs: d.songs, index: 0),
+              itemCount: d.songs.length,
+              itemBuilder: (context, i) => LocateHighlight(
+                index: i,
+                child: SongTile(songs: d.songs, index: i),
+              ),
+            ),
+          SliverToBoxAdapter(child: SizedBox(height: padding.bottom)),
+        ],
       ),
     );
   }

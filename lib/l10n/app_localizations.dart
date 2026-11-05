@@ -284,6 +284,12 @@ abstract class AppLocalizations {
   /// **'搜索歌名、歌手'**
   String get filterSongsHint;
 
+  /// No description provided for @locateCurrentSong.
+  ///
+  /// In zh, this message translates to:
+  /// **'定位到正在播放'**
+  String get locateCurrentSong;
+
   /// No description provided for @searchNoResults.
   ///
   /// In zh, this message translates to:

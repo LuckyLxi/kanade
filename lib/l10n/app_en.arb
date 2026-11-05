@@ -31,6 +31,7 @@
   "searchHot": "Trending",
   "searchRecommended": "You might like",
   "filterSongsHint": "Search title or artist",
+  "locateCurrentSong": "Locate the playing song",
   "searchNoResults": "No results found",
   "searchFailed": "Search failed: {error}",
   "searchTotal": "{count, plural, =1{1 song in total} other{{count} songs in total}}",

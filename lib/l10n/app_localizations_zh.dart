@@ -115,6 +115,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get filterSongsHint => '搜索歌名、歌手';
 
   @override
+  String get locateCurrentSong => '定位到正在播放';
+
+  @override
   String get searchNoResults => '没有找到相关结果';
 
   @override

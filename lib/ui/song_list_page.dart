@@ -11,6 +11,7 @@ import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'keyed_route.dart';
 import 'glass.dart';
+import 'locate_current.dart';
 import 'playlist_actions.dart';
 import 'smooth_scroll.dart';
 import 'song_actions.dart';
@@ -206,6 +207,7 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
 
   final _query = TextEditingController();
   final _scroll = SmoothScrollController();
+  final _listKey = GlobalKey();
 
   final _focus = FocusNode();
 
@@ -271,103 +273,114 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _search(false);
       },
-      child: CustomScrollView(
+      child: LocateCurrentSong(
         controller: _scroll,
-        // 拖动列表时收起键盘
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        slivers: [
-          // 只有头部跟着动画每帧重建，下面的列表不动
-          AnimatedBuilder(
-            animation: _searchCurve,
-            builder: (context, _) => SliverPersistentHeader(
-              pinned: true,
-              delegate: _Hero(
-                d: d,
-                title: _title,
-                meta: _meta(l, d),
-                top: top,
-                maxHeight: top + _heroHeight,
-                minHeight: top + _barHeight,
-                search: _searchCurve.value,
-                searchBar: _searchAnim.isDismissed
-                    ? null
-                    : IgnorePointer(
-                        ignoring: !_searching,
-                        child: _SearchBar(
-                          _query,
-                          focusNode: _focus,
-                          onChanged: () => setState(() {}),
-                          onCancel: () => _search(false),
+        listKey: _listKey,
+        songs: shown,
+        child: CustomScrollView(
+          controller: _scroll,
+          // 拖动列表时收起键盘
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          slivers: [
+            // 只有头部跟着动画每帧重建，下面的列表不动
+            AnimatedBuilder(
+              animation: _searchCurve,
+              builder: (context, _) => SliverPersistentHeader(
+                pinned: true,
+                delegate: _Hero(
+                  d: d,
+                  title: _title,
+                  meta: _meta(l, d),
+                  top: top,
+                  maxHeight: top + _heroHeight,
+                  minHeight: top + _barHeight,
+                  search: _searchCurve.value,
+                  searchBar: _searchAnim.isDismissed
+                      ? null
+                      : IgnorePointer(
+                          ignoring: !_searching,
+                          child: _SearchBar(
+                            _query,
+                            focusNode: _focus,
+                            onChanged: () => setState(() {}),
+                            onCancel: () => _search(false),
+                          ),
+                        ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SizeTransition(
+                sizeFactor: ReverseAnimation(_searchCurve),
+                alignment: Alignment.topCenter,
+                child: FadeTransition(
+                  opacity: ReverseAnimation(_searchCurve),
+                  child: _Actions(
+                    songs: _songs,
+                    description: d.description.replaceAll(RegExp(r'<[^>]+>'), '').trim(),
+                    onSearch: widget.searchable ? () => _search(true) : null,
+                    onEdit: onEdit,
+                  ),
+                ),
+              ),
+            ),
+            if (filtered && shown.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 16, 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l.filterFound(shown.length),
+                          style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
                         ),
                       ),
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: SizeTransition(
-              sizeFactor: ReverseAnimation(_searchCurve),
-              alignment: Alignment.topCenter,
-              child: FadeTransition(
-                opacity: ReverseAnimation(_searchCurve),
-                child: _Actions(
-                  songs: _songs,
-                  description: d.description.replaceAll(RegExp(r'<[^>]+>'), '').trim(),
-                  onSearch: widget.searchable ? () => _search(true) : null,
-                  onEdit: onEdit,
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(0, 36),
+                          padding: const EdgeInsets.fromLTRB(10, 0, 14, 0),
+                          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                        ),
+                        onPressed: () => context.read<PlayerController>().playList(shown, 0),
+                        icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                        label: Text(l.playFiltered(shown.length)),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ),
-          if (filtered && shown.isNotEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 16, 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        l.filterFound(shown.length),
-                        style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                      ),
-                    ),
-                    FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, 36),
-                        padding: const EdgeInsets.fromLTRB(10, 0, 14, 0),
-                        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                      ),
-                      onPressed: () => context.read<PlayerController>().playList(shown, 0),
-                      icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                      label: Text(l.playFiltered(shown.length)),
-                    ),
-                  ],
+            if (shown.isEmpty && filtered)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Center(child: Text(l.searchNoResults)),
                 ),
+              )
+            // 每行一样高，定位按钮才能直接算出某一首的位置；样板行拿第一首排，空歌单不放
+            else if (shown.isNotEmpty)
+              SliverPrototypeExtentList.builder(
+                key: _listKey,
+                prototypeItem: SongTile(songs: shown, index: 0, rank: widget.ranked ? 1 : null),
+                itemCount: shown.length,
+                itemBuilder: (context, i) {
+                  final song = shown[i];
+                  return LocateHighlight(
+                    index: i,
+                    child: SongTile(
+                      songs: shown,
+                      index: i,
+                      // 筛选后仍显示原来的名次
+                      rank: widget.ranked ? _songs.indexOf(song) + 1 : null,
+                      // “我喜欢”里不给删，取消喜欢就行
+                      onRemove: onEdit != null ? () => _remove(song) : null,
+                    ),
+                  );
+                },
               ),
-            ),
-          if (shown.isEmpty && filtered)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Center(child: Text(l.searchNoResults)),
-              ),
-            )
-          else
-            SliverList.builder(
-              itemCount: shown.length,
-              itemBuilder: (context, i) {
-                final song = shown[i];
-                return SongTile(
-                  songs: shown,
-                  index: i,
-                  // 筛选后仍显示原来的名次
-                  rank: widget.ranked ? _songs.indexOf(song) + 1 : null,
-                  // “我喜欢”里不给删，取消喜欢就行
-                  onRemove: onEdit != null ? () => _remove(song) : null,
-                );
-              },
-            ),
-          const SliverToBoxAdapter(child: BottomSpacer()),
-        ],
+            const SliverToBoxAdapter(child: BottomSpacer()),
+          ],
+        ),
       ),
     );
   }

@@ -127,6 +127,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get filterSongsHint => 'Search title or artist';
 
   @override
+  String get locateCurrentSong => 'Locate the playing song';
+
+  @override
   String get searchNoResults => 'No results found';
 
   @override

@@ -74,6 +74,7 @@
   "searchHot": "热搜榜",
   "searchRecommended": "猜你想搜",
   "filterSongsHint": "搜索歌名、歌手",
+  "locateCurrentSong": "定位到正在播放",
   "searchNoResults": "没有找到相关结果",
   "searchFailed": "搜索失败：{error}",
   "@searchFailed": {
