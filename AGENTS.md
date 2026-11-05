@@ -28,6 +28,7 @@ Run from the root unless specified:
 ## Capture Scripts
 
 - `node scripts/capture-qqmusic-fiddler.mjs --capture --recommendations`: temporarily route official QQ Music traffic through Fiddler; use `--player` or `--search` for those workflows. Requires Node.js, FlClash's controller on port 9090, and Fiddler on port 8888. Use `--check` for preparation checks; `--restore` restores routing from FlClash's configuration.
+- `node scripts/capture-qqmusic-android.mjs --prepare`: route official Android QQ Music in MuMu 15 (device 0, root enabled, adb `127.0.0.1:16384`) through Fiddler on port 8888, for features missing from the PC client. Injects Fiddler's CA into the conscrypt store until the emulator restarts and blocks UDP 443. `--check` is read-only; `--restore` clears the proxy and the block.
 - `scripts/capture-qqmusic.ps1`: run in administrator PowerShell with QQ Music open. Records 30 seconds of local network traffic using PktMon, producing ETL, PCAPNG, and socket logs. Keep captures local.
 
 ## Coding Style & Naming Conventions
