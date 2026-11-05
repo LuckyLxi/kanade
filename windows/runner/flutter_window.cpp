@@ -78,6 +78,8 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  taskbar_thumbnail_ = std::make_unique<TaskbarThumbnail>(
+      GetHandle(), flutter_controller_->engine()->messenger());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   // The window is shown from Dart (window_manager) once the native title bar
@@ -93,6 +95,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  taskbar_thumbnail_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -107,6 +110,14 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   // window_manager consumes WM_EXITSIZEMOVE, so save before forwarding it.
   if (message == WM_EXITSIZEMOVE || message == WM_CLOSE) {
     SaveWindowPosition(hwnd);
+  }
+
+  if (taskbar_thumbnail_) {
+    std::optional<LRESULT> result =
+        taskbar_thumbnail_->HandleMessage(message, wparam, lparam);
+    if (result) {
+      return *result;
+    }
   }
 
   // Give Flutter, including plugins, an opportunity to handle window messages.

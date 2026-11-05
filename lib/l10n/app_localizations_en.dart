@@ -420,6 +420,18 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get previousSong => 'Previous';
+
+  @override
+  String get nextSong => 'Next';
+
+  @override
+  String get play => 'Play';
+
+  @override
+  String get pause => 'Pause';
+
+  @override
   String get like => 'Like';
 
   @override

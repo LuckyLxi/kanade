@@ -397,6 +397,18 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get previousSong => '上一首';
+
+  @override
+  String get nextSong => '下一首';
+
+  @override
+  String get play => '播放';
+
+  @override
+  String get pause => '暂停';
+
+  @override
   String get like => '收藏到我喜欢';
 
   @override

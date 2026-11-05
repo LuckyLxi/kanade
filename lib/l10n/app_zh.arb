@@ -265,6 +265,10 @@
       }
     }
   },
+  "previousSong": "上一首",
+  "nextSong": "下一首",
+  "play": "播放",
+  "pause": "暂停",
   "like": "收藏到我喜欢",
   "unlike": "取消喜欢",
   "likeShort": "喜欢",

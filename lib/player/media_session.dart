@@ -11,6 +11,7 @@ import '../library/library_controller.dart';
 import '../settings/locale_controller.dart';
 import '../src/rust/api/types.dart';
 import 'player_controller.dart';
+import 'taskbar_thumbnail.dart';
 
 /// 卡片上的红心按钮：是否已收藏，以及读屏用的说明。没登录或没在放歌时为 null，不显示按钮。
 typedef _Like = ({bool liked, String label});
@@ -23,7 +24,7 @@ abstract class _Sink {
 }
 
 /// 把播放状态同步给系统的媒体卡片：Android 是通知栏和锁屏（audio_service），
-/// Windows 是音量浮窗里的媒体控件（SMTC）。卡片上点的按钮再转回 [PlayerController]。
+/// Windows 是音量浮窗里的媒体控件（SMTC）和任务栏图标的悬停预览。卡片上点的按钮再转回 [PlayerController]。
 /// Android 卡片上另有红心按钮；Windows 的卡片按钮是系统固定的，加不了。
 ///
 /// 进度不逐帧推：系统拿到「某时刻在某位置、是否在播」后会自己往前走，
@@ -73,7 +74,7 @@ class MediaSession {
       if (Platform.isAndroid) {
         sink = await _AndroidSink.create(p, () => _toggleLike(p, library));
       } else if (Platform.isWindows) {
-        sink = await _WindowsSink.create(p);
+        sink = await _WindowsSink.create(p, locale);
       } else {
         sink = null;
       }
@@ -214,7 +215,7 @@ class _AndroidSink extends BaseAudioHandler with SeekHandler implements _Sink {
 }
 
 class _WindowsSink implements _Sink {
-  _WindowsSink(this._p) {
+  _WindowsSink(this._p, LocaleController locale) : _taskbar = TaskbarThumbnail(_p, locale) {
     _buttons = _smtc.buttonPressStream.listen((b) {
       switch (b) {
         case PressedButton.play:
@@ -230,15 +231,17 @@ class _WindowsSink implements _Sink {
     });
   }
 
-  static Future<_WindowsSink> create(PlayerController p) async {
+  static Future<_WindowsSink> create(PlayerController p, LocaleController locale) async {
     await SMTCWindows.initialize();
-    return _WindowsSink(p);
+    return _WindowsSink(p, locale);
   }
 
   final PlayerController _p;
+  final TaskbarThumbnail _taskbar;
   late final StreamSubscription<PressedButton> _buttons;
 
   Future<void> dispose() async {
+    _taskbar.dispose();
     await _buttons.cancel();
     await _smtc.dispose();
   }
@@ -259,6 +262,7 @@ class _WindowsSink implements _Sink {
 
   @override
   void song(Song? s, Duration duration) {
+    _taskbar.song(s);
     if (s == null) {
       if (_smtc.enabled) _smtc.disableSmtc();
       return;
@@ -275,6 +279,7 @@ class _WindowsSink implements _Sink {
   @override
   void state(
       {required bool playing, required bool loading, required Duration position, required Duration duration, _Like? like}) {
+    _taskbar.state(playing: playing);
     if (!_smtc.enabled) return;
     _smtc.setPlaybackStatus(playing ? PlaybackStatus.playing : PlaybackStatus.paused);
     _smtc.updateTimeline(PlaybackTimeline(

@@ -788,6 +788,30 @@ abstract class AppLocalizations {
   /// **'内部错误：{detail}'**
   String errorInternal(String detail);
 
+  /// No description provided for @previousSong.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一首'**
+  String get previousSong;
+
+  /// No description provided for @nextSong.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一首'**
+  String get nextSong;
+
+  /// No description provided for @play.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放'**
+  String get play;
+
+  /// No description provided for @pause.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停'**
+  String get pause;
+
   /// No description provided for @like.
   ///
   /// In zh, this message translates to:
