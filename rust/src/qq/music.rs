@@ -546,6 +546,47 @@ fn recommend_section(shelf: &Value, tracks: &std::collections::HashMap<i64, Song
     (!songs.is_empty() || !playlists.is_empty()).then_some(RecommendSection { title, songs, playlists, refresh })
 }
 
+const FORYOU_MODULE: &str = "music.recommend.RecommendWidget";
+
+/// 「自定义推荐页」的原始列表。`ChoseStatus`：-1 固定显示，1 已勾选，2 未勾选。
+async fn foryou_selections() -> Result<Vec<Value>> {
+    let c = core();
+    c.session().context(ApiError::NotLoggedIn)?;
+    let data = c.musicu_with_comm(FORYOU_MODULE, "GetForyouConfigItems", json!({ "Cmd": "0" }), android_feed_comm()).await?;
+    Ok(data["Selections"].as_array().cloned().unwrap_or_default())
+}
+
+/// 固定项和歌单卡（type 500）Kanade 首页能显示；其余是官方 App 里的小游戏、网页和专属功能，不列出。
+fn foryou_listed(x: &Value) -> bool {
+    n(&x["ChoseStatus"]) == -1 || n(&x["ItemType"]) == 500
+}
+
+/// 首页最上面那排卡片的可选项（只含 Kanade 能显示的），需要登录。抓包见 docs/qqmusic-home-refresh-capture.md。
+pub async fn foryou_config() -> Result<Vec<ForyouItem>> {
+    Ok(foryou_selections()
+        .await?
+        .iter()
+        .filter(|x| foryou_listed(x))
+        .map(|x| ForyouItem { id: s(&x["Id"]), title: s(&x["Title"]), fixed: n(&x["ChoseStatus"]) == -1, chosen: n(&x["ChoseStatus"]) == 1 })
+        .collect())
+}
+
+/// 保存勾选：官方把整张列表连同每项的 ChoseStatus 原样发回，这里先取一次最新列表再改状态。
+/// 没列出的项保持原状，不动手机版的选择。
+pub async fn save_foryou_config(chosen: &[String]) -> Result<()> {
+    let mut items = foryou_selections().await?;
+    for x in items.iter_mut().filter(|x| n(&x["ChoseStatus"]) != -1 && foryou_listed(x)) {
+        x["ChoseStatus"] = json!(if chosen.contains(&s(&x["Id"])) { 1 } else { 2 });
+    }
+    let data = core()
+        .musicu_write_with_comm(FORYOU_MODULE, "SaveForyouConfigItems", json!({ "Selections": items }), android_feed_comm())
+        .await?;
+    if n(&data["Code"]) != 0 {
+        bail!(ApiError::ServerError { api: format!("{FORYOU_MODULE}.SaveForyouConfigItems"), code: s(&data["Code"]) });
+    }
+    Ok(())
+}
+
 /// 专属乐流（栏目 315）只有新版 Android 客户端（20.09）的版本号才返回，旧版本号给的是另一套栏目。
 const FEED_COLUMN_SHELF: &str = "315";
 
@@ -787,6 +828,14 @@ pub async fn user_playlists() -> Result<Vec<PlaylistBrief>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lists_only_foryou_items_kanade_can_show() {
+        let listed = |v: Value| foryou_listed(&v);
+        assert!(listed(json!({ "ChoseStatus": -1, "ItemType": 700 })));
+        assert!(listed(json!({ "ChoseStatus": 2, "ItemType": 500 })));
+        assert!(!listed(json!({ "ChoseStatus": 1, "ItemType": 900 })));
+    }
 
     #[test]
     fn parses_feed_column_cards() {

@@ -90,3 +90,20 @@ Kanade 的首页改用 Android 公参（`qq::music::recommend_feed`），每次�
 用 `integration_test/home_refresh_test.dart` 在 Windows 版里实测了顶部刷新键、歌曲栏刷新、专属乐流刷新，三者都换了内容；两次冷启动的首页内容也不同。
 
 专属乐流（315）的刷新没有用 `refresh_info`：Kanade 从专栏第 1 页重新取，把之前看过的卡片都放进 `v_uniq`，实测返回的 8 张全是新卡。
+
+## 自定义推荐页
+
+首页 301 栏最后一张卡「自定义」（`900/11`，`qqmusic://qq.com/ui/jumpToForYouSetting?p={}`）打开原生页面，决定 301 栏显示哪些卡。
+15:00 在 MuMu 里抓了一轮（`qqmusic-home-customize-20261106.saz`，14166061 字节，SHA-256 `1c492001b9914cd036afce3d1c1ef2a3f264548001d66f42eb58430d1bf3623f`，不提交）：
+打开页面，勾上「星光农场」保存（`raw/0602`），再取消并保存（`raw/1291`），账号设置恢复原样。中间一次横滑误触打开过星光农场的游戏页，加载中就关掉了。
+
+- 读取：`music.recommend.RecommendWidget.GetForyouConfigItems`，`{"Cmd": "0", "ext": {RadarNameShow…}}`。
+  返回 `data.Selections` 共 14 项，每项有 `Id`、`Title`、`Cover`、`Link`、`ItemType`/`ItemSubType`、`Ext` 和 `ChoseStatus`：
+  -1 固定显示（猜你喜欢 `700/711`、每日30首 `500/510`），1 已勾选，2 未勾选。歌单类是 `500/513`（百万收藏、歌手漫游、新歌推荐），其余多是 `900/991` 网页、小游戏入口。
+- 保存：`music.recommend.RecommendWidget.SaveForyouConfigItems`，`{"Selections": [...]}`，把读到的整张列表原样发回，只改 `ChoseStatus`；返回 `data.Code` 为 0。
+  没有改动时官方不发保存请求。「恢复默认」没有抓。
+- 设置跟着账号走：首页请求的 `ext` 里不带勾选结果，改完后官方首页和 Kanade 拿到的 301 栏都随之变化。
+
+Kanade 的实现是 `qq::music::foryou_config` / `save_foryou_config`（Android 20.09 公参，写操作只发一次），入口在设置 → 账号。
+只列出固定项和歌单卡（`ItemType` 500），因为 Kanade 首页只显示这两种；其余小游戏、网页、官方专属功能不列出，保存时保持原来的 `ChoseStatus`。
+电脑上那份 Kanade 的登录态当时已失效（读取和「最近播放」都返回 code 1000），没能在 Windows 上实测读写；用户在另一台设备的 Kanade 上试用，勾选的歌单卡能在首页显示。

@@ -325,6 +325,16 @@ pub struct FeedCard {
     pub playlist: Option<PlaylistBrief>,
 }
 
+/// 「自定义推荐页」的一项：首页最上面那排卡片里显示哪些，跟着账号走，官方手机版改了这里也跟着变。
+#[derive(Debug, Clone)]
+pub struct ForyouItem {
+    pub id: String,
+    pub title: String,
+    /// 固定显示、不能取消（猜你喜欢、每日30首）。
+    pub fixed: bool,
+    pub chosen: bool,
+}
+
 /// 专属乐流的一页。`seen` 是这页卡片的去重标识，翻下一页时连同之前所有页的一起传回去。
 #[derive(Debug, Clone)]
 pub struct FeedColumnPage {

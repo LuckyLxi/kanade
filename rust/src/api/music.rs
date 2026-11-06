@@ -119,6 +119,16 @@ pub async fn get_recommend_feed() -> Result<RecommendFeed, ApiError> {
     Ok(music::recommend_feed().await?)
 }
 
+/// 「自定义推荐页」：首页最上面那排卡片可以显示哪些（需要登录）。
+pub async fn get_foryou_config() -> Result<Vec<ForyouItem>, ApiError> {
+    Ok(music::foryou_config().await?)
+}
+
+/// 保存「自定义推荐页」，`chosen` 是勾选项的 id；固定项不受影响。
+pub async fn save_foryou_config(chosen: Vec<String>) -> Result<(), ApiError> {
+    Ok(music::save_foryou_config(&chosen).await?)
+}
+
 /// 单独刷新首页的一个栏目，`refresh` 取自该栏目的 `RecommendSection.refresh`（不能为空）。
 pub async fn refresh_recommend_section(refresh: String) -> Result<RecommendSection, ApiError> {
     Ok(music::refresh_recommend_section(&refresh).await?)

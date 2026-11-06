@@ -10,6 +10,7 @@ import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'feed_column.dart';
+import 'foryou_settings_page.dart';
 import 'keyed_route.dart';
 import 'smooth_scroll.dart';
 import 'song_list_page.dart';
@@ -140,6 +141,21 @@ class _RecommendBodyState extends State<_RecommendBody> {
 
   /// 整页刷新一次加一，专属乐流跟着从头加载。
   var _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // 改了自定义推荐页后，最上面那排卡片要重新取
+    foryouSaved.addListener(_onForyouSaved);
+  }
+
+  @override
+  void dispose() {
+    foryouSaved.removeListener(_onForyouSaved);
+    super.dispose();
+  }
+
+  void _onForyouSaved() => refresh();
 
   Future<void> refresh() async {
     final failed = _failedToast();

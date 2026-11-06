@@ -1046,6 +1046,42 @@ abstract class AppLocalizations {
   /// **'账号'**
   String get settingsAccount;
 
+  /// No description provided for @foryouSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义推荐页'**
+  String get foryouSettings;
+
+  /// No description provided for @foryouSettingsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'首页最上面那排卡片显示哪些，和手机版 QQ 音乐同步'**
+  String get foryouSettingsHint;
+
+  /// No description provided for @foryouChoose.
+  ///
+  /// In zh, this message translates to:
+  /// **'可选择显示/隐藏以下内容'**
+  String get foryouChoose;
+
+  /// No description provided for @save.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get save;
+
+  /// No description provided for @foryouSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存'**
+  String get foryouSaved;
+
+  /// No description provided for @foryouSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：{error}'**
+  String foryouSaveFailed(Object error);
+
   /// No description provided for @defaultQuality.
   ///
   /// In zh, this message translates to:

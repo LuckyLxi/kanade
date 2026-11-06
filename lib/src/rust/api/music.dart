@@ -128,6 +128,14 @@ Future<TopListDetail> getToplistDetail({
 Future<RecommendFeed> getRecommendFeed() =>
     RustLib.instance.api.crateApiMusicGetRecommendFeed();
 
+/// 「自定义推荐页」：首页最上面那排卡片可以显示哪些（需要登录）。
+Future<List<ForyouItem>> getForyouConfig() =>
+    RustLib.instance.api.crateApiMusicGetForyouConfig();
+
+/// 保存「自定义推荐页」，`chosen` 是勾选项的 id；固定项不受影响。
+Future<void> saveForyouConfig({required List<String> chosen}) =>
+    RustLib.instance.api.crateApiMusicSaveForyouConfig(chosen: chosen);
+
 /// 单独刷新首页的一个栏目，`refresh` 取自该栏目的 `RecommendSection.refresh`（不能为空）。
 Future<RecommendSection> refreshRecommendSection({required String refresh}) =>
     RustLib.instance.api.crateApiMusicRefreshRecommendSection(refresh: refresh);

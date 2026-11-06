@@ -82,6 +82,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   FeedColumnPage dco_decode_feed_column_page(dynamic raw);
 
   @protected
+  ForyouItem dco_decode_foryou_item(dynamic raw);
+
+  @protected
   HotKeyword dco_decode_hot_keyword(dynamic raw);
 
   @protected
@@ -104,6 +107,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<FeedCard> dco_decode_list_feed_card(dynamic raw);
+
+  @protected
+  List<ForyouItem> dco_decode_list_foryou_item(dynamic raw);
 
   @protected
   List<HotKeyword> dco_decode_list_hot_keyword(dynamic raw);
@@ -381,6 +387,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   FeedColumnPage sse_decode_feed_column_page(SseDeserializer deserializer);
 
   @protected
+  ForyouItem sse_decode_foryou_item(SseDeserializer deserializer);
+
+  @protected
   HotKeyword sse_decode_hot_keyword(SseDeserializer deserializer);
 
   @protected
@@ -403,6 +412,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<FeedCard> sse_decode_list_feed_card(SseDeserializer deserializer);
+
+  @protected
+  List<ForyouItem> sse_decode_list_foryou_item(SseDeserializer deserializer);
 
   @protected
   List<HotKeyword> sse_decode_list_hot_keyword(SseDeserializer deserializer);
@@ -709,6 +721,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_foryou_item(ForyouItem self, SseSerializer serializer);
+
+  @protected
   void sse_encode_hot_keyword(HotKeyword self, SseSerializer serializer);
 
   @protected
@@ -734,6 +749,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_feed_card(List<FeedCard> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_foryou_item(
+    List<ForyouItem> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_hot_keyword(

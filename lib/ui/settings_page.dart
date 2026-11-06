@@ -8,6 +8,7 @@ import '../player/player_controller.dart';
 import '../settings/locale_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'foryou_settings_page.dart';
 import 'smooth_scroll.dart';
 import 'toast.dart';
 
@@ -252,6 +253,12 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           if (loggedIn) ...[
             header(l.settingsAccount),
+            ListTile(
+              leading: const Icon(Icons.dashboard_customize_outlined),
+              title: Text(l.foryouSettings),
+              subtitle: Text(l.foryouSettingsHint),
+              onTap: () => Navigator.of(context).push(ForyouSettingsPage.route()),
+            ),
             ListTile(
               leading: Icon(Icons.logout, color: theme.colorScheme.error),
               title: Text(l.logout, style: TextStyle(color: theme.colorScheme.error)),

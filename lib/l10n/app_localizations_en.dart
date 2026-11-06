@@ -571,6 +571,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAccount => 'Account';
 
   @override
+  String get foryouSettings => 'Customize For You';
+
+  @override
+  String get foryouSettingsHint =>
+      'Choose the cards in the top row of Recommend, synced with QQ Music on phones';
+
+  @override
+  String get foryouChoose => 'Choose what to show or hide';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get foryouSaved => 'Saved';
+
+  @override
+  String foryouSaveFailed(Object error) {
+    return 'Failed to save: $error';
+  }
+
+  @override
   String get defaultQuality => 'Default quality';
 
   @override

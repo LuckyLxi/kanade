@@ -548,6 +548,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsAccount => '账号';
 
   @override
+  String get foryouSettings => '自定义推荐页';
+
+  @override
+  String get foryouSettingsHint => '首页最上面那排卡片显示哪些，和手机版 QQ 音乐同步';
+
+  @override
+  String get foryouChoose => '可选择显示/隐藏以下内容';
+
+  @override
+  String get save => '保存';
+
+  @override
+  String get foryouSaved => '已保存';
+
+  @override
+  String foryouSaveFailed(Object error) {
+    return '保存失败：$error';
+  }
+
+  @override
   String get defaultQuality => '默认音质';
 
   @override
