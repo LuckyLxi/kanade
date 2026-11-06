@@ -733,3 +733,4 @@ HAR 凭据辅助函数依赖该文件内存在可解析的 `comm.uin/authst/tmeL
 | [推荐页抓包](qqmusic-recommendations-capture.md) / [推荐封面抓包](qqmusic-recommendation-covers-capture.md) | 推荐结构、取歌与图片来源 |
 
 原始 HAR / SAZ / PCAPNG 是本地诊断材料，不是运行依赖，也不是本文的必需附件。项目忽略规则保留它们在本机；发布本文不需要上传这些文件。
+| [Android 最近播放分类抓包](qqmusic-recent-plays-android-capture.md) | 专辑、歌单、电台、有声、视频各 `type`，增量同步与计数接口 |
