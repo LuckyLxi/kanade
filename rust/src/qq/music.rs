@@ -699,17 +699,6 @@ fn cards(feed: &Value) -> impl Iterator<Item = &Value> {
     shelves(feed).flat_map(shelf_cards)
 }
 
-/// Windows 客户端推荐页的“新歌首发”。
-pub async fn new_songs() -> Result<Vec<Song>> {
-    let c = core();
-    let data = c
-        .cached("newsong:desktop", 3600, || {
-            c.musicu_with_comm("newsong.NewSongServer", "get_new_song_info", json!({ "type": 5 }), webkit_comm())
-        })
-        .await?;
-    Ok(parse::songs(&data["songlist"]))
-}
-
 pub async fn playlist_detail(id: &str) -> Result<PlaylistDetail> {
     let c = core();
     let disstid: i64 = id.parse().unwrap_or(0);
@@ -873,12 +862,6 @@ mod tests {
         assert!(!songs.is_empty(), "{sections:?}");
         assert!(songs.iter().all(|s| !s.mid.is_empty()));
         assert!(sections.iter().any(|x| !x.playlists.is_empty()));
-    }
-
-    #[tokio::test]
-    #[ignore = "需要联网"]
-    async fn fetches_new_songs() {
-        assert!(!new_songs().await.unwrap().is_empty());
     }
 
     #[test]

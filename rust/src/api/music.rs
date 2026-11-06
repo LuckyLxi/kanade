@@ -145,10 +145,6 @@ pub async fn get_feed_column(page: u32, seen: Vec<String>) -> Result<FeedColumnP
     Ok(music::feed_column(page, &seen).await?)
 }
 
-pub async fn get_new_songs() -> Result<Vec<Song>, ApiError> {
-    Ok(music::new_songs().await?)
-}
-
 pub async fn get_playlist_detail(id: String) -> Result<PlaylistDetail, ApiError> {
     Ok(music::playlist_detail(&id).await?)
 }

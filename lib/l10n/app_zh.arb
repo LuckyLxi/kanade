@@ -41,7 +41,6 @@
       "name": {"type": "String"}
     }
   },
-  "newSongs": "新歌首发",
   "viewAllSongs": "查看全部 {count} 首",
   "@viewAllSongs": {
     "placeholders": {

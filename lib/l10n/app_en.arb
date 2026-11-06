@@ -22,7 +22,6 @@
   "radioRadar": "Discovery mode",
   "radioFailed": "Couldn't start the radio: {error}",
   "feedColumnTitle": "Picked for {name}",
-  "newSongs": "New releases",
   "viewAllSongs": "{count, plural, =1{View 1 song} other{View all {count} songs}}",
   "updatedAt": "Updated {period}",
   "playAll": "Play all ({count})",

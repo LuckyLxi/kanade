@@ -611,7 +611,7 @@ QQ / 微信会话交换前，当前实现会先清空旧会话；Cookie 登录�
 | 搜索 / 热搜 / 联想 | `search(keyword,kind,page,page_size)` / `get_hot_search()` / `get_search_suggestions(query)` | `SearchResult` / `HotSearch` / `Vec<SearchSuggestion>` |
 | 链接 / 音质 / 歌词 | `get_song_url(mid,media_mid,quality)` / `get_song_qualities(mid)` / `get_lyric(mid,id)` | `SongUrl` / `Vec<QualityOption>` / `Lyric` |
 | 榜单 | `get_toplists()` / `get_toplist_detail(top_id,period)` | `Vec<TopListGroup>` / `TopListDetail` |
-| 推荐 | `get_recommend_feed()` / `get_guess_you_like()` / `get_radar_songs(seed,page)` / `get_new_songs()` | `RecommendFeed` / 后三项为 `Vec<Song>` |
+| 推荐 | `get_recommend_feed()` / `get_guess_you_like()` / `get_radar_songs(seed,page)` | `RecommendFeed` / 后两项为 `Vec<Song>` |
 | 歌单读取 | `get_playlist_detail(id)` / `get_user_playlists()` / `get_my_playlists()` / `get_liked_song_ids()` | `PlaylistDetail` / `Vec<PlaylistBrief>` / `Vec<MyPlaylist>` / `Vec<i64>` |
 | 歌单写入 | `set_song_liked(song_id,liked)` / `add_song_to_playlist(dir_id,song_id)` / `remove_song_from_playlist(dir_id,song_id)` / `rename_playlist(dir_id,name)` / `delete_playlist(dir_id)` | 成功为空，失败为 `ApiError` |
 | 新建歌单 | `create_playlist(name)` | `MyPlaylist` |

@@ -82,9 +82,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get newSongs => '新歌首发';
-
-  @override
   String viewAllSongs(int count) {
     return '查看全部 $count 首';
   }

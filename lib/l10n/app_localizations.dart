@@ -230,12 +230,6 @@ abstract class AppLocalizations {
   /// **'「{name}」的专属乐流'**
   String feedColumnTitle(String name);
 
-  /// No description provided for @newSongs.
-  ///
-  /// In zh, this message translates to:
-  /// **'新歌首发'**
-  String get newSongs;
-
   /// No description provided for @viewAllSongs.
   ///
   /// In zh, this message translates to:

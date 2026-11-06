@@ -113,16 +113,9 @@ class _RecommendTab extends StatelessWidget {
 
   final GlobalKey<_RecommendBodyState> bodyKey;
 
-  static Future<(RecommendFeed, List<Song>)> _load() async {
-    // 两个请求并行发出
-    final feed = api.getRecommendFeed();
-    final newSongs = api.getNewSongs();
-    return (await feed, await newSongs);
-  }
-
   @override
-  Widget build(BuildContext context) => AsyncView<(RecommendFeed, List<Song>)>(
-    load: _load,
+  Widget build(BuildContext context) => AsyncView<RecommendFeed>(
+    load: api.getRecommendFeed,
     builder: (context, data) => _RecommendBody(key: bodyKey, data: data),
   );
 }
@@ -132,7 +125,7 @@ class _RecommendTab extends StatelessWidget {
 class _RecommendBody extends StatefulWidget {
   const _RecommendBody({super.key, required this.data});
 
-  final (RecommendFeed, List<Song>) data;
+  final RecommendFeed data;
 
   @override
   State<_RecommendBody> createState() => _RecommendBodyState();
@@ -142,9 +135,8 @@ class _RecommendBodyState extends State<_RecommendBody> {
   /// 每个歌曲区块在首页只露出几首，其余点“查看全部”。
   static const _previewSongs = 6;
 
-  late var _feed = widget.data.$1;
-  late var _sections = widget.data.$1.sections;
-  late var _newSongs = widget.data.$2;
+  late var _feed = widget.data;
+  late var _sections = widget.data.sections;
 
   /// 整页刷新一次加一，专属乐流跟着从头加载。
   var _generation = 0;
@@ -152,12 +144,11 @@ class _RecommendBodyState extends State<_RecommendBody> {
   Future<void> refresh() async {
     final failed = _failedToast();
     try {
-      final (feed, newSongs) = await _RecommendTab._load();
+      final feed = await api.getRecommendFeed();
       if (!mounted) return;
       setState(() {
         _feed = feed;
         _sections = feed.sections;
-        _newSongs = newSongs;
         _generation++;
       });
     } catch (e) {
@@ -214,7 +205,6 @@ class _RecommendBodyState extends State<_RecommendBody> {
                   onRefresh: section.playlists.isEmpty ? _onRefresh(section) : null,
                 ),
             ],
-            if (_newSongs.isNotEmpty) ..._songSection(context, l.newSongs, _newSongs),
             FeedColumn(key: ValueKey(_generation)),
             const SliverToBoxAdapter(child: BottomSpacer()),
           ],

@@ -153,9 +153,6 @@ Future<FeedColumnPage> getFeedColumn({
   required List<String> seen,
 }) => RustLib.instance.api.crateApiMusicGetFeedColumn(page: page, seen: seen);
 
-Future<List<Song>> getNewSongs() =>
-    RustLib.instance.api.crateApiMusicGetNewSongs();
-
 Future<PlaylistDetail> getPlaylistDetail({required String id}) =>
     RustLib.instance.api.crateApiMusicGetPlaylistDetail(id: id);
 
