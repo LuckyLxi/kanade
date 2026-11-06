@@ -458,6 +458,9 @@ async fn desktop_refresh_recommend_sections() {
     drop(db);
     client::core().set_session(Some(serde_json::from_str(&raw).unwrap())).unwrap();
     let feed = music::recommend_feed().await.unwrap();
+    // 官方首页登录后有三个歌曲栏目，第 1 页一个、第 2 页两个
+    let song_sections = feed.sections.iter().filter(|s| !s.songs.is_empty()).count();
+    assert!(song_sections >= 3, "{:?}", feed.sections.iter().map(|s| &s.title).collect::<Vec<_>>());
     let refreshable: Vec<_> = feed.sections.iter().filter(|s| !s.refresh.is_empty()).collect();
     assert!(!refreshable.is_empty(), "{:?}", feed.sections.iter().map(|s| &s.title).collect::<Vec<_>>());
     for old in refreshable {

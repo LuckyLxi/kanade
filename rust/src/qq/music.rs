@@ -474,50 +474,54 @@ fn android_feed_comm() -> Value {
     json!({"cv": "20090808", "v": "20090808", "chid": "73387"})
 }
 
-/// 首页推荐第 1 页，连同歌曲卡补全后的歌曲。`refresh_info` 是某个栏目的 `refresh_param` 时，
-/// 服务端只返回这一栏的新内容。官方每次进首页、下拉都重新取，这里也不缓存。
-async fn recommend_page(refresh_info: Option<Value>) -> Result<(Value, std::collections::HashMap<i64, Song>)> {
+/// 请求首页推荐的一页，`param` 给出页码等，`ext` 这里补上。官方每次进首页、下拉都重新取，这里也不缓存。
+async fn recommend_page(mut param: Value) -> Result<Value> {
     let c = core();
     // 不带 is_20_style 时栏目没有 refresh_param
-    let mut param = json!({
-        "direction": 0, "page": 1, "v_cache": [], "v_uniq": [], "s_num": 0,
-        "ext": {"is_20_style": "1", "has_login": if c.session().is_some() { "1" } else { "0" }},
-    });
-    if let Some(info) = refresh_info {
-        param["refresh_info"] = info;
-    }
-    let feed = c.musicu_with_comm("music.recommend.RecommendFeed", "get_recommend_feed", param, android_feed_comm()).await?;
-    let ids: Vec<i64> = cards(&feed).filter(|c| n(&c["type"]) == 200).map(|c| n(&c["id"])).filter(|id| *id > 0).collect();
+    param["v_uniq"] = json!([]);
+    param["ext"] = json!({"is_20_style": "1", "has_login": if c.session().is_some() { "1" } else { "0" }});
+    c.musicu_with_comm("music.recommend.RecommendFeed", "get_recommend_feed", param, android_feed_comm()).await
+}
+
+/// 把栏目转成区块，歌曲卡只有 id，统一补全一次。
+async fn recommend_sections(shelves: &[&Value]) -> Result<Vec<RecommendSection>> {
+    let ids: Vec<i64> =
+        shelves.iter().flat_map(|shelf| shelf_cards(shelf)).filter(|c| n(&c["type"]) == 200).map(|c| n(&c["id"])).filter(|id| *id > 0).collect();
     let tracks = parse::songs(&tracks_by_id(&ids).await?).into_iter().map(|s| (s.id, s)).collect();
-    Ok((feed, tracks))
+    Ok(shelves.iter().filter_map(|shelf| recommend_section(shelf, &tracks)).collect())
 }
 
 /// 首页个性推荐（v_shelf → v_niche → v_card）。保留能直接用的歌曲卡（type 200）
 /// 和歌单卡（type 500，含“每日30首”等入口），再记下刷歌模式入口的起始歌曲；节目等跳过。
+/// 官方首页的歌曲栏目分在两页：第 1 页一个，第 2 页还有两个（第 2 页另带专属乐流的第一批，专属乐流另外取）。
+/// 第 2 页的 `v_cache` 是第 1 页的栏目 id，`s_num` 是栏目数，和官方一样。
 pub async fn recommend_feed() -> Result<RecommendFeed> {
-    let (feed, tracks) = recommend_page(None).await?;
-    let sections = feed["v_shelf"].as_array().into_iter().flatten().filter_map(|shelf| recommend_section(shelf, &tracks)).collect();
-    let (radar_seed, radar_cover) = radar_entry(&feed).unwrap_or_default();
+    let first = recommend_page(json!({ "direction": 0, "page": 1, "s_num": 0, "v_cache": [] })).await?;
+    let shown: Vec<String> = shelves(&first).map(|shelf| s(&shelf["id"])).collect();
+    let second = recommend_page(json!({ "direction": 1, "page": 2, "s_num": shown.len(), "v_cache": shown })).await?;
+    let all: Vec<&Value> = shelves(&first).chain(shelves(&second).filter(|shelf| s(&shelf["id"]) != FEED_COLUMN_SHELF)).collect();
+    let sections = recommend_sections(&all).await?;
+    let (radar_seed, radar_cover) = radar_entry(&first).unwrap_or_default();
     Ok(RecommendFeed { sections, radar_seed, radar_cover })
 }
 
-/// 单独刷新首页的一个栏目，`refresh` 是该栏目的 [`RecommendSection::refresh`]，原样带回。
-/// 刷新后的栏目标题也可能换了。
+/// 单独刷新首页的一个栏目，`refresh` 是该栏目的 [`RecommendSection::refresh`]，原样带回；
+/// 服务端只返回这一栏的新内容，标题也可能换了。第 2 页的栏目也是这样刷新。
 pub async fn refresh_recommend_section(refresh: &str) -> Result<RecommendSection> {
     let info: Value = serde_json::from_str(refresh).context(ApiError::bad_response("invalid recommend refresh_param"))?;
-    let (feed, tracks) = recommend_page(Some(info)).await?;
-    feed["v_shelf"]
-        .as_array()
+    let feed = recommend_page(json!({ "direction": 0, "page": 1, "s_num": 0, "v_cache": [], "refresh_info": info })).await?;
+    let shelves: Vec<&Value> = shelves(&feed).collect();
+    recommend_sections(&shelves)
+        .await?
         .into_iter()
-        .flatten()
-        .find_map(|shelf| recommend_section(shelf, &tracks))
+        .next()
         .context(ApiError::bad_response("refreshed recommend shelf has no songs or playlists"))
 }
 
 /// 一个栏目里没有能显示的歌曲或歌单时为 None。
 fn recommend_section(shelf: &Value, tracks: &std::collections::HashMap<i64, Song>) -> Option<RecommendSection> {
     let title = s(&shelf["title_template"]).replace("{String}", &s(&shelf["title_content"])).trim().to_string();
-    let shelf_cards: Vec<&Value> = shelf["v_niche"].as_array().into_iter().flatten().flat_map(|niche| niche["v_card"].as_array().into_iter().flatten()).collect();
+    let shelf_cards: Vec<&Value> = shelf_cards(shelf).collect();
     let songs: Vec<Song> = shelf_cards
         .iter()
         .filter(|c| n(&c["type"]) == 200)
@@ -683,13 +687,16 @@ pub async fn radar_songs(seed: &[i64], page: u32) -> Result<Vec<Song>> {
     Ok(parse::songs(&Value::Array(tracks)))
 }
 
+fn shelves(feed: &Value) -> impl Iterator<Item = &Value> {
+    feed["v_shelf"].as_array().into_iter().flatten()
+}
+
+fn shelf_cards(shelf: &Value) -> impl Iterator<Item = &Value> {
+    shelf["v_niche"].as_array().into_iter().flatten().flat_map(|niche| niche["v_card"].as_array().into_iter().flatten())
+}
+
 fn cards(feed: &Value) -> impl Iterator<Item = &Value> {
-    feed["v_shelf"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .flat_map(|shelf| shelf["v_niche"].as_array().into_iter().flatten())
-        .flat_map(|niche| niche["v_card"].as_array().into_iter().flatten())
+    shelves(feed).flat_map(shelf_cards)
 }
 
 /// Windows 客户端推荐页的“新歌首发”。
