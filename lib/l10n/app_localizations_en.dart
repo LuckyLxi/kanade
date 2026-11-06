@@ -690,6 +690,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchKindVideo => 'Videos';
 
   @override
+  String get recentKindRadar => 'Music radar';
+
+  @override
+  String get recentKindAudiobook => 'Audiobooks';
+
+  @override
   String get searchKindLyric => 'Lyrics';
 
   @override

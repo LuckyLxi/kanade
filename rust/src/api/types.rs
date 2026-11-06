@@ -396,6 +396,32 @@ pub enum QrStatus {
     Success { user: UserInfo },
 }
 
+/// 最近播放里歌曲以外的分类，各自按最后播放时间从新到旧。
+#[derive(Debug, Clone)]
+pub struct RecentCollections {
+    pub albums: Vec<AlbumBrief>,
+    pub playlists: Vec<PlaylistBrief>,
+    pub videos: Vec<VideoBrief>,
+    pub books: Vec<RecentBook>,
+    /// 音乐雷达：最近听过的个性电台，用 [crate::api::music::get_radio_songs] 播放。
+    pub radios: Vec<RecentRadio>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RecentRadio {
+    pub id: i64,
+    pub name: String,
+    pub cover_url: String,
+}
+
+/// 最近播放的有声节目；episode 是上次听到的那一集，可以直接播放。
+#[derive(Debug, Clone)]
+pub struct RecentBook {
+    pub name: String,
+    pub cover_url: String,
+    pub episode: Option<Song>,
+}
+
 #[derive(Debug, Clone)]
 pub struct AlbumBrief {
     pub mid: String,

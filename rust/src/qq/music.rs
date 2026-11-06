@@ -628,11 +628,19 @@ fn radar_entry(feed: &Value) -> Option<(Vec<i64>, String)> {
 
 /// 猜你喜欢电台的下一批歌，需要登录。每次调用都是新的一批，不缓存。
 pub async fn guess_you_like() -> Result<Vec<Song>> {
+    radio_songs(GUESS_YOU_LIKE_RADIO).await
+}
+
+/// 「猜你喜欢」个性电台的 id，最近播放的音乐雷达里也是它。
+pub const GUESS_YOU_LIKE_RADIO: i64 = 99;
+
+/// 个性电台的下一批歌。
+pub async fn radio_songs(id: i64) -> Result<Vec<Song>> {
     let data = core()
         .musicu_with_comm(
             "music.radioProxy.MbTrackRadioSvr",
             "get_radio_track",
-            json!({ "id": 99, "num": 5, "from": 0, "scene": 0, "song_ids": [] }),
+            json!({ "id": id, "num": 5, "from": 0, "scene": 0, "song_ids": [] }),
             webkit_comm(),
         )
         .await?;

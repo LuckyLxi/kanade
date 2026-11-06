@@ -133,6 +133,10 @@ Future<List<Song>> getGuessYouLike() =>
     RustLib.instance.api.crateApiMusicGetGuessYouLike();
 
 /// 刷歌模式的第 `page` 批歌，`seed` 来自 `RecommendFeed.radar_seed`。
+/// 个性电台（最近播放里的音乐雷达）的下一批歌。
+Future<List<Song>> getRadioSongs({required PlatformInt64 id}) =>
+    RustLib.instance.api.crateApiMusicGetRadioSongs(id: id);
+
 Future<List<Song>> getRadarSongs({
   required Int64List seed,
   required int page,
@@ -322,6 +326,10 @@ Future<void> deletePlaylist({required PlatformInt64 dirId}) =>
 /// 云端最近播放的歌曲（需要登录），从新到旧。
 Future<List<Song>> getRecentPlays() =>
     RustLib.instance.api.crateApiMusicGetRecentPlays();
+
+/// 云端最近播放的专辑、歌单、视频、有声节目（需要登录）。
+Future<RecentCollections> getRecentCollections() =>
+    RustLib.instance.api.crateApiMusicGetRecentCollections();
 
 /// 上报一次播放到云端最近播放（需要登录）。
 Future<void> reportPlay({required PlatformInt64 songId}) =>

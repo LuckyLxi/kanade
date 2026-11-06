@@ -18,6 +18,7 @@ import '../src/rust/api/types.dart';
 import 'keyed_route.dart';
 import 'playlist_actions.dart';
 import 'settings_page.dart';
+import 'recent_page.dart';
 import 'smooth_scroll.dart';
 import 'song_list_page.dart';
 import 'theme.dart';
@@ -305,7 +306,7 @@ class _LoggedInState extends State<_LoggedIn> {
                 child: _QuickTile(
                   icon: const Icon(Icons.history),
                   label: l.recentPlays,
-                  onTap: () => Navigator.of(context).push(SongListPage.recent(l.recentPlays)),
+                  onTap: () => Navigator.of(context).push(RecentPage.route()),
                 ),
               ),
             ],

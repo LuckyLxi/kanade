@@ -131,6 +131,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<QualityOption> dco_decode_list_quality_option(dynamic raw);
 
   @protected
+  List<RecentBook> dco_decode_list_recent_book(dynamic raw);
+
+  @protected
+  List<RecentRadio> dco_decode_list_recent_radio(dynamic raw);
+
+  @protected
   List<RecommendSection> dco_decode_list_recommend_section(dynamic raw);
 
   @protected
@@ -220,6 +226,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   QualityUnavailableReason dco_decode_quality_unavailable_reason(dynamic raw);
+
+  @protected
+  RecentBook dco_decode_recent_book(dynamic raw);
+
+  @protected
+  RecentCollections dco_decode_recent_collections(dynamic raw);
+
+  @protected
+  RecentRadio dco_decode_recent_radio(dynamic raw);
 
   @protected
   RecommendFeed dco_decode_recommend_feed(dynamic raw);
@@ -419,6 +434,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<RecentBook> sse_decode_list_recent_book(SseDeserializer deserializer);
+
+  @protected
+  List<RecentRadio> sse_decode_list_recent_radio(SseDeserializer deserializer);
+
+  @protected
   List<RecommendSection> sse_decode_list_recommend_section(
     SseDeserializer deserializer,
   );
@@ -522,6 +543,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   QualityUnavailableReason sse_decode_quality_unavailable_reason(
     SseDeserializer deserializer,
   );
+
+  @protected
+  RecentBook sse_decode_recent_book(SseDeserializer deserializer);
+
+  @protected
+  RecentCollections sse_decode_recent_collections(SseDeserializer deserializer);
+
+  @protected
+  RecentRadio sse_decode_recent_radio(SseDeserializer deserializer);
 
   @protected
   RecommendFeed sse_decode_recommend_feed(SseDeserializer deserializer);
@@ -752,6 +782,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_recent_book(
+    List<RecentBook> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_recent_radio(
+    List<RecentRadio> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_recommend_section(
     List<RecommendSection> self,
     SseSerializer serializer,
@@ -879,6 +921,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     QualityUnavailableReason self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_recent_book(RecentBook self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_recent_collections(
+    RecentCollections self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_recent_radio(RecentRadio self, SseSerializer serializer);
 
   @protected
   void sse_encode_recommend_feed(RecommendFeed self, SseSerializer serializer);

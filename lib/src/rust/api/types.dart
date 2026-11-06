@@ -9,7 +9,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'types.freezed.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 class AlbumBrief {
   final String mid;
@@ -695,6 +695,89 @@ enum QualityUnavailableReason {
 
   /// 音频文件暂不可用
   fileUnavailable,
+}
+
+/// 最近播放的有声节目；episode 是上次听到的那一集，可以直接播放。
+class RecentBook {
+  final String name;
+  final String coverUrl;
+  final Song? episode;
+
+  const RecentBook({required this.name, required this.coverUrl, this.episode});
+
+  @override
+  int get hashCode => name.hashCode ^ coverUrl.hashCode ^ episode.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RecentBook &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          coverUrl == other.coverUrl &&
+          episode == other.episode;
+}
+
+/// 最近播放里歌曲以外的分类，各自按最后播放时间从新到旧。
+class RecentCollections {
+  final List<AlbumBrief> albums;
+  final List<PlaylistBrief> playlists;
+  final List<VideoBrief> videos;
+  final List<RecentBook> books;
+
+  /// 音乐雷达：最近听过的个性电台，用 [crate::api::music::get_radio_songs] 播放。
+  final List<RecentRadio> radios;
+
+  const RecentCollections({
+    required this.albums,
+    required this.playlists,
+    required this.videos,
+    required this.books,
+    required this.radios,
+  });
+
+  @override
+  int get hashCode =>
+      albums.hashCode ^
+      playlists.hashCode ^
+      videos.hashCode ^
+      books.hashCode ^
+      radios.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RecentCollections &&
+          runtimeType == other.runtimeType &&
+          albums == other.albums &&
+          playlists == other.playlists &&
+          videos == other.videos &&
+          books == other.books &&
+          radios == other.radios;
+}
+
+class RecentRadio {
+  final PlatformInt64 id;
+  final String name;
+  final String coverUrl;
+
+  const RecentRadio({
+    required this.id,
+    required this.name,
+    required this.coverUrl,
+  });
+
+  @override
+  int get hashCode => id.hashCode ^ name.hashCode ^ coverUrl.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RecentRadio &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          name == other.name &&
+          coverUrl == other.coverUrl;
 }
 
 class RecommendFeed {

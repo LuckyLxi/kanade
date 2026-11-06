@@ -125,6 +125,11 @@ pub async fn get_guess_you_like() -> Result<Vec<Song>, ApiError> {
 }
 
 /// 刷歌模式的第 `page` 批歌，`seed` 来自 `RecommendFeed.radar_seed`。
+/// 个性电台（最近播放里的音乐雷达）的下一批歌。
+pub async fn get_radio_songs(id: i64) -> Result<Vec<Song>, ApiError> {
+    Ok(music::radio_songs(id).await?)
+}
+
 pub async fn get_radar_songs(seed: Vec<i64>, page: u32) -> Result<Vec<Song>, ApiError> {
     Ok(music::radar_songs(&seed, page).await?)
 }
@@ -253,6 +258,11 @@ pub async fn delete_playlist(dir_id: i64) -> Result<(), ApiError> {
 /// 云端最近播放的歌曲（需要登录），从新到旧。
 pub async fn get_recent_plays() -> Result<Vec<Song>, ApiError> {
     Ok(history::recent_plays().await?)
+}
+
+/// 云端最近播放的专辑、歌单、视频、有声节目（需要登录）。
+pub async fn get_recent_collections() -> Result<RecentCollections, ApiError> {
+    Ok(history::recent_collections().await?)
 }
 
 /// 上报一次播放到云端最近播放（需要登录）。

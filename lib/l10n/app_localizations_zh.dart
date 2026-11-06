@@ -664,6 +664,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchKindVideo => '视频';
 
   @override
+  String get recentKindRadar => '音乐雷达';
+
+  @override
+  String get recentKindAudiobook => '有声';
+
+  @override
   String get searchKindLyric => '歌词';
 
   @override

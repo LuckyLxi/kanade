@@ -105,26 +105,6 @@ class SongListPage extends StatelessWidget {
     ),
   );
 
-  /// 云端最近播放，从新到旧。
-  static Route<void> recent(String title) => MaterialPageRoute(
-    builder: (_) => SongListPage(
-      title: title,
-      searchable: true,
-      load: () async {
-        final songs = await api.getRecentPlays();
-        return (
-          title: title,
-          cover: songs.isEmpty ? '' : songs.first.coverUrl,
-          creator: '',
-          period: '',
-          description: '',
-          songs: songs,
-          owned: null,
-        );
-      },
-    ),
-  );
-
   static Route<void> toplist(int topId, String period, String title) => MaterialPageRoute(
     builder: (_) => SongListPage(
       title: title,

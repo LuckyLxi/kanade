@@ -426,6 +426,8 @@
   "searchKindAlbum": "专辑",
   "searchKindPlaylist": "歌单",
   "searchKindVideo": "视频",
+  "recentKindRadar": "音乐雷达",
+  "recentKindAudiobook": "有声",
   "searchKindLyric": "歌词",
   "searchTotalItems": "共 {count} 个结果",
   "@searchTotalItems": {

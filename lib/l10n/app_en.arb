@@ -196,6 +196,8 @@
   "searchKindAlbum": "Albums",
   "searchKindPlaylist": "Playlists",
   "searchKindVideo": "Videos",
+  "recentKindRadar": "Music radar",
+  "recentKindAudiobook": "Audiobooks",
   "searchKindLyric": "Lyrics",
   "searchTotalItems": "{count, plural, =1{1 result} other{{count} results}}",
   "singerStats": "{songs} songs · {albums} albums",

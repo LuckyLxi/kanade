@@ -409,6 +409,45 @@ async fn desktop_recent_plays() {
     println!("recent={} requestCnt300: code={} songs={}", songs.len(), small["code"], small["data"]["songList"].as_array().map_or(0, |a| a.len()));
 }
 
+/// 只读：Android 端各最近播放分类（全部、专辑、歌单、电台、MV、有声）走 PC 通道是否同样有数据。
+#[tokio::test]
+#[ignore]
+async fn desktop_recent_play_categories() {
+    // 用登录数据库的副本，测试进程使用独立的内存 Store。
+    let path = std::env::var_os("QQMUSIC_TEST_SESSION_DB").expect("需要明确指定当前登录数据库的副本");
+    let db = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+    let raw: String = db.query_row("SELECT value FROM kv WHERE key='session'", [], |row| row.get(0)).unwrap();
+    drop(db);
+    client::core().set_session(Some(serde_json::from_str(&raw).unwrap())).unwrap();
+    for (kind, field) in [(2, "songList"), (1, "allItems"), (3, "albumList"), (4, "geDanList"), (5, "radioList"), (6, "mvList"), (10, ""), (12, "listenBookList")] {
+        let data = match client::core()
+            .desktop_private("music.musicasset.PlayRecentlyRead", "GetPlayRecentlyInfo", serde_json::json!({"requestCnt": 2500, "type": kind, "updateTime": 0}))
+            .await
+        {
+            Ok(data) => data,
+            Err(e) => {
+                println!("type={kind} error={e}");
+                continue;
+            }
+        };
+        let list = &data["data"][field];
+        let summary = match kind {
+            1 => format!("nums={} albums={} playlists={} books={}", list["nums"], list["albumList"].as_array().map_or(0, |a| a.len()), list["geDanList"].as_array().map_or(0, |a| a.len()), list["listenBookList"].as_array().map_or(0, |a| a.len())),
+            _ => format!("items={}", list.as_array().map_or(0, |a| a.len())),
+        };
+        println!("type={kind} code={} updateTime={} {summary}", data["code"], data["updateTime"]);
+    }
+    let c = rust_lib_kanade::qq::history::recent_collections().await.unwrap();
+    assert!(c.albums.iter().all(|a| !a.mid.is_empty()) && c.videos.iter().all(|v| !v.vid.is_empty()));
+    println!(
+        "collections albums={} playlists={} videos={} books={} (with episode {}) radios={}",
+        c.albums.len(), c.playlists.len(), c.videos.len(), c.books.len(), c.books.iter().filter(|b| b.episode.is_some()).count(), c.radios.len()
+    );
+    for r in &c.radios {
+        println!("radio {} songs={}", r.id, rust_lib_kanade::qq::music::radio_songs(r.id).await.unwrap().len());
+    }
+}
+
 /// 与应用登录上下文相同的写请求封装调用只读接口，不改动账号数据。
 #[tokio::test]
 #[ignore]

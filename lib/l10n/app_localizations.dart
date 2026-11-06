@@ -1274,6 +1274,18 @@ abstract class AppLocalizations {
   /// **'视频'**
   String get searchKindVideo;
 
+  /// No description provided for @recentKindRadar.
+  ///
+  /// In zh, this message translates to:
+  /// **'音乐雷达'**
+  String get recentKindRadar;
+
+  /// No description provided for @recentKindAudiobook.
+  ///
+  /// In zh, this message translates to:
+  /// **'有声'**
+  String get recentKindAudiobook;
+
   /// No description provided for @searchKindLyric.
   ///
   /// In zh, this message translates to:

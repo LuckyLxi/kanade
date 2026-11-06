@@ -351,7 +351,17 @@ songmid=<SONG_MID>&format=json&nobase64=1&g_tk=5381
 }
 ```
 
-外壳解包后的业务 `code` 仍须为 `0`。当前提取 `data.songList[].track` 为歌曲列表，按上游顺序使用；播放时间、次数和设备字段未暴露给 Dart。`type=2` 用于歌曲；不提供 MV 最近播放、2500 条之后的翻页、增量同步或删除云端记录。
+外壳解包后的业务 `code` 仍须为 `0`。当前提取 `data.songList[].track` 为歌曲列表，按上游顺序使用；播放时间、次数和设备字段未暴露给 Dart。
+
+其他分类由 `recent_collections` 读取，同一接口换 `type`（字段见 [Android 最近播放分类抓包](qqmusic-recent-plays-android-capture.md)）：
+
+| `type` | 取用 | 转成 |
+| --- | --- | --- |
+| 1（全部） | `data.allItems.albumList` / `geDanList` / `listenBookList` | `AlbumBrief` / `PlaylistBrief` / `RecentBook`（`episode` 为上次听的那一集） |
+| 6 | `data.mvList[].mvInfo` | `VideoBrief`（无时长、播放量） |
+| 5 | `data.radioList` 中 `radioType=2` 的项 | `RecentRadio`，用 `get_radio_songs(id)`（`MbTrackRadioSvr.get_radio_track`）播放 |
+
+三个请求并发，合并缓存 300 秒。不提供 2500 条之后的翻页、增量同步或删除云端记录。
 
 ### 上报播放
 
@@ -730,7 +740,7 @@ HAR 凭据辅助函数依赖该文件内存在可解析的 `comm.uin/authst/tmeL
 | [播放器关联操作抓包](qqmusic-player-actions-capture.md) | 歌手、专辑、评论、红心、加歌、80105 排查 |
 | [歌单管理抓包](qqmusic-playlist-management-capture.md) | 改名与删除的官方请求样本 |
 | [最近播放抓包](qqmusic-recent-plays-capture.md) | 云端记录读取、播放上报 |
+| [Android 最近播放分类抓包](qqmusic-recent-plays-android-capture.md) | 专辑、歌单、电台、有声、视频各 `type`，增量同步与计数接口 |
 | [推荐页抓包](qqmusic-recommendations-capture.md) / [推荐封面抓包](qqmusic-recommendation-covers-capture.md) | 推荐结构、取歌与图片来源 |
 
 原始 HAR / SAZ / PCAPNG 是本地诊断材料，不是运行依赖，也不是本文的必需附件。项目忽略规则保留它们在本机；发布本文不需要上传这些文件。
-| [Android 最近播放分类抓包](qqmusic-recent-plays-android-capture.md) | 专辑、歌单、电台、有声、视频各 `type`，增量同步与计数接口 |
