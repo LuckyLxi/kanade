@@ -815,14 +815,19 @@ class RecommendSection {
   final List<Song> songs;
   final List<PlaylistBrief> playlists;
 
+  /// 单独刷新这一栏时传给 `refresh_recommend_section`；为空表示这一栏不能单独刷新。
+  final String refresh;
+
   const RecommendSection({
     required this.title,
     required this.songs,
     required this.playlists,
+    required this.refresh,
   });
 
   @override
-  int get hashCode => title.hashCode ^ songs.hashCode ^ playlists.hashCode;
+  int get hashCode =>
+      title.hashCode ^ songs.hashCode ^ playlists.hashCode ^ refresh.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -831,7 +836,8 @@ class RecommendSection {
           runtimeType == other.runtimeType &&
           title == other.title &&
           songs == other.songs &&
-          playlists == other.playlists;
+          playlists == other.playlists &&
+          refresh == other.refresh;
 }
 
 /// 搜索分类，对应 Windows 客户端搜索结果页的标签。

@@ -649,6 +649,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get seeAll => 'See all';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get renamePlaylist => 'Rename';
 
   @override

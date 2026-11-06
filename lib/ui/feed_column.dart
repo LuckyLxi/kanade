@@ -79,6 +79,31 @@ class _FeedColumnState extends State<_FeedColumn> {
     _loadMore();
   }
 
+  /// 换一批：从第一页重新取，已经看过的卡片照样带上，不会再出现。
+  Future<void> _refresh() async {
+    if (_loading) return;
+    final l = AppLocalizations.of(context);
+    final overlay = Overlay.of(context, rootOverlay: true);
+    _loading = true;
+    try {
+      final page = await api.getFeedColumn(page: 1, seen: _seen);
+      if (!mounted) return;
+      setState(() {
+        _page = 1;
+        _seen.addAll(page.seen);
+        _cards
+          ..clear()
+          ..addAll(page.cards);
+        _hasMore = page.cards.isNotEmpty;
+        _error = null;
+      });
+    } catch (e) {
+      Toast.show(overlay, l.loadFailed(errorText(l, e)), kind: ToastKind.error);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
@@ -89,7 +114,10 @@ class _FeedColumnState extends State<_FeedColumn> {
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
-          child: SectionHeader(l.feedColumnTitle(widget.nickname)),
+          child: SectionHeader(
+            l.feedColumnTitle(widget.nickname),
+            onRefresh: _refresh,
+          ),
         ),
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16),

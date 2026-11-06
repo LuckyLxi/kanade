@@ -203,10 +203,19 @@ class _FadeInState extends State<_FadeIn> with SingleTickerProviderStateMixin {
 
 /// 页面里的区块标题，右侧可选一个“全部”。
 class SectionHeader extends StatelessWidget {
-  const SectionHeader(this.text, {super.key, this.onMore, this.padding = const EdgeInsets.fromLTRB(16, 24, 8, 8)});
+  const SectionHeader(
+    this.text, {
+    super.key,
+    this.onMore,
+    this.onRefresh,
+    this.padding = const EdgeInsets.fromLTRB(16, 24, 8, 8),
+  });
 
   final String text;
   final VoidCallback? onMore;
+
+  /// 有值时在最右边放一个刷新图标，刷新期间转圈。
+  final Future<void> Function()? onRefresh;
   final EdgeInsetsGeometry padding;
 
   @override
@@ -230,10 +239,53 @@ class SectionHeader extends StatelessWidget {
               style: TextButton.styleFrom(foregroundColor: scheme.onSurfaceVariant),
               child: Text(AppLocalizations.of(context).seeAll),
             ),
+          if (onRefresh != null) RefreshIconButton(onRefresh!),
         ],
       ),
     );
   }
+}
+
+/// 刷新图标按钮：按下后转圈，[onRefresh] 结束前再按不起作用。
+class RefreshIconButton extends StatefulWidget {
+  const RefreshIconButton(this.onRefresh, {super.key});
+
+  final Future<void> Function() onRefresh;
+
+  @override
+  State<RefreshIconButton> createState() => _RefreshIconButtonState();
+}
+
+class _RefreshIconButtonState extends State<RefreshIconButton> with SingleTickerProviderStateMixin {
+  late final _spin = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+  var _busy = false;
+
+  @override
+  void dispose() {
+    _spin.dispose();
+    super.dispose();
+  }
+
+  Future<void> _press() async {
+    if (_busy) return;
+    _busy = true;
+    _spin.repeat();
+    try {
+      await widget.onRefresh();
+    } finally {
+      _busy = false;
+      // 转完这一圈再停，不在半路卡住
+      if (mounted) _spin.forward(from: _spin.value);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: AppLocalizations.of(context).refresh,
+    color: Theme.of(context).colorScheme.onSurfaceVariant,
+    onPressed: _press,
+    icon: RotationTransition(turns: _spin, child: const Icon(Icons.refresh)),
+  );
 }
 
 /// 列表末尾的留白：玻璃导航栏和播放条浮在内容上，盖住的高度在 MediaQuery 的底部 padding 里。

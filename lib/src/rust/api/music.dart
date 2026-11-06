@@ -128,6 +128,10 @@ Future<TopListDetail> getToplistDetail({
 Future<RecommendFeed> getRecommendFeed() =>
     RustLib.instance.api.crateApiMusicGetRecommendFeed();
 
+/// 单独刷新首页的一个栏目，`refresh` 取自该栏目的 `RecommendSection.refresh`（不能为空）。
+Future<RecommendSection> refreshRecommendSection({required String refresh}) =>
+    RustLib.instance.api.crateApiMusicRefreshRecommendSection(refresh: refresh);
+
 /// 猜你喜欢电台的下一批歌（需要登录）。
 Future<List<Song>> getGuessYouLike() =>
     RustLib.instance.api.crateApiMusicGetGuessYouLike();

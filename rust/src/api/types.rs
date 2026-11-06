@@ -292,6 +292,8 @@ pub struct RecommendSection {
     pub title: String,
     pub songs: Vec<Song>,
     pub playlists: Vec<PlaylistBrief>,
+    /// 单独刷新这一栏时传给 `refresh_recommend_section`；为空表示这一栏不能单独刷新。
+    pub refresh: String,
 }
 
 #[derive(Debug, Clone)]

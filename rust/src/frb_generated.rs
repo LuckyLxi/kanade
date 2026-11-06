@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1248765599;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1512311129;
 
 // Section: executor
 
@@ -1990,6 +1990,43 @@ fn wire__crate__api__music__recognize_song_impl(
         },
     )
 }
+fn wire__crate__api__music__refresh_recommend_section_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "refresh_recommend_section",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_refresh = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::api::error::ApiError>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::music::refresh_recommend_section(api_refresh).await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__music__remove_cached_audio_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -3365,10 +3402,12 @@ impl SseDecode for crate::api::types::RecommendSection {
         let mut var_title = <String>::sse_decode(deserializer);
         let mut var_songs = <Vec<crate::api::types::Song>>::sse_decode(deserializer);
         let mut var_playlists = <Vec<crate::api::types::PlaylistBrief>>::sse_decode(deserializer);
+        let mut var_refresh = <String>::sse_decode(deserializer);
         return crate::api::types::RecommendSection {
             title: var_title,
             songs: var_songs,
             playlists: var_playlists,
+            refresh: var_refresh,
         };
     }
 }
@@ -3859,19 +3898,25 @@ fn pde_ffi_dispatcher_primary_impl(
         51 => wire__crate__api__music__logout_impl(port, ptr, rust_vec_len, data_len),
         53 => wire__crate__api__music__poll_login_qr_impl(port, ptr, rust_vec_len, data_len),
         54 => wire__crate__api__music__recognize_song_impl(port, ptr, rust_vec_len, data_len),
-        56 => wire__crate__api__music__remove_song_from_playlist_impl(
+        55 => wire__crate__api__music__refresh_recommend_section_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        57 => wire__crate__api__music__rename_playlist_impl(port, ptr, rust_vec_len, data_len),
-        58 => wire__crate__api__music__report_play_impl(port, ptr, rust_vec_len, data_len),
-        59 => wire__crate__api__music__search_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__music__set_singer_followed_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__api__music__set_song_liked_impl(port, ptr, rust_vec_len, data_len),
-        64 => wire__crate__api__music__set_user_followed_impl(port, ptr, rust_vec_len, data_len),
-        66 => {
+        57 => wire__crate__api__music__remove_song_from_playlist_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        58 => wire__crate__api__music__rename_playlist_impl(port, ptr, rust_vec_len, data_len),
+        59 => wire__crate__api__music__report_play_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__music__search_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__api__music__set_singer_followed_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__music__set_song_liked_impl(port, ptr, rust_vec_len, data_len),
+        65 => wire__crate__api__music__set_user_followed_impl(port, ptr, rust_vec_len, data_len),
+        67 => {
             wire__crate__api__types__user_asset_page_default_impl(port, ptr, rust_vec_len, data_len)
         }
         _ => unreachable!(),
@@ -3892,10 +3937,10 @@ fn pde_ffi_dispatcher_sync_impl(
         14 => wire__crate__api__music__get_cached_audio_impl(ptr, rust_vec_len, data_len),
         26 => wire__crate__api__music__get_pref_impl(ptr, rust_vec_len, data_len),
         52 => wire__crate__api__music__lower_quality_impl(ptr, rust_vec_len, data_len),
-        55 => wire__crate__api__music__remove_cached_audio_impl(ptr, rust_vec_len, data_len),
-        60 => wire__crate__api__music__set_audio_cache_limit_mb_impl(ptr, rust_vec_len, data_len),
-        61 => wire__crate__api__music__set_pref_impl(ptr, rust_vec_len, data_len),
-        65 => wire__crate__api__music__stream_audio_impl(ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__music__remove_cached_audio_impl(ptr, rust_vec_len, data_len),
+        61 => wire__crate__api__music__set_audio_cache_limit_mb_impl(ptr, rust_vec_len, data_len),
+        62 => wire__crate__api__music__set_pref_impl(ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__music__stream_audio_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -4570,6 +4615,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::RecommendSection {
             self.title.into_into_dart().into_dart(),
             self.songs.into_into_dart().into_dart(),
             self.playlists.into_into_dart().into_dart(),
+            self.refresh.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -5832,6 +5878,7 @@ impl SseEncode for crate::api::types::RecommendSection {
         <String>::sse_encode(self.title, serializer);
         <Vec<crate::api::types::Song>>::sse_encode(self.songs, serializer);
         <Vec<crate::api::types::PlaylistBrief>>::sse_encode(self.playlists, serializer);
+        <String>::sse_encode(self.refresh, serializer);
     }
 }
 

@@ -119,6 +119,11 @@ pub async fn get_recommend_feed() -> Result<RecommendFeed, ApiError> {
     Ok(music::recommend_feed().await?)
 }
 
+/// 单独刷新首页的一个栏目，`refresh` 取自该栏目的 `RecommendSection.refresh`（不能为空）。
+pub async fn refresh_recommend_section(refresh: String) -> Result<RecommendSection, ApiError> {
+    Ok(music::refresh_recommend_section(&refresh).await?)
+}
+
 /// 猜你喜欢电台的下一批歌（需要登录）。
 pub async fn get_guess_you_like() -> Result<Vec<Song>, ApiError> {
     Ok(music::guess_you_like().await?)

@@ -1196,6 +1196,12 @@ abstract class AppLocalizations {
   /// **'全部'**
   String get seeAll;
 
+  /// No description provided for @refresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新'**
+  String get refresh;
+
   /// No description provided for @renamePlaylist.
   ///
   /// In zh, this message translates to:

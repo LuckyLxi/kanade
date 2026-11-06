@@ -623,6 +623,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get seeAll => '全部';
 
   @override
+  String get refresh => '刷新';
+
+  @override
   String get renamePlaylist => '重命名';
 
   @override

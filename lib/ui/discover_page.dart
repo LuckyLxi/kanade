@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -26,6 +28,9 @@ class DiscoverPage extends StatefulWidget {
 class _DiscoverPageState extends State<DiscoverPage> {
   final _pages = PageController();
 
+  /// 推荐页内容，顶部刷新键通过它整页刷新。
+  final _recommend = GlobalKey<_RecommendBodyState>();
+
   @override
   void dispose() {
     _pages.dispose();
@@ -52,6 +57,14 @@ class _DiscoverPageState extends State<DiscoverPage> {
                     Pill(label: l.discoverRecommend, selected: at == 0, large: true, onTap: () => go(0)),
                     const SizedBox(width: 8),
                     Pill(label: l.discoverToplists, selected: at == 1, large: true, onTap: () => go(1)),
+                    // Windows 上鼠标拉不动下拉刷新，改在这里放刷新键；只在推荐页显示，占位不变免得这排跳动
+                    if (Platform.isWindows) ...[
+                      const Spacer(),
+                      Visibility.maintain(
+                        visible: at == 0,
+                        child: RefreshIconButton(() => _recommend.currentState?.refresh() ?? Future.value()),
+                      ),
+                    ],
                   ],
                 );
               },
@@ -64,7 +77,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
               removeTop: true,
               child: PageView(
                 controller: _pages,
-                children: const [_KeepAlive(_RecommendTab()), _KeepAlive(_ToplistTab())],
+                children: [_KeepAlive(_RecommendTab(bodyKey: _recommend)), const _KeepAlive(_ToplistTab())],
               ),
             ),
           ),
@@ -96,54 +109,134 @@ class _KeepAliveState extends State<_KeepAlive> with AutomaticKeepAliveClientMix
 }
 
 class _RecommendTab extends StatelessWidget {
-  const _RecommendTab();
+  const _RecommendTab({required this.bodyKey});
 
+  final GlobalKey<_RecommendBodyState> bodyKey;
+
+  static Future<(RecommendFeed, List<Song>)> _load() async {
+    // 两个请求并行发出
+    final feed = api.getRecommendFeed();
+    final newSongs = api.getNewSongs();
+    return (await feed, await newSongs);
+  }
+
+  @override
+  Widget build(BuildContext context) => AsyncView<(RecommendFeed, List<Song>)>(
+    load: _load,
+    builder: (context, data) => _RecommendBody(key: bodyKey, data: data),
+  );
+}
+
+/// 推荐页已经加载出来的内容。整页刷新（Android 下拉、Windows 顶部刷新键）和单栏刷新期间旧内容留在原处，
+/// 取到新的再换；失败时弹提示，内容不变。
+class _RecommendBody extends StatefulWidget {
+  const _RecommendBody({super.key, required this.data});
+
+  final (RecommendFeed, List<Song>) data;
+
+  @override
+  State<_RecommendBody> createState() => _RecommendBodyState();
+}
+
+class _RecommendBodyState extends State<_RecommendBody> {
   /// 每个歌曲区块在首页只露出几首，其余点“查看全部”。
   static const _previewSongs = 6;
+
+  late var _feed = widget.data.$1;
+  late var _sections = widget.data.$1.sections;
+  late var _newSongs = widget.data.$2;
+
+  /// 整页刷新一次加一，专属乐流跟着从头加载。
+  var _generation = 0;
+
+  Future<void> refresh() async {
+    final failed = _failedToast();
+    try {
+      final (feed, newSongs) = await _RecommendTab._load();
+      if (!mounted) return;
+      setState(() {
+        _feed = feed;
+        _sections = feed.sections;
+        _newSongs = newSongs;
+        _generation++;
+      });
+    } catch (e) {
+      failed(e);
+    }
+  }
+
+  Future<void> _refreshSection(RecommendSection old) async {
+    final failed = _failedToast();
+    try {
+      final fresh = await api.refreshRecommendSection(refresh: old.refresh);
+      // 等待期间整页刷新过的话，旧栏目已经不在了
+      final i = _sections.indexOf(old);
+      if (mounted && i >= 0) {
+        setState(() => _sections = [..._sections]..[i] = fresh);
+      }
+    } catch (e) {
+      failed(e);
+    }
+  }
+
+  void Function(Object) _failedToast() {
+    final l = AppLocalizations.of(context);
+    final overlay = Overlay.of(context, rootOverlay: true);
+    return (e) => Toast.show(overlay, l.loadFailed(errorText(l, e)), kind: ToastKind.error);
+  }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    return AsyncView<(RecommendFeed, List<Song>)>(
-      load: () async {
-        // 两个请求并行发出
-        final feed = api.getRecommendFeed();
-        final newSongs = api.getNewSongs();
-        return (await feed, await newSongs);
-      },
-      builder: (context, data) {
-        final (feed, newSongs) = data;
-        // 电台卡排在第一排歌单（每日30首那排）的最前面；没有歌单时单独一排
-        final radioAt = feed.sections.indexWhere((s) => s.playlists.isNotEmpty);
-        final radio = _RadioCards(feed);
-        return SmoothScroll(
-          builder: (context, scroll) => CustomScrollView(
-            controller: scroll,
-            slivers: [
-              if (radioAt < 0) _PlaylistRow(const [], leading: radio),
-              for (final (i, section) in feed.sections.indexed) ...[
-                if (section.playlists.isNotEmpty) ...[
-                  _Header(section.title.isEmpty ? l.recommendedPlaylists : section.title),
-                  _PlaylistRow(section.playlists, leading: i == radioAt ? radio : null),
-                ],
-                if (section.songs.isNotEmpty)
-                  ..._songSection(context, section.title.isEmpty ? l.recommendedSongs : section.title, section.songs),
+    // 电台卡排在第一排歌单（每日30首那排）的最前面；没有歌单时单独一排
+    final radioAt = _sections.indexWhere((s) => s.playlists.isNotEmpty);
+    final radio = _RadioCards(_feed);
+    return SmoothScroll(
+      builder: (context, scroll) {
+        final list = CustomScrollView(
+          controller: scroll,
+          slivers: [
+            if (radioAt < 0) _PlaylistRow(const [], leading: radio),
+            for (final (i, section) in _sections.indexed) ...[
+              if (section.playlists.isNotEmpty) ...[
+                _Header(
+                  section.title.isEmpty ? l.recommendedPlaylists : section.title,
+                  onRefresh: _onRefresh(section),
+                ),
+                _PlaylistRow(section.playlists, leading: i == radioAt ? radio : null),
               ],
-              if (newSongs.isNotEmpty) ..._songSection(context, l.newSongs, newSongs),
-              const FeedColumn(),
-              const SliverToBoxAdapter(child: BottomSpacer()),
+              if (section.songs.isNotEmpty)
+                ..._songSection(
+                  context,
+                  section.title.isEmpty ? l.recommendedSongs : section.title,
+                  section.songs,
+                  // 同一栏的刷新键只放在第一个标题上
+                  onRefresh: section.playlists.isEmpty ? _onRefresh(section) : null,
+                ),
             ],
-          ),
+            if (_newSongs.isNotEmpty) ..._songSection(context, l.newSongs, _newSongs),
+            FeedColumn(key: ValueKey(_generation)),
+            const SliverToBoxAdapter(child: BottomSpacer()),
+          ],
         );
+        return Platform.isWindows ? list : RefreshIndicator(onRefresh: refresh, child: list);
       },
     );
   }
 
-  List<Widget> _songSection(BuildContext context, String title, List<Song> songs) {
+  Future<void> Function()? _onRefresh(RecommendSection section) =>
+      section.refresh.isEmpty ? null : () => _refreshSection(section);
+
+  List<Widget> _songSection(
+    BuildContext context,
+    String title,
+    List<Song> songs, {
+    Future<void> Function()? onRefresh,
+  }) {
     final shown = songs.length > _previewSongs ? _previewSongs : songs.length;
     void viewAll() => Navigator.of(context).push(SongListPage.songs(title, songs));
     return [
-      _Header(title, onMore: songs.length > shown ? viewAll : null),
+      _Header(title, onMore: songs.length > shown ? viewAll : null, onRefresh: onRefresh),
       // 点某一首时把整个区块作为播放列表
       SliverList.builder(
         itemCount: shown,
@@ -197,13 +290,15 @@ class _PlaylistRow extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header(this.text, {this.onMore});
+  const _Header(this.text, {this.onMore, this.onRefresh});
 
   final String text;
   final VoidCallback? onMore;
+  final Future<void> Function()? onRefresh;
 
   @override
-  Widget build(BuildContext context) => SliverToBoxAdapter(child: SectionHeader(text, onMore: onMore));
+  Widget build(BuildContext context) =>
+      SliverToBoxAdapter(child: SectionHeader(text, onMore: onMore, onRefresh: onRefresh));
 }
 
 /// 排行榜页：第一组（巅峰榜）做成横滑的大卡，露出前三名；其余各组排成封面网格。

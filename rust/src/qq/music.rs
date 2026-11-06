@@ -468,59 +468,81 @@ pub(super) async fn tracks_by_id(ids: &[i64]) -> Result<Value> {
     Ok(data["tracks"].clone())
 }
 
+/// 首页推荐和专属乐流用新版 Android 客户端（20.09）的公参：栏目才带能单独刷新的 `refresh_param`，
+/// 第 1 页之后也才有专属乐流。抓包和实测见 docs/qqmusic-feed-column-capture.md、docs/qqmusic-home-refresh-capture.md。
+fn android_feed_comm() -> Value {
+    json!({"cv": "20090808", "v": "20090808", "chid": "73387"})
+}
+
+/// 首页推荐第 1 页，连同歌曲卡补全后的歌曲。`refresh_info` 是某个栏目的 `refresh_param` 时，
+/// 服务端只返回这一栏的新内容。官方每次进首页、下拉都重新取，这里也不缓存。
+async fn recommend_page(refresh_info: Option<Value>) -> Result<(Value, std::collections::HashMap<i64, Song>)> {
+    let c = core();
+    // 不带 is_20_style 时栏目没有 refresh_param
+    let mut param = json!({
+        "direction": 0, "page": 1, "v_cache": [], "v_uniq": [], "s_num": 0,
+        "ext": {"is_20_style": "1", "has_login": if c.session().is_some() { "1" } else { "0" }},
+    });
+    if let Some(info) = refresh_info {
+        param["refresh_info"] = info;
+    }
+    let feed = c.musicu_with_comm("music.recommend.RecommendFeed", "get_recommend_feed", param, android_feed_comm()).await?;
+    let ids: Vec<i64> = cards(&feed).filter(|c| n(&c["type"]) == 200).map(|c| n(&c["id"])).filter(|id| *id > 0).collect();
+    let tracks = parse::songs(&tracks_by_id(&ids).await?).into_iter().map(|s| (s.id, s)).collect();
+    Ok((feed, tracks))
+}
+
 /// 首页个性推荐（v_shelf → v_niche → v_card）。保留能直接用的歌曲卡（type 200）
 /// 和歌单卡（type 500，含“每日30首”等入口），再记下刷歌模式入口的起始歌曲；节目等跳过。
 pub async fn recommend_feed() -> Result<RecommendFeed> {
-    let c = core();
-    let data = c
-        .cached(&format!("feed:{}", c.uin()), 1800, || async {
-            let feed = c
-                .musicu_with_comm(
-                    "music.recommend.RecommendFeed",
-                    "get_recommend_feed",
-                    json!({ "direction": 0, "page": 1, "v_cache": [], "v_uniq": [], "s_num": 0 }),
-                    webkit_comm(),
-                )
-                .await?;
-            let ids: Vec<i64> = cards(&feed).filter(|c| n(&c["type"]) == 200).map(|c| n(&c["id"])).filter(|id| *id > 0).collect();
-            Ok(json!({ "feed": feed, "tracks": tracks_by_id(&ids).await? }))
-        })
-        .await?;
-    let tracks: std::collections::HashMap<i64, Song> =
-        parse::songs(&data["tracks"]).into_iter().map(|s| (s.id, s)).collect();
-
-    let mut sections = Vec::new();
-    for shelf in data["feed"]["v_shelf"].as_array().into_iter().flatten() {
-        let title = s(&shelf["title_template"]).replace("{String}", &s(&shelf["title_content"])).trim().to_string();
-        let shelf_cards: Vec<&Value> = shelf["v_niche"].as_array().into_iter().flatten().flat_map(|niche| niche["v_card"].as_array().into_iter().flatten()).collect();
-        let songs: Vec<Song> = shelf_cards
-            .iter()
-            .filter(|c| n(&c["type"]) == 200)
-            .filter_map(|c| tracks.get(&n(&c["id"])).cloned())
-            .collect();
-        let playlists: Vec<PlaylistBrief> = shelf_cards
-            .iter()
-            .filter(|c| n(&c["type"]) == 500 && !s(&c["id"]).is_empty())
-            .map(|c| PlaylistBrief {
-                id: s(&c["id"]),
-                title: s(&c["title"]),
-                cover_url: s(&c["cover"]),
-                song_count: 0,
-                play_count: n(&c["cnt"]) as u64,
-                // 入口卡（每日30首等）的副标题是其中一首歌，普通歌单为空
-                creator: s(&c["subtitle"]),
-            })
-            .collect();
-        if !songs.is_empty() || !playlists.is_empty() {
-            sections.push(RecommendSection { title, songs, playlists });
-        }
-    }
-    let (radar_seed, radar_cover) = radar_entry(&data["feed"]).unwrap_or_default();
+    let (feed, tracks) = recommend_page(None).await?;
+    let sections = feed["v_shelf"].as_array().into_iter().flatten().filter_map(|shelf| recommend_section(shelf, &tracks)).collect();
+    let (radar_seed, radar_cover) = radar_entry(&feed).unwrap_or_default();
     Ok(RecommendFeed { sections, radar_seed, radar_cover })
 }
 
+/// 单独刷新首页的一个栏目，`refresh` 是该栏目的 [`RecommendSection::refresh`]，原样带回。
+/// 刷新后的栏目标题也可能换了。
+pub async fn refresh_recommend_section(refresh: &str) -> Result<RecommendSection> {
+    let info: Value = serde_json::from_str(refresh).context(ApiError::bad_response("invalid recommend refresh_param"))?;
+    let (feed, tracks) = recommend_page(Some(info)).await?;
+    feed["v_shelf"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find_map(|shelf| recommend_section(shelf, &tracks))
+        .context(ApiError::bad_response("refreshed recommend shelf has no songs or playlists"))
+}
+
+/// 一个栏目里没有能显示的歌曲或歌单时为 None。
+fn recommend_section(shelf: &Value, tracks: &std::collections::HashMap<i64, Song>) -> Option<RecommendSection> {
+    let title = s(&shelf["title_template"]).replace("{String}", &s(&shelf["title_content"])).trim().to_string();
+    let shelf_cards: Vec<&Value> = shelf["v_niche"].as_array().into_iter().flatten().flat_map(|niche| niche["v_card"].as_array().into_iter().flatten()).collect();
+    let songs: Vec<Song> = shelf_cards
+        .iter()
+        .filter(|c| n(&c["type"]) == 200)
+        .filter_map(|c| tracks.get(&n(&c["id"])).cloned())
+        .collect();
+    let playlists: Vec<PlaylistBrief> = shelf_cards
+        .iter()
+        .filter(|c| n(&c["type"]) == 500 && !s(&c["id"]).is_empty())
+        .map(|c| PlaylistBrief {
+            id: s(&c["id"]),
+            title: s(&c["title"]),
+            cover_url: s(&c["cover"]),
+            song_count: 0,
+            play_count: n(&c["cnt"]) as u64,
+            // 入口卡（每日30首等）的副标题是其中一首歌，普通歌单为空
+            creator: s(&c["subtitle"]),
+        })
+        .collect();
+    // 顶上那排（301）和未登录时的栏目 ModuleID 为空，不能单独刷新
+    let refresh = &shelf["refresh_param"];
+    let refresh = if s(&refresh["ModuleID"]).is_empty() { String::new() } else { refresh.to_string() };
+    (!songs.is_empty() || !playlists.is_empty()).then_some(RecommendSection { title, songs, playlists, refresh })
+}
+
 /// 专属乐流（栏目 315）只有新版 Android 客户端（20.09）的版本号才返回，旧版本号给的是另一套栏目。
-/// 抓包和实测见 docs/qqmusic-feed-column-capture.md。
 const FEED_COLUMN_SHELF: &str = "315";
 
 /// 专属乐流第 `page` 页（从 1 开始），`seen` 是之前各页返回的 `seen` 合在一起。需要登录。
@@ -540,7 +562,7 @@ pub async fn feed_column(page: u32, seen: &[String]) -> Result<FeedColumnPage> {
                 "v_uniq": seen,
                 "ext": {"is_20_style": "1", "has_login": "1", "TwoColPages_proxy": "1", "IsTwoColumnFlow_proxy": "1", "two_col_page_proxy": "1"},
             }),
-            json!({"cv": "20090808", "v": "20090808", "chid": "73387"}),
+            android_feed_comm(),
         )
         .await?;
     let cards: Vec<&Value> = data["v_shelf"]

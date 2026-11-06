@@ -448,6 +448,27 @@ async fn desktop_recent_play_categories() {
     }
 }
 
+/// 只读：登录后首页每个能单独刷新的栏目都换成新内容。
+#[tokio::test]
+#[ignore]
+async fn desktop_refresh_recommend_sections() {
+    let path = std::env::var_os("QQMUSIC_TEST_SESSION_DB").expect("需要明确指定当前登录数据库的副本");
+    let db = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+    let raw: String = db.query_row("SELECT value FROM kv WHERE key='session'", [], |row| row.get(0)).unwrap();
+    drop(db);
+    client::core().set_session(Some(serde_json::from_str(&raw).unwrap())).unwrap();
+    let feed = music::recommend_feed().await.unwrap();
+    let refreshable: Vec<_> = feed.sections.iter().filter(|s| !s.refresh.is_empty()).collect();
+    assert!(!refreshable.is_empty(), "{:?}", feed.sections.iter().map(|s| &s.title).collect::<Vec<_>>());
+    for old in refreshable {
+        let new = music::refresh_recommend_section(&old.refresh).await.unwrap();
+        println!("{} -> {} songs={} playlists={}", old.title, new.title, new.songs.len(), new.playlists.len());
+        assert!(!new.refresh.is_empty());
+        let ids = |s: &rust_lib_kanade::api::types::RecommendSection| s.songs.iter().map(|x| x.id).collect::<Vec<_>>();
+        assert_ne!(ids(old), ids(&new));
+    }
+}
+
 /// 与应用登录上下文相同的写请求封装调用只读接口，不改动账号数据。
 #[tokio::test]
 #[ignore]
