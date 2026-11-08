@@ -741,6 +741,7 @@ HAR 凭据辅助函数依赖该文件内存在可解析的 `comm.uin/authst/tmeL
 | [歌单管理抓包](qqmusic-playlist-management-capture.md) | 改名与删除的官方请求样本 |
 | [最近播放抓包](qqmusic-recent-plays-capture.md) | 云端记录读取、播放上报 |
 | [Android 最近播放分类抓包](qqmusic-recent-plays-android-capture.md) | 专辑、歌单、电台、有声、视频各 `type`，增量同步与计数接口 |
+| [Android 播放页歌曲信息页抓包](qqmusic-player-detail-android-capture.md) | 右滑信息页的合并请求、栏目顺序、标签、相关歌单换一批、精选视频 |
 | [推荐页抓包](qqmusic-recommendations-capture.md) / [推荐封面抓包](qqmusic-recommendation-covers-capture.md) | 推荐结构、取歌与图片来源 |
 
 原始 HAR / SAZ / PCAPNG 是本地诊断材料，不是运行依赖，也不是本文的必需附件。项目忽略规则保留它们在本机；发布本文不需要上传这些文件。
