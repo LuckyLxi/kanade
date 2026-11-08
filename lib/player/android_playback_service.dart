@@ -105,6 +105,7 @@ class _PlaybackServer {
       'actualQuality': player.actualQuality?.name,
       'mode': player.mode.name,
       'volume': player.volume,
+      'fade': player.fade.inSeconds,
       'error': encodePlayerError(player.error),
       if (song != null && library.canLike) 'liked': library.isLiked(song),
     };
@@ -190,6 +191,8 @@ class _PlaybackServer {
         player.setMode(PlayMode.values.byName(argument as String));
       case 'defaultQuality':
         player.setDefaultQuality(Quality.values.byName(argument as String));
+      case 'fade':
+        player.setFade(Duration(seconds: argument as int));
       case 'volume':
         await player.setVolume((argument as num).toDouble());
       case 'quality':

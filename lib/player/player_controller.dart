@@ -102,7 +102,12 @@ class PlayerController extends ChangeNotifier {
         buffering = v;
         notifyListeners();
       }),
-      _player.stream.position.listen((v) => position.value = v),
+      _player.stream.position.listen((v) {
+        // 手动切歌淡出的那一小段，进度条已经换成了新歌，旧歌的进度不再显示
+        if (_holdGain) return;
+        position.value = v;
+        _setGain(_gainAt(v));
+      }),
       _player.stream.duration.listen((v) {
         duration = v;
         // 拿到时长说明音源已经加载成功
@@ -111,7 +116,8 @@ class PlayerController extends ChangeNotifier {
         notifyListeners();
       }),
       _player.stream.completed.listen((done) {
-        if (done) _onCompleted();
+        // 淡出时旧歌刚好放完不算：已经在切去别的歌了
+        if (done && !_holdGain) _onCompleted();
       }),
       _player.stream.error.listen((e) {
         // 个别音频帧解不出来（多见于文件开头结尾），mpv 会跳过继续放，不算出错
@@ -156,6 +162,68 @@ class PlayerController extends ChangeNotifier {
   final _sessionStore = PlayerSessionStore();
   static const _modeKey = 'play_mode';
   static const _volumeKey = 'volume';
+  static const _fadeKey = 'song_fade_seconds';
+
+  /// 切歌淡入淡出的时长，0 表示关闭。一首放完时在最后这么久里渐弱，新歌开头这么久里渐强。
+  Duration fade = Duration(
+    seconds: int.tryParse(api.getPref(key: _fadeKey) ?? '') ?? 0,
+  );
+
+  /// 手动切歌时旧歌淡出最多这么久，免得点了下一首要等太久。
+  static const _manualFadeOut = Duration(seconds: 1);
+
+  /// 淡入淡出乘在 [volume] 上的系数（0–1），不改用户设的音量。
+  double _gain = 1;
+
+  /// 手动切歌正在淡出，或淡出完还没换上新歌：这时音量不再跟着进度走。
+  bool _holdGain = false;
+  Future<void>? _fadingOut;
+
+  /// 按进度算淡入淡出系数：开头渐强，结尾渐弱。
+  double _gainAt(Duration pos) {
+    final f = fade.inMilliseconds;
+    if (f == 0) return 1;
+    final total = _player.state.duration.inMilliseconds;
+    final ms = pos.inMilliseconds;
+    final left = total > 0 ? total - ms : f;
+    return (min(ms, left) / f).clamp(0.0, 1.0);
+  }
+
+  void _setGain(double g) {
+    if (g == _gain) return;
+    _gain = g;
+    unawaited(_player.setVolume(volume * g));
+  }
+
+  /// 手动切歌前把正在放的歌淡出。连着点几首时共用同一次淡出。
+  Future<void> _fadeOutCurrent() {
+    if (!playing || fade == Duration.zero || _gain == 0) return Future.value();
+    _holdGain = true;
+    return _fadingOut ??= () async {
+      final from = _gain;
+      final total = (fade < _manualFadeOut ? fade : _manualFadeOut) * from;
+      final clock = Stopwatch()..start();
+      do {
+        await Future<void>.delayed(const Duration(milliseconds: 16));
+        _setGain(
+          from *
+              (1 - clock.elapsedMicroseconds / total.inMicroseconds).clamp(
+                0.0,
+                1.0,
+              ),
+        );
+      } while (clock.elapsed < total);
+      _fadingOut = null;
+    }();
+  }
+
+  /// 设置里改切歌淡入淡出时长，从当前进度起生效。
+  void setFade(Duration d) {
+    fade = d;
+    api.setPref(key: _fadeKey, value: '${d.inSeconds}');
+    if (!_holdGain) _setGain(_gainAt(_player.state.position));
+    notifyListeners();
+  }
 
   /// 上次的队列是启动时恢复出来的，还没取过音源：按播放键时才真正打开。
   bool _restored = false;
@@ -310,7 +378,14 @@ class PlayerController extends ChangeNotifier {
       _loadLyric(song, token);
     }
     try {
-      await _open(song, quality, token: token, urlToken: urlToken);
+      // 自动跳过播不了的歌时，它本来就没声音，不用淡出
+      await _open(
+        song,
+        quality,
+        token: token,
+        urlToken: urlToken,
+        fadeOut: skipped == 0,
+      );
     } catch (e) {
       if (token != _token || urlToken != _urlToken) return;
       error = PlaybackFailed(song, e);
@@ -353,6 +428,7 @@ class PlayerController extends ChangeNotifier {
     required int urlToken,
     Duration? start,
     bool play = true,
+    bool fadeOut = false,
   }) async {
     bool stale() => token != _token || urlToken != _urlToken;
     final src = await AudioSource.resolve(song, q, stale: stale);
@@ -362,11 +438,20 @@ class PlayerController extends ChangeNotifier {
       if (stale()) return;
     }
     actualQuality = src.quality;
+    // 链接取到了再淡出，取链接的这段时间旧歌照常放
+    if (fadeOut) {
+      await _fadeOutCurrent();
+      if (stale()) return;
+    }
     _attempt = _Attempt(song, src, start, play, token, urlToken);
+    // 新歌从静音开始，等进度走起来再渐强
+    _setGain(_gainAt(start ?? Duration.zero));
     try {
       await _player.open(src.media(start: start), play: play);
     } catch (e) {
       _downgrade(e);
+    } finally {
+      _holdGain = false;
     }
   }
 
@@ -526,7 +611,7 @@ class PlayerController extends ChangeNotifier {
     _volumeSave?.cancel();
     _volumeSave = Timer(const Duration(milliseconds: 400), _saveVolume);
     notifyListeners();
-    return _player.setVolume(volume);
+    return _player.setVolume(volume * _gain);
   }
 
   void _saveVolume() {

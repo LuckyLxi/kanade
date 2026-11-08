@@ -25,6 +25,9 @@ class SettingsPage extends StatefulWidget {
 /// 设置里能选的默认音质（播放器能播的常用档位）。
 const _qualities = [Quality.low, Quality.standard, Quality.high, Quality.lossless, Quality.hires, Quality.master];
 
+/// 切歌淡入淡出的档位（秒），0 表示关闭。
+const _fades = [0, 1, 2, 3, 5];
+
 /// 歌曲缓存上限的预设档位（MB），0 表示关闭。
 const _limits = [0, 512, 1024, 2048, 4096, 8192];
 
@@ -42,6 +45,8 @@ String _limitText(AppLocalizations l, int mb) => switch (mb) {
       _ when mb % 1024 == 0 => '${mb ~/ 1024} GB',
       _ => '$mb MB',
     };
+
+String _fadeText(AppLocalizations l, int seconds) => seconds == 0 ? l.songFadeOff : l.songFadeSeconds('$seconds');
 
 class _SettingsPageState extends State<SettingsPage> {
   int _limitMb = api.getAudioCacheLimitMb();
@@ -131,6 +136,13 @@ class _SettingsPageState extends State<SettingsPage> {
     if (q != null) player.setDefaultQuality(q);
   }
 
+  Future<void> _pickFade() async {
+    final l = AppLocalizations.of(context);
+    final player = context.read<PlayerController>();
+    final s = await _choose<int>(l.songFade, _fades, player.fade.inSeconds, (s) => _fadeText(l, s));
+    if (s != null) player.setFade(Duration(seconds: s));
+  }
+
   Future<void> _pickLimit() async {
     final l = AppLocalizations.of(context);
     final player = context.read<PlayerController>();
@@ -207,6 +219,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final theme = Theme.of(context);
     final locale = context.watch<LocaleController>().locale;
     final defaultQuality = context.select<PlayerController, Quality>((p) => p.defaultQuality);
+    final fade = context.select<PlayerController, int>((p) => p.fade.inSeconds);
     final loggedIn = context.select<AuthController, bool>((a) => a.loggedIn);
     Widget header(String text) => Padding(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
@@ -237,6 +250,12 @@ class _SettingsPageState extends State<SettingsPage> {
             title: Text(l.defaultQuality),
             subtitle: Text('${qualityLabel(l, defaultQuality)} · ${l.defaultQualityHint}'),
             onTap: _pickQuality,
+          ),
+          ListTile(
+            leading: const Icon(Icons.graphic_eq),
+            title: Text(l.songFade),
+            subtitle: Text('${_fadeText(l, fade)} · ${l.songFadeHint}'),
+            onTap: _pickFade,
           ),
           header(l.settingsCache),
           ListTile(

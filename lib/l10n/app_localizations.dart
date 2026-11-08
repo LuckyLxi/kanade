@@ -1118,6 +1118,30 @@ abstract class AppLocalizations {
   /// **'选的音质没有或播不了时会自动降低'**
   String get defaultQualityHint;
 
+  /// No description provided for @songFade.
+  ///
+  /// In zh, this message translates to:
+  /// **'切歌淡入淡出'**
+  String get songFade;
+
+  /// No description provided for @songFadeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一首渐渐变小，下一首渐渐变大'**
+  String get songFadeHint;
+
+  /// No description provided for @songFadeOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get songFadeOff;
+
+  /// No description provided for @songFadeSeconds.
+  ///
+  /// In zh, this message translates to:
+  /// **'{seconds} 秒'**
+  String songFadeSeconds(Object seconds);
+
   /// No description provided for @audioCacheLimit.
   ///
   /// In zh, this message translates to:

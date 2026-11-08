@@ -86,6 +86,7 @@ class _RemotePlayerController extends PlayerController {
     actualQuality = Quality.values.asNameMap()[message['actualQuality']];
     mode = PlayMode.values.byName(message['mode'] as String);
     volume = (message['volume'] as num).toDouble();
+    fade = Duration(seconds: message['fade'] as int);
     error = decodePlayerError(message['error']);
     if (current case final song?) {
       if (message['liked'] case final bool liked) {
@@ -159,6 +160,13 @@ class _RemotePlayerController extends PlayerController {
     defaultQuality = quality = q;
     notifyListeners();
     _ignore(_send('defaultQuality', q.name));
+  }
+
+  @override
+  void setFade(Duration d) {
+    fade = d;
+    notifyListeners();
+    _ignore(_send('fade', d.inSeconds));
   }
 
   @override

@@ -611,6 +611,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Falls back to a lower quality when unavailable or unplayable';
 
   @override
+  String get songFade => 'Fade between songs';
+
+  @override
+  String get songFadeHint => 'Fades out the current song and fades in the next';
+
+  @override
+  String get songFadeOff => 'Off';
+
+  @override
+  String songFadeSeconds(Object seconds) {
+    return '$seconds s';
+  }
+
+  @override
   String get audioCacheLimit => 'Song cache limit';
 
   @override
