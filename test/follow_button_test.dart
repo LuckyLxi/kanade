@@ -16,6 +16,9 @@ class _Auth extends ChangeNotifier implements AuthController {
   bool get loggedIn => user != null;
 
   @override
+  void reloadSession() => notifyListeners();
+
+  @override
   void onLoggedIn(UserInfo u) {
     user = u;
     notifyListeners();

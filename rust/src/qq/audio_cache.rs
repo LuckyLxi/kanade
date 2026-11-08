@@ -24,9 +24,17 @@ const MB: i64 = 1024 * 1024;
 const AHEAD: u64 = 512 * 1024;
 const REFERER: &str = "https://y.qq.com/";
 
+fn stored_limit_mb() -> i64 {
+    core().store.kv_get(LIMIT_PREF).and_then(|v| v.parse().ok()).unwrap_or(DEFAULT_LIMIT_MB)
+}
+
+pub fn limit_mb() -> i64 {
+    CACHE.get().map_or_else(stored_limit_mb, AudioCache::limit_mb)
+}
+
 #[derive(Clone, Copy, Default)]
 struct Progress {
-    /// 已收到响应头。
+    /// 已收到响应头并尝试创建缓存文件。
     started: bool,
     total: Option<u64>,
     downloaded: u64,
@@ -81,7 +89,7 @@ fn file_name(mid: &str, q: Quality, id: &str) -> String {
 impl AudioCache {
     fn new(dir: PathBuf) -> Result<Self> {
         std::fs::create_dir_all(&dir)?;
-        let limit = core().store.kv_get(LIMIT_PREF).and_then(|v| v.parse().ok()).unwrap_or(DEFAULT_LIMIT_MB);
+        let limit = stored_limit_mb();
         let http = reqwest::Client::builder()
             .user_agent(UA)
             .connect_timeout(Duration::from_secs(15))
@@ -276,11 +284,12 @@ impl AudioCache {
     async fn fetch(&self, d: &Download, tx: &watch::Sender<Progress>) -> Result<u64> {
         let mut resp = self.http.get(&d.url).header("Referer", REFERER).send().await?.error_for_status()?;
         let total = resp.content_length();
+        let file = tokio::fs::File::create(self.dir.join(&d.file_name)).await;
         tx.send_modify(|p| {
             p.started = true;
             p.total = total;
         });
-        let mut f = tokio::fs::File::create(self.dir.join(&d.file_name)).await?;
+        let mut f = file?;
         let mut buf = Vec::with_capacity(256 * 1024);
         let mut written = 0u64;
         loop {
@@ -291,8 +300,8 @@ impl AudioCache {
             if let Some(c) = &chunk {
                 buf.extend_from_slice(c);
             }
-            // 攒一批再写，写完 flush 后才告诉读的一方，保证它读得到
-            if !buf.is_empty() && (chunk.is_none() || buf.len() >= 64 * 1024) {
+            // 第一批直接写，后续再攒批；flush 后才通知播放器读取。
+            if !buf.is_empty() && (written == 0 || chunk.is_none() || buf.len() >= 64 * 1024) {
                 f.write_all(&buf).await?;
                 f.flush().await?;
                 written += buf.len() as u64;
@@ -474,14 +483,17 @@ fn parse_range(v: &str) -> Option<(u64, Option<u64>)> {
 mod tests {
     use super::*;
 
-    /// 假的音频服务器：支持 Range，慢慢地发，模拟边下边播。
-    fn fake_upstream(data: Arc<Vec<u8>>) -> String {
+    /// 假的音频服务器：支持 Range，发出第一批后等待测试放行。
+    fn fake_upstream(data: Arc<Vec<u8>>) -> (String, std::sync::mpsc::Sender<()>) {
         use std::io::{BufRead, Write};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
+        let (resume, wait) = std::sync::mpsc::channel();
+        let wait = Arc::new(Mutex::new(Some(wait)));
         std::thread::spawn(move || {
             for sock in listener.incoming().flatten() {
                 let data = data.clone();
+                let wait = wait.clone();
                 std::thread::spawn(move || {
                     let mut r = std::io::BufReader::new(sock.try_clone().unwrap());
                     let mut range = None;
@@ -503,22 +515,28 @@ mod tests {
                         "HTTP/1.1 200 OK\r\n".to_owned()
                     };
                     let _ = write!(w, "{head}Content-Length: {}\r\nConnection: close\r\n\r\n", end - start + 1);
-                    for chunk in data[start..=end].chunks(32 * 1024) {
+                    for (i, chunk) in data[start..=end].chunks(32 * 1024).enumerate() {
                         if w.write_all(chunk).is_err() {
                             return;
+                        }
+                        if range.is_none() && i == 0 {
+                            let signal = wait.lock().unwrap().take();
+                            if signal.is_some_and(|signal| signal.recv().is_err()) {
+                                return;
+                            }
                         }
                         std::thread::sleep(Duration::from_millis(5));
                     }
                 });
             }
         });
-        format!("http://127.0.0.1:{port}/song.mp3")
+        (format!("http://127.0.0.1:{port}/song.mp3"), resume)
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn streams_caches_and_evicts() {
         let data: Arc<Vec<u8>> = Arc::new((0..700_000u32).map(|i| (i % 251) as u8).collect());
-        let upstream = fake_upstream(data.clone());
+        let (upstream, resume) = fake_upstream(data.clone());
         let c = cache();
         let http = reqwest::Client::new();
 
@@ -528,9 +546,18 @@ mod tests {
         let r = http.get(&local).header("Range", "bytes=600000-600999").send().await.unwrap();
         assert_eq!(r.status(), 206);
         assert_eq!(r.bytes().await.unwrap().as_ref(), &data[600_000..601_000]);
-        // 从头读：边下边给
-        let body = http.get(&local).send().await.unwrap().bytes().await.unwrap();
-        assert_eq!(body.as_ref(), data.as_slice());
+        // 上游停在第一批数据时，播放器已经能读到它。
+        let mut response = http.get(&local).send().await.unwrap();
+        let first = tokio::time::timeout(Duration::from_secs(3), response.chunk())
+            .await
+            .expect("the first chunk was held back")
+            .unwrap()
+            .unwrap();
+        assert!(data.starts_with(&first));
+        resume.send(()).unwrap();
+        let mut body = first.to_vec();
+        body.extend_from_slice(&response.bytes().await.unwrap());
+        assert_eq!(body.as_slice(), data.as_slice());
 
         let mut path = None;
         for _ in 0..100 {

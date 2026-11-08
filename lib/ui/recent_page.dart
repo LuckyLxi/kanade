@@ -132,7 +132,7 @@ class _RecentPageState extends State<RecentPage> {
   Future<void> _playRadio(AppLocalizations l, int id) async {
     final overlay = Overlay.of(context, rootOverlay: true);
     try {
-      await context.read<PlayerController>().playRadio(() => api.getRadioSongs(id: id));
+      await context.read<PlayerController>().playRadio(RadioSource.station(id));
     } catch (e) {
       Toast.show(overlay, l.radioFailed(errorText(l, e)), kind: ToastKind.error);
     }

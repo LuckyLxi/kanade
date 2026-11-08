@@ -14,7 +14,7 @@ class PlayerSessionStore {
       final m = jsonDecode(raw) as Map<String, dynamic>;
       final songs = [
         for (final s in m['queue'] as List)
-          _songFromJson(s as Map<String, dynamic>),
+          songFromJson(s as Map<String, dynamic>),
       ];
       final index = m['index'] as int;
       if (index < 0 || index >= songs.length) return null;
@@ -32,14 +32,14 @@ class PlayerSessionStore {
     api.setPref(
       key: _key,
       value: jsonEncode({
-        'queue': [for (final song in queue) _songToJson(song)],
+        'queue': [for (final song in queue) songToJson(song)],
         'index': index,
         'mode': mode,
       }),
     );
   }
 
-  Map<String, Object?> _songToJson(Song s) => {
+  static Map<String, Object?> songToJson(Song s) => {
     'id': s.id,
     'mid': s.mid,
     'name': s.name,
@@ -57,7 +57,7 @@ class PlayerSessionStore {
     'mvVid': s.mvVid,
   };
 
-  Song _songFromJson(Map<String, dynamic> m) => Song(
+  static Song songFromJson(Map<String, dynamic> m) => Song(
     id: m['id'] as int,
     mid: m['mid'] as String,
     name: m['name'] as String,

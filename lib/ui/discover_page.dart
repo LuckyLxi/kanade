@@ -482,13 +482,13 @@ class _RadioCardsState extends State<_RadioCards> {
     });
   }
 
-  Future<void> _start(Future<List<Song>> Function() fetch, {Future<List<Song>>? first}) async {
+  Future<void> _start(RadioSource source, {Future<List<Song>>? first}) async {
     final l = AppLocalizations.of(context);
     final overlay = Overlay.of(context, rootOverlay: true);
     final player = context.read<PlayerController>();
     try {
       final batch = await first?.then<List<Song>?>((s) => s.isEmpty ? null : s, onError: (_) => null);
-      await player.playRadio(fetch, first: batch);
+      await player.playRadio(source, first: batch);
     } catch (e) {
       Toast.show(overlay, l.radioFailed(errorText(l, e)), kind: ToastKind.error);
     }
@@ -499,7 +499,7 @@ class _RadioCardsState extends State<_RadioCards> {
     // 这批交给播放器了，封面换成下一批
     _guessShown = const [];
     _prefetchGuess();
-    _start(api.getGuessYouLike, first: first);
+    _start(const RadioSource.guess(), first: first);
   }
 
   @override
@@ -513,7 +513,6 @@ class _RadioCardsState extends State<_RadioCards> {
       _guessShown = const [];
     }
     if (!loggedIn && feed.radarSeed.isEmpty) return const SizedBox.shrink();
-    var page = 0;
     final next = _guessShown.firstOrNull;
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -530,10 +529,9 @@ class _RadioCardsState extends State<_RadioCards> {
               title: l.radioRadar,
               coverUrl: feed.radarCover,
               // 每次点击从第 1 批开始，之后续取依次往后翻
-              onTap: () {
-                page = 0;
-                _start(() => api.getRadarSongs(seed: feed.radarSeed, page: ++page));
-              },
+              onTap: () => _start(
+                RadioSource.radar([for (final id in feed.radarSeed) id.toInt()]),
+              ),
             ),
           ),
           const SizedBox(width: 12),

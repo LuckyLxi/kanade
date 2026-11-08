@@ -1,17 +1,50 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
+import 'package:flutter_rust_bridge/flutter_rust_bridge.dart' show Int64List;
 import 'package:media_kit/media_kit.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../auth/auth_controller.dart';
+import '../library/library_controller.dart';
+import '../settings/locale_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'android_playback_connection.dart';
 import 'audio_source.dart';
 import 'player_error.dart';
+import 'playback_messages.dart';
 import 'player_session_store.dart';
 
+part 'remote_player_controller.dart';
+
 enum PlayMode { sequence, repeatOne, shuffle }
+
+class RadioSource {
+  const RadioSource.guess() : kind = 'guess', seed = const [], id = null;
+  const RadioSource.radar(this.seed) : kind = 'radar', id = null;
+  const RadioSource.station(this.id) : kind = 'station', seed = const [];
+  const RadioSource.fromMessage(this.kind, this.seed, this.id);
+
+  final String kind;
+  final List<int> seed;
+  final int? id;
+
+  Future<List<Song>> Function() _fetcher() {
+    var page = 0;
+    return switch (kind) {
+      'guess' => api.getGuessYouLike,
+      'radar' => () => api.getRadarSongs(
+        seed: Int64List.fromList(seed),
+        page: ++page,
+      ),
+      _ => () => api.getRadioSongs(id: id!),
+    };
+  }
+}
 
 /// “下一首播放”的结果：插进了队列、队列是空的所以直接开放、或者就是正在放的这首。
 enum PlayNextResult { queued, started, current }
@@ -31,7 +64,14 @@ enum PlayNextResult { queued, started, current }
 
 /// 刚打开、还没加载成功的音源。这时出错就降一档重试。
 class _Attempt {
-  _Attempt(this.song, this.source, this.start, this.play, this.token, this.urlToken);
+  _Attempt(
+    this.song,
+    this.source,
+    this.start,
+    this.play,
+    this.token,
+    this.urlToken,
+  );
 
   final Song song;
   final AudioSource source;
@@ -43,7 +83,10 @@ class _Attempt {
 
 /// 播放队列 + media_kit 播放器。播放链接和歌词都由 Rust 层提供。
 class PlayerController extends ChangeNotifier {
-  PlayerController(this._auth) {
+  PlayerController(this._auth, {this.loadDisplayMetadata = true})
+    : _local = Player(
+        configuration: const PlayerConfiguration(title: 'Kanade'),
+      ) {
     _auth.addListener(_onAuthChanged);
     _subs.addAll([
       _player.stream.playing.listen((v) {
@@ -85,7 +128,23 @@ class PlayerController extends ChangeNotifier {
     if (volume != 100) unawaited(_player.setVolume(volume));
   }
 
-  final Player _player = Player(configuration: const PlayerConfiguration(title: 'Kanade'));
+  PlayerController._remote(this._auth)
+    : _local = null,
+      loadDisplayMetadata = true {
+    _restoreSession();
+  }
+
+  factory PlayerController.android(
+    AuthController auth,
+    LibraryController library,
+    LocaleController locale,
+    String directory,
+  ) = _RemotePlayerController;
+
+  final Player? _local;
+  Player get _player => _local!;
+  late final Future<void> _androidDiskCache = _configureAndroidDiskCache();
+  final bool loadDisplayMetadata;
   final AuthController _auth;
   final List<StreamSubscription> _subs = [];
   final _random = Random();
@@ -142,7 +201,12 @@ class PlayerController extends ChangeNotifier {
   /// 歌曲加载成功并真正开始播放后，记一次云端最近播放。只在登录时，失败不影响播放。
   void _reportPlay() {
     final song = current;
-    if (song == null || !playing || _attempt != null || _player.state.duration <= Duration.zero) return;
+    if (song == null ||
+        !playing ||
+        _attempt != null ||
+        _player.state.duration <= Duration.zero) {
+      return;
+    }
     if (_reportedToken == _token || !_auth.loggedIn) return;
     _reportedToken = _token;
     api.reportPlay(songId: song.id).ignore();
@@ -171,7 +235,8 @@ class PlayerController extends ChangeNotifier {
 
   /// 开始电台播放。`first` 是已经预取到的第一批（比如首页卡片封面用的那批），
   /// 没有就现取；第一批取不到时抛出异常，由调用方提示。
-  Future<void> playRadio(Future<List<Song>> Function() fetch, {List<Song>? first}) async {
+  Future<void> playRadio(RadioSource source, {List<Song>? first}) async {
+    final fetch = source._fetcher();
     first ??= await fetch();
     if (first.isEmpty) throw StateError('radio returned no songs');
     _radio = fetch;
@@ -240,8 +305,10 @@ class PlayerController extends ChangeNotifier {
     final song = queue[i];
     // 电台快放完时提前取下一批，切歌时不用等
     if (_radio != null && i >= queue.length - 2) unawaited(_extendRadio());
-    unawaited(refreshQualities());
-    _loadLyric(song, token);
+    if (loadDisplayMetadata) {
+      unawaited(refreshQualities());
+      _loadLyric(song, token);
+    }
     try {
       await _open(song, quality, token: token, urlToken: urlToken);
     } catch (e) {
@@ -265,13 +332,35 @@ class PlayerController extends ChangeNotifier {
     return true;
   }
 
+  Future<void> _configureAndroidDiskCache() async {
+    final native = _player.platform;
+    if (native is! NativePlayer) return;
+    try {
+      // Android 的默认目录可能不可写，mpv 会退回内存缓存。
+      final directory = await getTemporaryDirectory();
+      await native.setProperty('demuxer-cache-dir', directory.path);
+    } catch (error) {
+      debugPrint('mpv disk cache unavailable: $error');
+    }
+  }
+
   /// 取音源并交给播放器。取不到任何音质的链接时抛出异常；
   /// 拿到了却播不了的情况由 [_downgrade] 处理。
-  Future<void> _open(Song song, Quality q,
-      {required int token, required int urlToken, Duration? start, bool play = true}) async {
+  Future<void> _open(
+    Song song,
+    Quality q, {
+    required int token,
+    required int urlToken,
+    Duration? start,
+    bool play = true,
+  }) async {
     bool stale() => token != _token || urlToken != _urlToken;
     final src = await AudioSource.resolve(song, q, stale: stale);
     if (src == null || stale()) return;
+    if (Platform.isAndroid) {
+      await _androidDiskCache;
+      if (stale()) return;
+    }
     actualQuality = src.quality;
     _attempt = _Attempt(song, src, start, play, token, urlToken);
     try {
@@ -293,7 +382,14 @@ class PlayerController extends ChangeNotifier {
         final urlToken = ++_urlToken;
         loading = true;
         notifyListeners();
-        await _open(a.song, next, token: a.token, urlToken: urlToken, start: a.start, play: a.play);
+        await _open(
+          a.song,
+          next,
+          token: a.token,
+          urlToken: urlToken,
+          start: a.start,
+          play: a.play,
+        );
         if (a.token != _token || urlToken != _urlToken) return;
       } catch (e) {
         if (a.token != _token) return;
@@ -315,7 +411,9 @@ class PlayerController extends ChangeNotifier {
     } catch (_) {}
   }
 
-  void _onAuthChanged() => unawaited(refreshQualities());
+  void _onAuthChanged() {
+    if (loadDisplayMetadata) unawaited(refreshQualities());
+  }
 
   Future<void> refreshQualities() async {
     final song = current;
@@ -391,6 +489,16 @@ class PlayerController extends ChangeNotifier {
 
   Future<void> seek(Duration d) => _player.seek(d);
 
+  Future<({int limitMb, int bytes})> audioCacheInfo() async => (
+    limitMb: api.getAudioCacheLimitMb(),
+    bytes: await api.getAudioCacheSize(),
+  );
+
+  Future<void> setAudioCacheLimit(int mb) async =>
+      api.setAudioCacheLimitMb(mb: mb);
+
+  Future<void> clearAudioCache() => api.clearAudioCache();
+
   /// 设置里改默认音质：保存下来，并从下一首开始使用。
   void setDefaultQuality(Quality q) {
     defaultQuality = q;
@@ -442,7 +550,14 @@ class PlayerController extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      await _open(song, q, token: token, urlToken: urlToken, start: position.value, play: playing);
+      await _open(
+        song,
+        q,
+        token: token,
+        urlToken: urlToken,
+        start: position.value,
+        play: playing,
+      );
       if (token != _token || urlToken != _urlToken) return;
     } catch (e) {
       if (token != _token || urlToken != _urlToken) return;
@@ -466,12 +581,16 @@ class PlayerController extends ChangeNotifier {
     queue = session.queue;
     index = session.index;
     // 旧版本只把模式存在会话里
-    if (api.getPref(key: _modeKey) == null) mode = PlayMode.values.asNameMap()[session.mode] ?? mode;
+    if (api.getPref(key: _modeKey) == null) {
+      mode = PlayMode.values.asNameMap()[session.mode] ?? mode;
+    }
     duration = Duration(seconds: queue[index].durationSecs);
     _restored = true;
     // 播放页打开时就能看到歌词和音质
-    unawaited(refreshQualities());
-    _loadLyric(queue[index], _token);
+    if (loadDisplayMetadata) {
+      unawaited(refreshQualities());
+      _loadLyric(queue[index], _token);
+    }
   }
 
   /// 当前应高亮的歌词行。
@@ -493,6 +612,7 @@ class PlayerController extends ChangeNotifier {
 
   @override
   void dispose() {
+    ++_token;
     ++_qualitiesToken;
     if (_volumeSave != null) {
       _volumeSave!.cancel();
@@ -502,7 +622,7 @@ class PlayerController extends ChangeNotifier {
     for (final s in _subs) {
       s.cancel();
     }
-    _player.dispose();
+    _local?.dispose();
     position.dispose();
     super.dispose();
   }

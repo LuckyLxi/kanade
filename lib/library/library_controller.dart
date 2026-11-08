@@ -22,6 +22,12 @@ class LibraryController extends ChangeNotifier {
 
   bool isLiked(Song s) => _liked.contains(s.id.toInt());
 
+  void updateLiked(Song song, bool liked) {
+    final id = song.id.toInt();
+    final changed = liked ? _liked.add(id) : _liked.remove(id);
+    if (changed) notifyListeners();
+  }
+
   int get likedCount => _liked.length;
 
   /// 没登录时收藏不了。登录状态变化时本对象也会通知。

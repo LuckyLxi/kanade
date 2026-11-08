@@ -154,6 +154,15 @@ impl Store {
             .flatten()
     }
 
+    pub fn kv_get_or_insert(&self, key: &str, create: impl FnOnce() -> String) -> Result<String> {
+        if let Some(value) = self.kv_get(key) {
+            return Ok(value);
+        }
+        let conn = self.conn.lock().unwrap();
+        conn.execute("INSERT OR IGNORE INTO kv (key, value) VALUES (?1, ?2)", params![key, create()])?;
+        Ok(conn.query_row("SELECT value FROM kv WHERE key = ?1", params![key], |r| r.get(0))?)
+    }
+
     pub fn kv_set(&self, key: &str, value: &str) -> Result<()> {
         self.conn.lock().unwrap().execute(
             "INSERT OR REPLACE INTO kv (key, value) VALUES (?1, ?2)",
@@ -165,5 +174,31 @@ impl Store {
     pub fn kv_delete(&self, key: &str) -> Result<()> {
         self.conn.lock().unwrap().execute("DELETE FROM kv WHERE key = ?1", params![key])?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Store;
+    use std::sync::Barrier;
+
+    #[test]
+    fn concurrent_clients_reuse_the_persisted_value() {
+        let path = std::env::temp_dir().join(format!("kanade-store-{}.db", uuid::Uuid::new_v4()));
+        let first = Store::open(&path).unwrap();
+        let second = Store::open(&path).unwrap();
+        let start = Barrier::new(2);
+        std::thread::scope(|scope| {
+            let peer = scope.spawn(|| {
+                start.wait();
+                second.kv_get_or_insert("guid", || "playback".into()).unwrap()
+            });
+            start.wait();
+            let local = first.kv_get_or_insert("guid", || "interface".into()).unwrap();
+            assert_eq!(local, peer.join().unwrap());
+            assert_eq!(first.kv_get("guid").as_deref(), Some(local.as_str()));
+        });
+        drop((first, second));
+        std::fs::remove_file(path).unwrap();
     }
 }

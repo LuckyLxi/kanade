@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_rust_bridge/flutter_rust_bridge.dart' show Int64List;
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:provider/provider.dart';
 
@@ -164,11 +163,9 @@ class _FeedColumnState extends State<_FeedColumn> {
 Future<void> _radioFrom(BuildContext context, Song song) async {
   final l = AppLocalizations.of(context);
   final overlay = Overlay.of(context, rootOverlay: true);
-  var page = 0;
   try {
     await context.read<PlayerController>().playRadio(
-      () =>
-          api.getRadarSongs(seed: Int64List.fromList([song.id]), page: ++page),
+      RadioSource.radar([song.id]),
       first: [song],
     );
   } catch (e) {

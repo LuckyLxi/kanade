@@ -47,10 +47,18 @@ pub fn init(data_dir: &Path) -> Result<()> {
     if CORE.get().is_some() {
         return Ok(());
     }
+    init_store(data_dir)?;
+    super::audio_cache::init(data_dir.join("audio_cache"))
+}
+
+pub fn init_store(data_dir: &Path) -> Result<()> {
+    if CORE.get().is_some() {
+        return Ok(());
+    }
     std::fs::create_dir_all(data_dir)?;
     let core = Core::new(Store::open(&data_dir.join("kanade.db"))?)?;
     let _ = CORE.set(core);
-    super::audio_cache::init(data_dir.join("audio_cache"))
+    Ok(())
 }
 
 pub fn core() -> &'static Core {
@@ -68,28 +76,21 @@ impl Core {
             .gzip(true)
             .timeout(std::time::Duration::from_secs(15))
             .build()?;
-        let guid = match store.kv_get("guid") {
-            Some(g) => g,
-            None => {
-                let g: String = (0..10).map(|_| rand::random::<u8>() % 10).map(|d| char::from(b'0' + d)).collect();
-                store.kv_set("guid", &g)?;
-                g
-            }
-        };
+        let guid = store.kv_get_or_insert("guid", || {
+            (0..10).map(|_| rand::random::<u8>() % 10).map(|d| char::from(b'0' + d)).collect()
+        })?;
         let session = store.kv_get("session").and_then(|s| serde_json::from_str(&s).ok());
         // PC 接口使用独立的 32 位 GUID，保留旧接口已有的设备标识。
-        let desktop_guid = match store.kv_get("desktop_guid") {
-            Some(g) => g,
-            None => {
-                let g = uuid::Uuid::new_v4().simple().to_string().to_uppercase();
-                store.kv_set("desktop_guid", &g)?;
-                g
-            }
-        };
+        let desktop_guid = store.kv_get_or_insert("desktop_guid", || {
+            uuid::Uuid::new_v4().simple().to_string().to_uppercase()
+        })?;
         Ok(Self { http, store, guid, desktop_guid, session: RwLock::new(session) })
     }
 
     pub fn session(&self) -> Option<Session> {
+        if cfg!(target_os = "android") {
+            return self.store.kv_get("session").and_then(|s| serde_json::from_str(&s).ok());
+        }
         self.session.read().unwrap().clone()
     }
 

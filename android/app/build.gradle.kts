@@ -1,3 +1,4 @@
+import java.util.Base64
 import java.util.Properties
 
 plugins {
@@ -5,6 +6,14 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val separateAndroidPlayback = providers.gradleProperty("dart-defines").orNull
+    ?.split(',')
+    ?.map { String(Base64.getDecoder().decode(it), Charsets.UTF_8) }
+    ?.lastOrNull { it.startsWith("KANADE_SEPARATE_ANDROID_PLAYBACK=") }
+    ?.substringAfter('=')
+    ?.toBooleanStrict()
+    ?: true
 
 android {
     namespace = "com.lxi.kanade"
@@ -19,6 +28,8 @@ android {
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.lxi.kanade"
+        manifestPlaceholders["playbackProcess"] = if (separateAndroidPlayback) ":playback" else applicationId!!
+        manifestPlaceholders["separateAndroidPlayback"] = separateAndroidPlayback.toString()
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

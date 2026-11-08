@@ -10,9 +10,10 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <application
         android:label="Kanade"
-        android:name="${applicationName}"
+        android:name=".KanadeApplication"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="false">
+        <meta-data android:name="kanade.separateAndroidPlayback" android:value="${separateAndroidPlayback}" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -46,11 +47,13 @@
         </activity>
         <service android:name="com.ryanheise.audioservice.AudioService"
             android:foregroundServiceType="mediaPlayback"
+            android:process="${playbackProcess}"
             android:exported="true" tools:ignore="Instantiatable">
             <intent-filter>
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
+        <service android:name=".PlaybackUiService" android:exported="false" />
         <!-- 耳机、蓝牙的播放/切歌按键 -->
         <receiver android:name="com.ryanheise.audioservice.MediaButtonReceiver"
             android:exported="true" tools:ignore="Instantiatable">

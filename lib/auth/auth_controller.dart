@@ -11,6 +11,11 @@ class AuthController extends ChangeNotifier {
 
   bool get loggedIn => user != null;
 
+  void reloadSession() {
+    user = api.currentUser();
+    notifyListeners();
+  }
+
   void onLoggedIn(UserInfo u) {
     user = u;
     api.clearCache();

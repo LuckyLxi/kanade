@@ -61,11 +61,12 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _loadSizes() async {
-    final audio = await api.getAudioCacheSize();
+    final audio = await context.read<PlayerController>().audioCacheInfo();
     final other = await api.getApiCacheSize();
     if (!mounted) return;
     setState(() {
-      _audioSize = audio;
+      _audioSize = audio.bytes;
+      _limitMb = audio.limitMb;
       _apiSize = other;
     });
   }
@@ -131,6 +132,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _pickLimit() async {
     final l = AppLocalizations.of(context);
+    final player = context.read<PlayerController>();
     // -1 表示自定义
     final v = await _choose<int>(
       l.audioCacheLimit,
@@ -141,8 +143,8 @@ class _SettingsPageState extends State<SettingsPage> {
     if (v == null) return;
     final mb = v < 0 ? await _customLimit() : v;
     if (mb == null) return;
-    api.setAudioCacheLimitMb(mb: mb);
-    setState(() => _limitMb = api.getAudioCacheLimitMb());
+    await player.setAudioCacheLimit(mb);
+    if (!mounted) return;
     await _loadSizes();
   }
 
@@ -174,8 +176,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _clearAudio() async {
     final l = AppLocalizations.of(context);
+    final player = context.read<PlayerController>();
     if (!await _confirm(l.clearAudioCacheConfirm, l.clear)) return;
-    await api.clearAudioCache();
+    await player.clearAudioCache();
+    if (!mounted) return;
     await _loadSizes();
     if (mounted) showToast(context, l.cacheCleared, kind: ToastKind.success);
   }

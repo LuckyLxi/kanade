@@ -16,6 +16,11 @@ pub fn init_core(data_dir: String) -> Result<(), ApiError> {
     Ok(client::init(std::path::Path::new(&data_dir))?)
 }
 
+/// Android 界面与播放进程共用数据库，音频缓存只由播放进程打开。
+pub fn init_ui_core(data_dir: String) -> Result<(), ApiError> {
+    Ok(client::init_store(std::path::Path::new(&data_dir))?)
+}
+
 /// 按分类搜索第 `page` 页（从 1 开始）。
 pub async fn search(keyword: String, kind: SearchKind, page: u32, page_size: u32) -> Result<SearchResult, ApiError> {
     Ok(music::search(&keyword, kind, page, page_size).await?)
@@ -71,7 +76,7 @@ pub fn stream_audio(mid: String, quality: Quality, url: String) -> Result<String
 /// 歌曲缓存上限（MB），0 表示关闭。
 #[flutter_rust_bridge::frb(sync)]
 pub fn get_audio_cache_limit_mb() -> i64 {
-    cache().limit_mb()
+    crate::qq::audio_cache::limit_mb()
 }
 
 #[flutter_rust_bridge::frb(sync)]

@@ -35,9 +35,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.embedding.android.FlutterFragmentActivity;
+import io.flutter.FlutterInjector;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
@@ -60,6 +62,24 @@ import android.util.Log;
  */
 public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
     private static String flutterEngineId = "audio_service_engine";
+    private static boolean remotePlayback;
+    private static String playbackEntrypoint;
+    private static String notificationActivity;
+    private static Consumer<Boolean> playbackForegroundListener;
+
+    public static void configurePlaybackProcess(
+            boolean remote, String entrypoint, String activity, Consumer<Boolean> foregroundListener) {
+        remotePlayback = remote;
+        playbackEntrypoint = entrypoint;
+        notificationActivity = activity;
+        playbackForegroundListener = foregroundListener;
+    }
+
+    static void playbackForegroundChanged(boolean foreground) {
+        if (playbackForegroundListener != null) {
+            playbackForegroundListener.accept(foreground);
+        }
+    }
     /** Must be called BEFORE any FlutterEngine is created. e.g. in Application class. */
     public static void setFlutterEngineId(String id) {
         flutterEngineId = id;
@@ -107,8 +127,13 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
                 initialRoute = "/";
             }
             flutterEngine.getNavigationChannel().setInitialRoute(initialRoute);
-            flutterEngine.getDartExecutor().executeDartEntrypoint(DartExecutor.DartEntrypoint.createDefault());
             FlutterEngineCache.getInstance().put(flutterEngineId, flutterEngine);
+            DartExecutor.DartEntrypoint entrypoint = playbackEntrypoint == null
+                    ? DartExecutor.DartEntrypoint.createDefault()
+                    : new DartExecutor.DartEntrypoint(
+                            FlutterInjector.instance().flutterLoader().findAppBundlePath(),
+                            playbackEntrypoint);
+            flutterEngine.getDartExecutor().executeDartEntrypoint(entrypoint);
         }
         return flutterEngine;
     }
@@ -271,7 +296,7 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
         if (applicationContext == null) {
             applicationContext = flutterPluginBinding.getApplicationContext();
         }
-        if (audioHandlerInterface == null) {
+        if (!remotePlayback && audioHandlerInterface == null) {
             // We don't know yet whether this is the right engine that hosts the AudioHandler,
             // but we need to register a MethodCallHandler now just in case. If we're wrong, we
             // detect and correct this when receiving the "configure" message.
@@ -311,8 +336,10 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
         clientInterface.setActivity(binding.getActivity());
         clientInterface.setContext(binding.getActivity());
         // Verify that the app is configured with the correct FlutterEngine.
-        FlutterEngine sharedEngine = getFlutterEngine(binding.getActivity());
-        clientInterface.setWrongEngineDetected(flutterPluginBinding.getBinaryMessenger() != sharedEngine.getDartExecutor());
+        if (!remotePlayback) {
+            FlutterEngine sharedEngine = getFlutterEngine(binding.getActivity());
+            clientInterface.setWrongEngineDetected(flutterPluginBinding.getBinaryMessenger() != sharedEngine.getDartExecutor());
+        }
         mainClientInterface = clientInterface;
         registerOnNewIntentListener();
         if (mediaController != null) {
@@ -483,6 +510,8 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
                     config.setBrowsableRootExtras((Map<?,?>)configMap.get("androidBrowsableRootExtras"));
                     if (activity != null) {
                         config.activityClassName = activity.getClass().getName();
+                    } else if (notificationActivity != null) {
+                        config.activityClassName = notificationActivity;
                     }
                     config.save();
                     if (AudioService.instance != null) {

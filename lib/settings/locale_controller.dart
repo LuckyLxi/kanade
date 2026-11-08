@@ -19,13 +19,24 @@ class LocaleController extends ChangeNotifier {
   /// 跟随系统时按系统语言找，不支持的语言用第一个。
   AppLocalizations get strings {
     final l = locale ?? PlatformDispatcher.instance.locale;
-    final supported = AppLocalizations.supportedLocales.any((s) => s.languageCode == l.languageCode);
-    return lookupAppLocalizations(supported ? Locale(l.languageCode) : AppLocalizations.supportedLocales.first);
+    final supported = AppLocalizations.supportedLocales.any(
+      (s) => s.languageCode == l.languageCode,
+    );
+    return lookupAppLocalizations(
+      supported
+          ? Locale(l.languageCode)
+          : AppLocalizations.supportedLocales.first,
+    );
   }
 
   void setLocale(Locale? l) {
     locale = l;
     api.setPref(key: _key, value: l?.languageCode ?? 'system');
+    notifyListeners();
+  }
+
+  void reloadLocale() {
+    locale = _parse(api.getPref(key: _key));
     notifyListeners();
   }
 }

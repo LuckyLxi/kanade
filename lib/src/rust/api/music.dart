@@ -14,6 +14,10 @@ import 'types.dart';
 Future<void> initCore({required String dataDir}) =>
     RustLib.instance.api.crateApiMusicInitCore(dataDir: dataDir);
 
+/// Android 界面与播放进程共用数据库，音频缓存只由播放进程打开。
+Future<void> initUiCore({required String dataDir}) =>
+    RustLib.instance.api.crateApiMusicInitUiCore(dataDir: dataDir);
+
 /// 按分类搜索第 `page` 页（从 1 开始）。
 Future<SearchResult> search({
   required String keyword,

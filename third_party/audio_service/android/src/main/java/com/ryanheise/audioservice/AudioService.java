@@ -355,6 +355,7 @@ public class AudioService extends MediaBrowserServiceCompat {
 
     public void stop() {
         deactivateMediaSession();
+        AudioServicePlugin.playbackForegroundChanged(false);
         stopSelf();
     }
 
@@ -380,6 +381,7 @@ public class AudioService extends MediaBrowserServiceCompat {
         //     notificationManager.cancel(NOTIFICATION_ID);
         // }
         releaseWakeLock();
+        AudioServicePlugin.playbackForegroundChanged(false);
         instance = null;
         notificationCreated = false;
     }
@@ -722,11 +724,13 @@ public class AudioService extends MediaBrowserServiceCompat {
     private void exitForegroundState() {
         ServiceCompat.stopForeground(this, STOP_FOREGROUND_DETACH);
         releaseWakeLock();
+        AudioServicePlugin.playbackForegroundChanged(false);
     }
 
     private void internalStartForeground() {
         startForeground(NOTIFICATION_ID, buildNotification());
         notificationCreated = true;
+        AudioServicePlugin.playbackForegroundChanged(true);
     }
 
     private void acquireWakeLock() {
