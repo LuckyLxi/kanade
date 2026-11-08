@@ -98,6 +98,9 @@ class _SettingsPageState extends State<SettingsPage> {
   var _current = 0;
   var _wide = false;
 
+  /// 点左边分类后正在滚过去。
+  var _jumping = false;
+
   @override
   void initState() {
     super.initState();
@@ -124,7 +127,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   /// 宽屏时左边高亮滚到的那一类：顶到上沿附近的最后一类，滚到底就是最后一类。
   void _spy() {
-    if (!_wide || !_scroll.hasClients) return;
+    if (!_wide || !_scroll.hasClients || _jumping) return;
     final pos = _scroll.position;
     var current = 0;
     if (pos.pixels >= pos.maxScrollExtent - 2) {
@@ -142,15 +145,32 @@ class _SettingsPageState extends State<SettingsPage> {
     if (current != _current) setState(() => _current = current);
   }
 
+  /// 点左边分类滚过去：距离越远滚得越久，途中高亮停在点的那一类，不在经过的分类上乱跳。
   void _jump(int i) {
-    final context = _sectionKeys[i].currentContext;
-    if (context == null) return;
+    final box = _sectionKeys[i].currentContext?.findRenderObject();
+    if (box == null || !_scroll.hasClients) return;
+    final pos = _scroll.position;
+    final target = RenderAbstractViewport.of(box)
+        .getOffsetToReveal(box, 0)
+        .offset
+        .clamp(pos.minScrollExtent, pos.maxScrollExtent);
+    final distance = (target - pos.pixels).abs();
     setState(() => _current = i);
-    Scrollable.ensureVisible(
-      context,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-    );
+    if (distance < 1) return;
+    _jumping = true;
+    _scroll
+        .animateTo(
+          target,
+          duration: Duration(
+            milliseconds: (280 + distance / 5).clamp(280, 560).round(),
+          ),
+          curve: Curves.easeInOutCubic,
+        )
+        .whenComplete(() {
+          _jumping = false;
+          // 中途被滚轮或拖动打断时，按停下的位置重新高亮
+          if (mounted && (_scroll.position.pixels - target).abs() > 1) _spy();
+        });
   }
 
   Future<bool> _confirm(
@@ -543,15 +563,34 @@ class _SettingsPageState extends State<SettingsPage> {
                   width: 200,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 12, 16),
-                    child: Column(
+                    // 选中的底色是单独的一块，换分类时上下滑过去
+                    child: Stack(
                       children: [
-                        for (var i = 0; i < sections.length; i++)
-                          _CategoryTab(
-                            icon: sections[i].icon,
-                            title: sections[i].title,
-                            selected: i == _current,
-                            onTap: () => _jump(i),
+                        AnimatedPositioned(
+                          duration: const Duration(milliseconds: 280),
+                          curve: Curves.easeOutCubic,
+                          top: _current * _CategoryTab.extent,
+                          left: 0,
+                          right: 0,
+                          height: _CategoryTab.height,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: scheme.secondaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
+                        ),
+                        Column(
+                          children: [
+                            for (var i = 0; i < sections.length; i++)
+                              _CategoryTab(
+                                icon: sections[i].icon,
+                                title: sections[i].title,
+                                selected: i == _current,
+                                onTap: () => _jump(i),
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -904,6 +943,7 @@ class _ClearButton extends StatelessWidget {
 }
 
 /// 宽屏左边的分类，点了滚到那一类。和桌面侧栏一样不要按下的水波纹。
+/// 选中的底色不在这里画，由外面那块滑动的底色负责；这里只让字和图标的颜色跟着渐变。
 class _CategoryTab extends StatelessWidget {
   const _CategoryTab({
     required this.icon,
@@ -912,6 +952,12 @@ class _CategoryTab extends StatelessWidget {
     required this.onTap,
   });
 
+  static const height = 40.0;
+  static const _gap = 2.0;
+
+  /// 每一项占的高度，滑动底色按它算位置。
+  static const extent = height + _gap;
+
   final IconData icon;
   final String title;
   final bool selected;
@@ -919,41 +965,52 @@ class _CategoryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = selected
-        ? scheme.onSecondaryContainer
-        : scheme.onSurfaceVariant;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.only(bottom: _gap),
       child: Material(
-        color: selected ? scheme.secondaryContainer : Colors.transparent,
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           splashFactory: NoSplash.splashFactory,
           highlightColor: Colors.transparent,
-          hoverColor: selected ? Colors.transparent : scheme.surfaceContainer,
+          // 悬停色不能跟着选中变：鼠标还在上面时 InkWell 不会换掉已经画上的悬停色，
+          // 点了以后会把旧的深色盖在白色选中块上，直到鼠标移开。
+          // 用前景色的淡叠加，在选中块上自然看不出来。
+          hoverColor: scheme.onSurface.withValues(alpha: 0.06),
           child: SizedBox(
-            height: 40,
+            height: height,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  Icon(icon, size: 19, color: color),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      title,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: color,
+              // 换深浅色时直接变，不渐变：圆形切换动画里看得到新画面，渐变会露出一瞬间看不清的字
+              child: TweenAnimationBuilder<Color?>(
+                key: ValueKey(theme.brightness),
+                tween: ColorTween(
+                  end: selected
+                      ? scheme.onSecondaryContainer
+                      : scheme.onSurfaceVariant,
+                ),
+                duration: const Duration(milliseconds: 200),
+                builder: (context, color, _) => Row(
+                  children: [
+                    Icon(icon, size: 19, color: color),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        title,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: color,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
