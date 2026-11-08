@@ -12,6 +12,7 @@ import '../src/rust/api/types.dart';
 import 'feed_column.dart';
 import 'foryou_settings_page.dart';
 import 'keyed_route.dart';
+import 'ring_refresh.dart';
 import 'smooth_scroll.dart';
 import 'song_list_page.dart';
 import 'toast.dart';
@@ -157,18 +158,21 @@ class _RecommendBodyState extends State<_RecommendBody> {
 
   void _onForyouSaved() => refresh();
 
-  Future<void> refresh() async {
+  /// 失败时弹提示并返回 false。
+  Future<bool> refresh() async {
     final failed = _failedToast();
     try {
       final feed = await api.getRecommendFeed();
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _feed = feed;
         _sections = feed.sections;
         _generation++;
       });
+      return true;
     } catch (e) {
       failed(e);
+      return false;
     }
   }
 
@@ -225,7 +229,7 @@ class _RecommendBodyState extends State<_RecommendBody> {
             const SliverToBoxAdapter(child: BottomSpacer()),
           ],
         );
-        return Platform.isWindows ? list : RefreshIndicator(onRefresh: refresh, child: list);
+        return Platform.isWindows ? list : RingRefresh(onRefresh: refresh, child: list);
       },
     );
   }

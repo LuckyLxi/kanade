@@ -48,6 +48,12 @@ class _FeedColumnState extends State<_FeedColumn> {
   var _loading = false;
   Object? _error;
 
+  /// 序号小于它的卡片已经播过入场动画，划走再划回来不再播。
+  var _revealed = 0;
+
+  /// 这一帧里开始入场的卡片数，同一帧出现的几张依次错开。
+  var _staggered = 0;
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +95,7 @@ class _FeedColumnState extends State<_FeedColumn> {
       if (!mounted) return;
       setState(() {
         _page = 1;
+        _revealed = 0;
         _seen.addAll(page.seen);
         _cards
           ..clear()
@@ -131,7 +138,12 @@ class _FeedColumnState extends State<_FeedColumn> {
               itemBuilder: (context, i) {
                 // 快滑到底时取下一页；不能在 build 里 setState，放到这一帧之后
                 if (i >= _cards.length - 4) scheduleMicrotask(_loadMore);
-                return _Card(_cards[i]);
+                return _Entrance(
+                  // 换一批后同一个位置是新卡片，要重新入场
+                  key: ObjectKey(_cards[i]),
+                  delay: _entranceDelay(i),
+                  child: _Card(_cards[i]),
+                );
               },
             ),
           ),
@@ -149,12 +161,140 @@ class _FeedColumnState extends State<_FeedColumn> {
                       ),
                     )
                   : _loading
-                  ? const CircularProgressIndicator()
+                  ? const _BouncingDots()
                   : const SizedBox.shrink(),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  /// 第 [i] 张卡片第一次出现时等多久再入场；已经出现过的返回 null，不播动画。
+  Duration? _entranceDelay(int i) {
+    if (i < _revealed) return null;
+    _revealed = i + 1;
+    if (_staggered == 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _staggered = 0);
+    }
+    return Duration(milliseconds: 70 * _staggered++);
+  }
+}
+
+/// 卡片入场：从下面 28 像素处淡入上浮。[delay] 为 null 时直接显示。
+/// 只在第一次挂上时决定播不播，之后父级重建不会打断。
+class _Entrance extends StatefulWidget {
+  const _Entrance({super.key, required this.delay, required this.child});
+
+  final Duration? delay;
+  final Widget child;
+
+  @override
+  State<_Entrance> createState() => _EntranceState();
+}
+
+class _EntranceState extends State<_Entrance>
+    with SingleTickerProviderStateMixin {
+  late final _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 460),
+  );
+  late final _t = CurvedAnimation(
+    parent: _controller,
+    curve: const Cubic(0.2, 0.8, 0.2, 1),
+  );
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    final delay = widget.delay;
+    if (delay == null) {
+      _controller.value = 1;
+    } else if (delay == Duration.zero) {
+      _controller.forward();
+    } else {
+      _timer = Timer(delay, _controller.forward);
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _t.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+    opacity: _t,
+    child: AnimatedBuilder(
+      animation: _t,
+      builder: (context, child) => Transform.translate(
+        offset: Offset(0, 28 * (1 - _t.value)),
+        child: child,
+      ),
+      child: widget.child,
+    ),
+  );
+}
+
+/// 加载下一页时底下三个点轮流跳起来。
+class _BouncingDots extends StatefulWidget {
+  const _BouncingDots();
+
+  @override
+  State<_BouncingDots> createState() => _BouncingDotsState();
+}
+
+class _BouncingDotsState extends State<_BouncingDots>
+    with SingleTickerProviderStateMixin {
+  late final _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return SizedBox(
+      height: 36,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var j = 0; j < 3; j++) ...[
+              if (j > 0) const SizedBox(width: 6),
+              _dot(color, (_controller.value - j / 6) % 1),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 一个周期的前 40% 跳起、40%~80% 落下，剩下时间停在原处。
+  Widget _dot(Color color, double t) {
+    final up = t < 0.4 ? t / 0.4 : (t < 0.8 ? (0.8 - t) / 0.4 : 0.0);
+    final f = Curves.easeInOut.transform(up);
+    return Transform.translate(
+      offset: Offset(0, -8 * f),
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.4 + 0.6 * f),
+          shape: BoxShape.circle,
+        ),
+      ),
     );
   }
 }
