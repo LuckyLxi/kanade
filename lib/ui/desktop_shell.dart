@@ -132,6 +132,8 @@ class _NavItem extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onTap,
+            splashFactory: NoSplash.splashFactory,
+            highlightColor: Colors.transparent,
             child: SizedBox(
               height: height,
               child: Padding(
