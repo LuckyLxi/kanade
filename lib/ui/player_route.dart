@@ -1,13 +1,14 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/data_ext.dart';
 import '../player/player_controller.dart';
-import 'glass.dart';
 import 'player_page.dart';
 import 'title_bar.dart';
 import 'widgets.dart';
@@ -29,6 +30,10 @@ class PlayerBarAnchor {
 
   /// 播放页盖在上面（包括转场途中）时为 true。
   final hidden = ValueNotifier(false);
+
+  /// 变形开头（进度不到 [PlayerMorph.glassUntil]）时是正在驱动它的那个变形：
+  /// 这段的玻璃就是播放条自己那块跟着长大（见 [PlayerBarGrowth]），其余时候为 null。
+  final growing = ValueNotifier<PlayerMorph?>(null);
 
   Rect? get rect => _globalRect(barKey);
   Rect? get coverRect => _globalRect(coverKey);
@@ -65,6 +70,27 @@ mixin PlayerMorph {
   double get progress;
 
   static PlayerMorph? maybeOf(BuildContext context) => context.dependOnInheritedWidgetOfExactType<_MorphScope>()?.morph;
+
+  /// 播放页在这之前还没完全显出来，底下要有玻璃。
+  static const glassUntil = 0.3;
+
+  /// 形状在进度 [t] 时的圆角（不算快到全屏时收成直角的那段），从播放条的半圆走向大圆角。
+  static double radiusAt(double barShortestSide, double t) => lerpDouble(barShortestSide / 2, 38, t)!;
+
+  /// 进度变化时调用：开头这段让播放条的玻璃跟着长。
+  void syncGrowing() {
+    final a = anchor;
+    if (a == null) return;
+    if (progress < glassUntil) {
+      a.growing.value = this;
+    } else {
+      stopGrowing();
+    }
+  }
+
+  void stopGrowing() {
+    if (anchor?.growing.value == this) anchor!.growing.value = null;
+  }
 }
 
 class _MorphScope extends InheritedWidget {
@@ -146,7 +172,10 @@ class PlayerBarDrag {
 class _DragPreview with PlayerMorph {
   _DragPreview(this.anchor, TickerProvider vsync) : _controller = AnimationController(vsync: vsync) {
     // 拖到顶时飞行封面撤掉，换播放页自己的封面露出来，和路由里一样
-    _controller.addListener(() => artInFlight.value = _controller.value < 1);
+    _controller.addListener(() {
+      artInFlight.value = _controller.value < 1;
+      syncGrowing();
+    });
   }
 
   @override
@@ -162,6 +191,7 @@ class _DragPreview with PlayerMorph {
 
   void show(BuildContext context) {
     anchor.hidden.value = true;
+    syncGrowing();
     // 手指一直按在播放条上，预览不接收点击
     _entry = OverlayEntry(
       builder: (_) => IgnorePointer(
@@ -191,6 +221,8 @@ class _DragPreview with PlayerMorph {
   }
 
   void _dispose() {
+    // 交给路由时它已经接手了播放条的玻璃，这里只撤自己的
+    stopGrowing();
     _entry
       ?..remove()
       ..dispose();
@@ -268,6 +300,7 @@ class PlayerRoute extends ModalRoute<void> with PlayerMorph {
     anchor?.hidden.value = true;
     // 接着拖动预览的进度往下展开
     if (startAt case final start?) controller!.value = start;
+    syncGrowing();
     return super.didPush();
   }
 
@@ -281,14 +314,21 @@ class PlayerRoute extends ModalRoute<void> with PlayerMorph {
     return _spring(c.value, forward ? 1 : 0, v);
   }
 
-  void _onTick() => artInFlight.value = anchor != null && controller!.value < 1;
+  void _onTick() {
+    artInFlight.value = anchor != null && controller!.value < 1;
+    syncGrowing();
+  }
 
   void _onStatus(AnimationStatus status) {
-    if (status.isDismissed && !isActive) anchor?.hidden.value = false;
+    if (status.isDismissed && !isActive) {
+      stopGrowing();
+      anchor?.hidden.value = false;
+    }
   }
 
   @override
   void dispose() {
+    stopGrowing();
     anchor?.hidden.value = false;
     artInFlight.dispose();
     super.dispose();
@@ -327,9 +367,16 @@ class PlayerRoute extends ModalRoute<void> with PlayerMorph {
   }
 
   @override
-  Widget buildPage(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation) =>
-      // 全屏沉浸：窗口按钮平时隐藏，鼠标移到顶部才出现
-      ImmersiveTitleBar(child: PlayerPage(showQueue: showQueue));
+  Widget buildPage(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation) {
+    // 全屏沉浸：窗口按钮平时隐藏，鼠标移到顶部才出现
+    final page = ImmersiveTitleBar(child: PlayerPage(showQueue: showQueue));
+    if (!Platform.isWindows) return page;
+    // Windows 上按 Esc 收起播放页
+    return CallbackShortcuts(
+      bindings: {const SingleActivator(LogicalKeyboardKey.escape): () => navigator?.maybePop()},
+      child: Focus(autofocus: true, child: page),
+    );
+  }
 
   @override
   Widget buildTransitions(
@@ -354,9 +401,6 @@ class _BarMorphState extends State<_BarMorph> {
   /// 包住整个播放页，大封面的位置相对它来量，不受变形时的平移影响。
   final _pageKey = GlobalKey();
   Rect? _start;
-
-  /// 展开途中的圆角。
-  static const _radius = 38.0;
 
   /// 大封面在播放页里的位置。播放页第一帧还没排版，就用上一次量到的。
   Rect? _artRect() {
@@ -392,29 +436,18 @@ class _BarMorphState extends State<_BarMorph> {
         final t = morph.progress;
         final rect = Rect.lerp(start, full, t)!;
         // 全程大圆角，到全屏前的最后一小段才收成直角
-        final radius = lerpDouble(start.shortestSide / 2, _radius, t)! * ((1 - t) / 0.06).clamp(0.0, 1.0);
+        final radius = PlayerMorph.radiusAt(start.shortestSide, t) * ((1 - t) / 0.06).clamp(0.0, 1.0);
         // 播放页在前 30% 里显出来，之后它不透明，底下的玻璃就不用画了
-        final pageOpacity = anchor == null ? 1.0 : (t / 0.3).clamp(0.0, 1.0);
+        final pageOpacity = anchor == null ? 1.0 : (t / PlayerMorph.glassUntil).clamp(0.0, 1.0);
         final from = anchor != null && t < 1 ? anchor.coverRect : null;
         final art = from == null ? null : _artRect();
         return Stack(
           fit: StackFit.expand,
           children: [
-            // 和播放条同一块玻璃，开头看起来就是播放条在长大
-            if (anchor != null && t < 0.3)
-              Positioned.fromRect(
-                rect: rect,
-                child: GlassContainer(
-                  useOwnLayer: true,
-                  settings: KanadeGlass.navigationSettings(context),
-                  quality: KanadeGlass.navigationQuality,
-                  shape: LiquidRoundedRectangle(borderRadius: radius),
-                  child: const SizedBox.expand(),
-                ),
-              ),
+            // 底下的玻璃是播放条自己那块在长大（[PlayerBarGrowth]），这里不另画
             // 页面按全屏排好，只跟着形状的顶边平移、被形状裁剪；不缩放，每帧不用重新排版
             Transform.translate(
-              // 前面的玻璃会增删，靠 key 对上，页面不被重建
+              // 后面的副本会增删，靠 key 对上，页面不被重建
               key: const ValueKey('page'),
               offset: Offset(0, rect.top),
               child: ClipRRect(
@@ -498,4 +531,179 @@ class _RRectClipper extends CustomClipper<RRect> {
 
   @override
   bool shouldReclip(_RRectClipper old) => old.rrect != rrect;
+}
+
+/// 播放条的玻璃，变形开头（[PlayerBarAnchor.growing]）由它自己长成播放页的形状，
+/// 不另画一块：同一个图层、同一份背景，看起来不会突然换掉（手机上和导航栏粘在一起的那块也一样）。
+/// 外面的布局不变，只把玻璃排大、画到形状的位置。`growing` 时歌名、封面由转场层画，
+/// 玻璃里的内容要藏起来，并用 [pin] 包住，让它留在原位。
+///
+/// [builder] 拿到的 `shapeT` 用来按 [PlayerMorph.radiusAt] 给圆角，和播放页的形状对齐。
+/// Windows 上它一直是 0，圆角保持播放条自己的：Skia 上圆角一变就要现场编译另一份玻璃着色器，
+/// 第一次打开会卡一两百毫秒；这段圆角只差 1～2 像素，播放页还盖在上面淡入，看不出来。
+class PlayerBarGrowth extends StatelessWidget {
+  const PlayerBarGrowth({super.key, required this.anchor, required this.builder});
+
+  final PlayerBarAnchor anchor;
+  final Widget Function(bool growing, double shapeT) builder;
+
+  /// 进度里玻璃用的那份：Windows 上不跟着变圆角，见上。
+  static double shapeT(double t) => Platform.isWindows ? 0 : t;
+
+  /// 玻璃里的内容按播放条原来的尺寸排、画回原来的位置，不跟着玻璃重新排版；
+  /// 封面量出来一直是它停着时的位置，飞行封面不会跟着跳。
+  static Widget pin(Widget child) => _Pin(child: child);
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: anchor.growing,
+    builder: (context, morph, _) => AnimatedBuilder(
+      // 换动画不换结构，玻璃一直是同一个
+      animation: morph?.motion ?? const AlwaysStoppedAnimation(0.0),
+      builder: (context, _) {
+        final t = morph?.progress ?? 0.0;
+        return _Grow(
+          t: t,
+          screen: MediaQuery.sizeOf(context),
+          pixelRatio: MediaQuery.devicePixelRatioOf(context),
+          child: builder(morph != null, shapeT(t)),
+        );
+      },
+    ),
+  );
+}
+
+class _Grow extends SingleChildRenderObjectWidget {
+  const _Grow({required this.t, required this.screen, required this.pixelRatio, super.child});
+
+  final double t;
+  final Size screen;
+  final double pixelRatio;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderGrow(t, screen, pixelRatio);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderGrow object) => object
+    ..t = t
+    ..screen = screen
+    ..pixelRatio = pixelRatio;
+}
+
+/// 自己占播放条的大小；里面按 [_BarMorph] 的形状排：尺寸从播放条走向全屏，位置走向屏幕左上角。
+/// 尺寸只看进度，排版时就能定；位置要等外面排完，在绘制时才算。
+class _RenderGrow extends RenderProxyBox {
+  _RenderGrow(this._t, this._screen, this._pixelRatio);
+
+  double _t;
+  set t(double value) {
+    if (value == _t) return;
+    _t = value;
+    markNeedsLayout();
+  }
+
+  Size _screen;
+  set screen(Size value) {
+    if (value == _screen) return;
+    _screen = value;
+    markNeedsLayout();
+  }
+
+  double _pixelRatio;
+  set pixelRatio(double value) {
+    if (value == _pixelRatio) return;
+    _pixelRatio = value;
+    markNeedsLayout();
+  }
+
+  // 长大途中对齐到整像素，和播放条停着时一样；带小数的边缘在 Windows 的 Skia 上走另一份抗锯齿着色器，第一次要现场编译
+  double _snap(double v) => (v * _pixelRatio).roundToDouble() / _pixelRatio;
+
+  Offset get _shift {
+    if (_t == 0) return Offset.zero;
+    final shift = -localToGlobal(Offset.zero) * _t;
+    return Offset(_snap(shift.dx), _snap(shift.dy));
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) => constraints.biggest;
+
+  /// 播放条自己的尺寸，[_RenderPin] 按它排里面的内容。
+  Size _restSize = Size.zero;
+
+  @override
+  void performLayout() {
+    size = _restSize = constraints.biggest;
+    final grown = Size.lerp(size, _screen, _t)!;
+    child?.layout(BoxConstraints.tight(_t == 0 ? size : Size(_snap(grown.width), _snap(grown.height))));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (child != null) context.paintChild(child!, offset + _shift);
+  }
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    final shift = _shift;
+    transform.multiply(Matrix4.translationValues(shift.dx, shift.dy, 0));
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      child != null &&
+      result.addWithPaintOffset(
+        offset: _shift,
+        position: position,
+        hitTest: (result, position) => child!.hitTest(result, position: position),
+      );
+}
+
+class _Pin extends SingleChildRenderObjectWidget {
+  const _Pin({super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderPin();
+}
+
+/// 在长大的玻璃里抵消 [_RenderGrow] 的放大和平移：内容按播放条的尺寸排，画回播放条原来的位置。
+class _RenderPin extends RenderProxyBox {
+  _RenderGrow? get _grow {
+    var node = parent;
+    while (node != null && node is! _RenderGrow) {
+      node = node.parent;
+    }
+    return node as _RenderGrow?;
+  }
+
+  bool get _pinned => (_grow?._t ?? 0) != 0;
+
+  Offset get _back => _pinned ? -_grow!._shift : Offset.zero;
+
+  @override
+  void performLayout() {
+    if (!_pinned || child == null) return super.performLayout();
+    size = constraints.biggest;
+    child!.layout(BoxConstraints.tight(_grow!._restSize));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (child != null) context.paintChild(child!, offset + _back);
+  }
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    final back = _back;
+    transform.multiply(Matrix4.translationValues(back.dx, back.dy, 0));
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      child != null &&
+      result.addWithPaintOffset(
+        offset: _back,
+        position: position,
+        hitTest: (result, position) => child!.hitTest(result, position: position),
+      );
 }

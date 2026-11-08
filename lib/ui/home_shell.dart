@@ -16,6 +16,7 @@ import 'glass.dart';
 import 'mine_page.dart';
 import 'mini_player.dart';
 import 'overlay_layout_state.dart';
+import 'player_route.dart';
 import 'search_page.dart';
 import 'song_list_page.dart';
 import 'widgets.dart';
@@ -315,8 +316,18 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
           child: Stack(
             children: [
               Positioned.fill(
-                child: KanadeGlass.backdropSource(
-                  captureBounds: (size) => Rect.fromLTRB(0, size.height - barSpace - 32, size.width, size.height),
+                // 播放栏的玻璃长成播放页时会变高，这段时间截到它最高长到的地方
+                child: ValueListenableBuilder(
+                  valueListenable: DesktopPlayerBar.anchor.growing,
+                  builder: (_, growing, child) => KanadeGlass.backdropSource(
+                    captureBounds: (size) => Rect.fromLTRB(
+                      0,
+                      (size.height - barSpace) * (growing == null ? 1 : 1 - PlayerMorph.glassUntil) - 32,
+                      size.width,
+                      size.height,
+                    ),
+                    child: child!,
+                  ),
                   child: ColoredBox(
                     color: scheme.surface,
                     child: Row(
@@ -470,8 +481,10 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
           )..multiply(Matrix4.diagonal3Values(navScaleX, navScaleY, 1));
           // 导航栏的图标在播放条压上来之前就淡完，不和歌名叠在一起
           final navFace = hasSong ? math.min(_navFace.value, 1 - const Interval(0.2, 0.6).transform(f)) : 1.0;
-          // 同一个玻璃层里两块玻璃靠近时才开始粘连，一级页面里分开的时候不粘
-          final blend = 18 * (f / 0.15).clamp(0.0, 1.0);
+          // 同一个玻璃层里两块玻璃靠近时才开始粘连，一级页面里分开的时候不粘。
+          // 落成底部胶囊的最后一段粘连退掉：缩在里面 4 像素的导航栏会把轮廓撑大近 3 像素，
+          // 播放页从播放条本身的大小变形出来，拖动时下半段会露出一圈多出来的玻璃
+          final blend = 18 * (f / 0.15).clamp(0.0, 1.0) * (1 - const Interval(0.85, 1).transform(d));
           var opacity = 1.0;
           if (a < 1) {
             // 第一次出现：一颗小圆从导航栏胶囊的右端分裂出来，长大挪到位（二级页面里从胶囊右端长出来）

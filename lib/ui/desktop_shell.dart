@@ -267,6 +267,7 @@ class DesktopPlayerBar extends StatefulWidget {
 class _DesktopPlayerBarState extends State<DesktopPlayerBar> with TickerProviderStateMixin {
   late final _anchor = widget.barAnchor ?? DesktopPlayerBar.anchor;
   late final _drag = PlayerBarDrag(_anchor, this);
+  late final _visibility = Listenable.merge([_anchor.hidden, _anchor.growing]);
 
   @override
   Widget build(BuildContext context) {
@@ -281,24 +282,35 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> with TickerProvider
       onVerticalDragUpdate: hasSong ? (d) => _drag.update(context, d) : null,
       onVerticalDragEnd: hasSong ? (d) => _drag.end(context, d.velocity.pixelsPerSecond.dy) : null,
       onVerticalDragCancel: hasSong ? () => _drag.end(context, 0) : null,
-      child: GlassContainer(
-        useOwnLayer: true,
-        settings: KanadeGlass.navigationSettings(context),
-        quality: KanadeGlass.navigationQuality,
+      child: SizedBox(
         height: DesktopPlayerBar.height,
-        shape: const LiquidRoundedRectangle(borderRadius: DesktopPlayerBar.height / 2),
-        clipBehavior: Clip.antiAlias,
-        child: Material(
-          type: MaterialType.transparency,
-          child: hasSong ? _DesktopBarContent(anchor: _anchor, showCover: true) : const _DesktopBarIdle(),
+        // 变形开头玻璃跟着长成播放页的形状，栏里的内容这时由转场层画
+        child: PlayerBarGrowth(
+          anchor: _anchor,
+          builder: (growing, shapeT) => GlassContainer(
+            useOwnLayer: true,
+            settings: KanadeGlass.navigationSettings(context),
+            quality: KanadeGlass.navigationQuality,
+            shape: LiquidRoundedRectangle(borderRadius: PlayerMorph.radiusAt(DesktopPlayerBar.height, shapeT)),
+            clipBehavior: Clip.antiAlias,
+            child: Opacity(
+              opacity: growing ? 0 : 1,
+              child: PlayerBarGrowth.pin(
+                Material(
+                  type: MaterialType.transparency,
+                  child: hasSong ? _DesktopBarContent(anchor: _anchor, showCover: true) : const _DesktopBarIdle(),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
-    // 播放页盖在上面时由转场层画它，这里藏起来
-    return ValueListenableBuilder(
-      valueListenable: _anchor.hidden,
+    // 播放页盖在上面时由转场层画它，这里藏起来；变形开头只留长大的玻璃
+    return ListenableBuilder(
+      listenable: _visibility,
       child: bar,
-      builder: (_, hidden, bar) => Opacity(opacity: hidden ? 0 : 1, child: bar),
+      builder: (_, bar) => Opacity(opacity: _anchor.hidden.value && _anchor.growing.value == null ? 0 : 1, child: bar),
     );
   }
 }

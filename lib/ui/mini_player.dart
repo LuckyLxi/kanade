@@ -73,6 +73,7 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
   late final _swipe = AnimationController.unbounded(vsync: this);
   late final _anchor = widget.barAnchor ?? MiniPlayer.anchor;
   late final _drag = PlayerBarDrag(_anchor, this);
+  late final _visibility = Listenable.merge([_anchor.hidden, _anchor.growing]);
 
   @override
   void dispose() {
@@ -126,7 +127,6 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
             ((MiniPlayer.height - h) / 6).clamp(0.0, 1.0),
           )!;
           final face = widget.faceOpacity.clamp(0.0, 1.0);
-          final shape = LiquidRoundedRectangle(borderRadius: math.min(w, h) / 2);
           final content = Material(
             type: MaterialType.transparency,
             child: Stack(
@@ -163,38 +163,46 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
               ],
             ),
           );
-          if (!widget.grouped) {
-            return GlassContainer(
-              useOwnLayer: true,
-              settings: KanadeGlass.navigationSettings(context),
-              quality: KanadeGlass.navigationQuality,
-              shape: shape,
-              clipBehavior: Clip.antiAlias,
-              child: content,
-            );
-          }
-          // 分组的玻璃连同里面的内容都由外面的玻璃层来画，外面套 Opacity 藏不住；
-          // 播放页盖上来时干脆不挂玻璃，只留透明的内容占位
-          return ValueListenableBuilder(
-            valueListenable: _anchor.hidden,
-            child: content,
-            builder: (_, hidden, content) => hidden
-                ? content!
-                : GlassContainer(
-                    quality: KanadeGlass.navigationQuality,
-                    shape: shape,
-                    clipBehavior: Clip.antiAlias,
-                    child: content,
-                  ),
+          // 变形开头玻璃跟着长成播放页的形状，歌名和封面这时由转场层画
+          return PlayerBarGrowth(
+            anchor: _anchor,
+            builder: (growing, shapeT) {
+              final shape = LiquidRoundedRectangle(borderRadius: PlayerMorph.radiusAt(math.min(w, h), shapeT));
+              final inner = Opacity(opacity: growing ? 0 : 1, child: PlayerBarGrowth.pin(content));
+              if (!widget.grouped) {
+                return GlassContainer(
+                  useOwnLayer: true,
+                  settings: KanadeGlass.navigationSettings(context),
+                  quality: KanadeGlass.navigationQuality,
+                  shape: shape,
+                  clipBehavior: Clip.antiAlias,
+                  child: inner,
+                );
+              }
+              // 分组的玻璃连同里面的内容都由外面的玻璃层来画，外面套 Opacity 藏不住；
+              // 播放页盖上来时干脆不挂玻璃，只留透明的内容占位
+              return ValueListenableBuilder(
+                valueListenable: _anchor.hidden,
+                child: inner,
+                builder: (_, hidden, inner) => hidden && !growing
+                    ? inner!
+                    : GlassContainer(
+                        quality: KanadeGlass.navigationQuality,
+                        shape: shape,
+                        clipBehavior: Clip.antiAlias,
+                        child: inner,
+                      ),
+              );
+            },
           );
         },
       ),
     );
-    // 播放页盖在上面时由转场层画它，这里藏起来
-    return ValueListenableBuilder(
-      valueListenable: _anchor.hidden,
+    // 播放页盖在上面时由转场层画它，这里藏起来；变形开头只留长大的玻璃
+    return ListenableBuilder(
+      listenable: _visibility,
       child: bar,
-      builder: (_, hidden, bar) => Opacity(opacity: hidden ? 0 : 1, child: bar),
+      builder: (_, bar) => Opacity(opacity: _anchor.hidden.value && _anchor.growing.value == null ? 0 : 1, child: bar),
     );
   }
 }

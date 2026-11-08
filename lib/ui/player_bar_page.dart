@@ -91,9 +91,18 @@ class _PlayerBarPageState extends State<PlayerBarPage> with SingleTickerProvider
           child: Stack(
             children: [
               Positioned.fill(
-                child: KanadeGlass.backdropSource(
-                  captureBounds: (size) =>
-                      Rect.fromLTRB(0, size.height - barBottom - barHeight - 32, size.width, size.height),
+                // 播放条的玻璃长成播放页时会变高，这段时间截到它最高长到的地方
+                child: ValueListenableBuilder(
+                  valueListenable: (wide ? _desktopAnchor : _miniAnchor).growing,
+                  builder: (_, growing, child) => KanadeGlass.backdropSource(
+                    captureBounds: (size) => Rect.fromLTRB(
+                      0,
+                      (size.height - barBottom - barHeight) * (growing == null ? 1 : 1 - PlayerMorph.glassUntil) - 32,
+                      size.width,
+                      size.height,
+                    ),
+                    child: child!,
+                  ),
                   child: MediaQuery(
                     // 播放条浮在内容上面，列表滚到底时最后一项不被它挡住
                     data: mq.copyWith(padding: mq.padding.copyWith(bottom: mq.padding.bottom + barSpace)),
