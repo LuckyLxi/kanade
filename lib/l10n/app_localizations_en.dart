@@ -146,6 +146,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recognizeNoMic => 'Microphone access denied';
 
   @override
+  String get recognizeBubble => 'Enable floating button';
+
+  @override
+  String get recognizeBubbleHint => 'Keep recognizing after switching apps';
+
+  @override
   String get searchPrompt => 'Type a keyword and press Enter';
 
   @override

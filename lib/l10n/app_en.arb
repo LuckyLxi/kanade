@@ -36,6 +36,8 @@
   "recognizeNotFound": "Couldn't recognize this song",
   "recognizeAgain": "Try again",
   "recognizeNoMic": "Microphone access denied",
+  "recognizeBubble": "Enable floating button",
+  "recognizeBubbleHint": "Keep recognizing after switching apps",
   "searchPrompt": "Type a keyword and press Enter",
   "searchHot": "Trending",
   "searchRecommended": "You might like",

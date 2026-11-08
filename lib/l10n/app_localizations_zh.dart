@@ -134,6 +134,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get recognizeNoMic => '没有麦克风权限';
 
   @override
+  String get recognizeBubble => '开启悬浮按钮';
+
+  @override
+  String get recognizeBubbleHint => '切到别的软件也能接着识曲';
+
+  @override
   String get searchPrompt => '输入关键词后回车搜索';
 
   @override

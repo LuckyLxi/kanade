@@ -89,6 +89,8 @@
   "recognizeNotFound": "没听出来是哪首歌",
   "recognizeAgain": "再识别一次",
   "recognizeNoMic": "没有麦克风权限",
+  "recognizeBubble": "开启悬浮按钮",
+  "recognizeBubbleHint": "切到别的软件也能接着识曲",
   "searchPrompt": "输入关键词后回车搜索",
   "searchHot": "热搜榜",
   "searchRecommended": "猜你想搜",

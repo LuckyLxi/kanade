@@ -314,6 +314,18 @@ abstract class AppLocalizations {
   /// **'没有麦克风权限'**
   String get recognizeNoMic;
 
+  /// No description provided for @recognizeBubble.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启悬浮按钮'**
+  String get recognizeBubble;
+
+  /// No description provided for @recognizeBubbleHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'切到别的软件也能接着识曲'**
+  String get recognizeBubbleHint;
+
   /// No description provided for @searchPrompt.
   ///
   /// In zh, this message translates to:
