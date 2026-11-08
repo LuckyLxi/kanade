@@ -62,7 +62,7 @@ class _Player extends ChangeNotifier implements PlayerController {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-Song _song({String vid = 'video-vid'}) => Song(
+Song _song({String vid = 'video-vid', String coverUrl = ''}) => Song(
   id: 667137632,
   mid: 'song-mid',
   name: 'Turning Around',
@@ -71,16 +71,16 @@ Song _song({String vid = 'video-vid'}) => Song(
   albumName: '',
   durationSecs: 247,
   mediaMid: 'song-mid',
-  coverUrl: '',
+  coverUrl: coverUrl,
   vip: false,
   hasHq: false,
   hasFlac: false,
   mvVid: vid,
 );
 
-Future<_Player> _show(WidgetTester tester, Song song) async {
-  tester.view.physicalSize = const Size(430, 900);
-  tester.view.devicePixelRatio = 1;
+Future<_Player> _show(WidgetTester tester, Song song, {double dpr = 1}) async {
+  tester.view.physicalSize = const Size(430, 900) * dpr;
+  tester.view.devicePixelRatio = dpr;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   final player = _Player();
@@ -117,6 +117,25 @@ void main() {
     api.similarRequests.clear();
     api.similar = () async => [_song()];
   });
+
+  testWidgets('Android song rows decode QQ square covers at physical size', (
+    tester,
+  ) async {
+    await _show(
+      tester,
+      _song(
+        coverUrl: 'https://y.gtimg.cn/music/photo_new/T002R300x300M000test.jpg',
+      ),
+      dpr: 3.5,
+    );
+    final image = tester.widget<Image>(find.byType(Image));
+    expect(image.width, 48);
+    expect(image.height, 48);
+    expect(
+      image.image,
+      isA<ResizeImage>().having((provider) => provider.width, 'width', 168),
+    );
+  }, variant: const TargetPlatformVariant({TargetPlatform.android}));
 
   for (final longPress in [false, true]) {
     testWidgets(

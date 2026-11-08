@@ -345,7 +345,12 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
                             children: [
                               Positioned.fromRect(
                                 rect: coverRect,
-                                child: _AlbumArt(url: cover, playing: p.playing, expanded: t < 0.5),
+                                child: _AlbumArt(
+                                  url: cover,
+                                  placeholderUrl: song.coverUrl,
+                                  playing: p.playing,
+                                  expanded: t < 0.5,
+                                ),
                               ),
                               Positioned.fromRect(rect: titleRect, child: _TitleRow(song: song, t: t)),
                             ],
@@ -380,7 +385,12 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
                       return Center(
                         child: SizedBox.square(
                           dimension: size,
-                          child: _AlbumArt(url: cover, playing: p.playing, expanded: true),
+                          child: _AlbumArt(
+                            url: cover,
+                            placeholderUrl: song.coverUrl,
+                            playing: p.playing,
+                            expanded: true,
+                          ),
                         ),
                       );
                     },
@@ -438,9 +448,15 @@ BoxShadow albumArtShadow({required bool lifted}) => BoxShadow(
 
 /// 封面：暂停时缩小、播放时弹回并加深投影。
 class _AlbumArt extends StatelessWidget {
-  const _AlbumArt({required this.url, required this.playing, required this.expanded});
+  const _AlbumArt({
+    required this.url,
+    required this.placeholderUrl,
+    required this.playing,
+    required this.expanded,
+  });
 
   final String url;
+  final String placeholderUrl;
   final bool playing;
   final bool expanded;
 
@@ -469,7 +485,10 @@ class _AlbumArt extends StatelessWidget {
               opacity: a,
               child: ScaleTransition(scale: Tween(begin: 0.94, end: 1.0).animate(a), child: child),
             ),
-            child: SizedBox.expand(key: ValueKey(url), child: Cover(url, radius: radius)),
+            child: SizedBox.expand(
+              key: ValueKey(url),
+              child: Cover(url, placeholderUrl: placeholderUrl, radius: radius),
+            ),
           ),
         ),
       ),

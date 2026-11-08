@@ -152,7 +152,12 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
                   height: d,
                   child: KeyedSubtree(
                     key: _anchor.coverKey,
-                    child: Cover(song.coverUrl, size: d, radius: d / 2),
+                    child: Cover(
+                      song.coverUrl,
+                      size: d,
+                      radius: d / 2,
+                      keepPrevious: true,
+                    ),
                   ),
                 ),
               ],

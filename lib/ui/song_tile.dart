@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -23,6 +24,8 @@ class SongTile extends StatelessWidget {
 
   /// 自己的歌单里才有，更多菜单里会出现“从歌单中删除”。
   final VoidCallback? onRemove;
+
+  static const _coverSize = 48.0;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +58,17 @@ class SongTile extends StatelessWidget {
             )
           : Stack(
               children: [
-                Cover(song.coverUrl, size: 48, radius: 8),
+                Cover(
+                  song.coverUrl,
+                  size: _coverSize,
+                  // QQ 的 300px 方形封面按列表实际需要的物理像素解码。
+                  cacheWidth:
+                      defaultTargetPlatform == TargetPlatform.android &&
+                          song.coverUrl.contains('R300x300M000')
+                      ? (_coverSize * MediaQuery.devicePixelRatioOf(context))
+                            .ceil()
+                      : null,
+                ),
                 if (isCurrent)
                   Positioned.fill(
                     child: DecoratedBox(

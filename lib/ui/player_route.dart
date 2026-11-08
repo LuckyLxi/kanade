@@ -454,7 +454,7 @@ class _BarMorphState extends State<_BarMorph> {
   }
 }
 
-/// 飞行中的封面：小图一定已经缓存，大图到了就盖上去。
+/// 飞行中的封面：大图加载时继续显示播放条的小图。
 /// 投影随进度 [t] 从无长到大封面那样，落地换成真封面时不会突然冒出阴影。
 class _FlyingCover extends StatelessWidget {
   const _FlyingCover({required this.radius, required this.t});
@@ -479,12 +479,10 @@ class _FlyingCover extends StatelessWidget {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [Cover(song.coverUrl, radius: 0), Cover(bigCoverUrl(song), radius: 0)],
-        ),
+      child: Cover(
+        bigCoverUrl(song),
+        placeholderUrl: song.coverUrl,
+        radius: radius,
       ),
     );
   }

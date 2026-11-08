@@ -13,45 +13,129 @@ String formatDuration(Duration d) {
   return '$m:${s.toString().padLeft(2, '0')}';
 }
 
-class Cover extends StatelessWidget {
-  const Cover(this.url, {super.key, this.size, this.radius = 8});
+class Cover extends StatefulWidget {
+  const Cover(
+    this.url, {
+    super.key,
+    this.size,
+    this.radius = 8,
+    this.cacheWidth,
+    this.placeholderUrl,
+    this.keepPrevious = false,
+  });
 
   final String url;
   final double? size;
   final double radius;
+  final int? cacheWidth;
+  final String? placeholderUrl;
+
+  /// 新封面淡入前保留已经显示的封面，适用于播放条切歌。
+  final bool keepPrevious;
+
+  @override
+  State<Cover> createState() => _CoverState();
+}
+
+class _CoverState extends State<Cover> {
+  String? _displayedUrl;
+  String? _previousUrl;
+
+  @override
+  void didUpdateWidget(Cover oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.keepPrevious && widget.url != oldWidget.url) {
+      _previousUrl = widget.url.isEmpty ? null : _displayedUrl;
+      if (widget.url.isEmpty) _displayedUrl = null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final Cover(:url, :size, :radius, :cacheWidth, :keepPrevious) = widget;
+    final imageUrl = httpsUrl(url);
+    final previous = _previousUrl;
+    final showPrevious =
+        keepPrevious && previous != null && previous != imageUrl;
+    final smallUrl = widget.placeholderUrl;
+    final preview =
+        smallUrl != null &&
+            smallUrl.isNotEmpty &&
+            httpsUrl(smallUrl) != imageUrl
+        ? Cover(smallUrl, size: size, radius: 0)
+        : null;
     final placeholder = Container(
       width: size,
       height: size,
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: const Icon(Icons.music_note),
     );
+
+    void releasePrevious() {
+      if (mounted && widget.url == url && _previousUrl == previous) {
+        setState(() => _previousUrl = null);
+      }
+    }
+
+    Widget image(String source, {bool retained = false}) => Image.network(
+      source,
+      key: keepPrevious ? ValueKey(source) : null,
+      width: size,
+      height: size,
+      cacheWidth: cacheWidth,
+      fit: BoxFit.cover,
+      // 网络加载完才淡入；内存缓存里同步拿到的直接显示，滚回来不会再闪一次
+      frameBuilder: (_, child, frame, sync) {
+        if (retained) return child;
+        if (keepPrevious && frame != null) _displayedUrl = source;
+        if (sync && showPrevious) {
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => releasePrevious(),
+          );
+        }
+        if (sync) return child;
+        final image = AnimatedOpacity(
+          opacity: frame == null ? 0 : 1,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOut,
+          onEnd: showPrevious && frame != null ? releasePrevious : null,
+          child: child,
+        );
+        if (showPrevious) return image;
+        if (preview != null) {
+          return Stack(fit: StackFit.passthrough, children: [preview, image]);
+        }
+        return ColoredBox(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: image,
+        );
+      },
+      errorBuilder: (_, _, _) {
+        if (!retained && keepPrevious) {
+          _displayedUrl = null;
+          if (showPrevious) {
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => releasePrevious(),
+            );
+          }
+        }
+        return preview ?? placeholder;
+      },
+    );
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: url.isEmpty
           ? placeholder
-          : Image.network(
-              httpsUrl(url),
-              width: size,
-              height: size,
-              fit: BoxFit.cover,
-              // 网络加载完才淡入；内存缓存里同步拿到的直接显示，滚回来不会再闪一次
-              frameBuilder: (_, child, frame, sync) {
-                if (sync) return child;
-                return ColoredBox(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: AnimatedOpacity(
-                    opacity: frame == null ? 0 : 1,
-                    duration: const Duration(milliseconds: 280),
-                    curve: Curves.easeOut,
-                    child: child,
-                  ),
-                );
-              },
-              errorBuilder: (_, _, _) => placeholder,
-            ),
+          : keepPrevious
+          ? Stack(
+              fit: StackFit.passthrough,
+              children: [
+                // 用 URL key 保留旧 Image 的解码帧，缓存回收后也不用重新加载它。
+                if (showPrevious) image(previous, retained: true),
+                image(imageUrl),
+              ],
+            )
+          : image(imageUrl),
     );
   }
 }
