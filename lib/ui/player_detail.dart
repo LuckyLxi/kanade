@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
+import '../library/library_controller.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
@@ -13,6 +14,12 @@ import 'smooth_scroll.dart';
 import 'song_actions.dart';
 import 'song_list_page.dart';
 import 'widgets.dart';
+
+/// 列表顶上渐隐的高度。
+const _fade = 16.0;
+
+/// 相关歌单一次显示几个（3×2）。
+const _playlistCount = 6;
 
 /// 播放页右滑出来的歌曲信息页：发行信息、标签、AI 解读、精选视频、也在听、相关歌单。
 /// 接口见 docs/qqmusic-player-detail-android-capture.md，哪一栏没内容就不显示。
@@ -45,18 +52,30 @@ class _SongDetailViewState extends State<SongDetailView> {
 
   void _retry() => setState(() => _future = null);
 
+  /// 服务端只对部分歌曲排除已显示的歌单，别的歌照样返回原来那几个；
+  /// 没见过的排在前面，一个新的都没有就不再显示「换一批」。
   Future<void> _swap(Song song, RelatedPlaylists current) async {
     if (_swapping) return;
-    _seen.addAll(current.playlists.map((p) => p.id));
+    _seen.addAll(current.playlists.take(_playlistCount).map((p) => p.id));
     setState(() => _swapping = true);
     try {
       final next = await api.getRelatedPlaylists(
         songId: song.id,
         exclude: _seen.toList(),
       );
-      if (mounted && _loadedMid == song.mid && next.playlists.isNotEmpty) {
-        setState(() => _playlists = next);
-      }
+      if (!mounted || _loadedMid != song.mid) return;
+      final fresh = next.playlists.where((p) => !_seen.contains(p.id)).toList();
+      setState(() {
+        _playlists = fresh.isEmpty
+            ? RelatedPlaylists(playlists: current.playlists, hasMore: false)
+            : RelatedPlaylists(
+                playlists: [
+                  ...fresh,
+                  ...next.playlists.where((p) => _seen.contains(p.id)),
+                ],
+                hasMore: next.hasMore,
+              );
+      });
     } catch (_) {
       // 换不了就留着这一批
     } finally {
@@ -88,23 +107,20 @@ class _SongDetailViewState extends State<SongDetailView> {
           );
         }
         final page = snap.data;
-        if (page == null) {
-          return const Center(
-            child: CircularProgressIndicator(color: Colors.white54),
-          );
-        }
+        if (page == null) return const PageLoading();
         return ShaderMask(
           blendMode: BlendMode.dstIn,
-          shaderCallback: (r) => const LinearGradient(
+          // 顶上渐隐固定 [_fade] 高，内容从它下面开始，没滚动时第一行不会被淡掉
+          shaderCallback: (r) => LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
+            colors: const [
               Colors.transparent,
               Colors.black,
               Colors.black,
               Colors.transparent,
             ],
-            stops: [0, 0.03, 0.92, 1],
+            stops: [0, _fade / r.height, 0.92, 1],
           ).createShader(r),
           child: _Content(
             key: ValueKey(song.mid),
@@ -157,10 +173,10 @@ class _ContentState extends State<_Content> {
     final similarTitle = l.alsoListening(
       page.similarFrom.isEmpty ? singerNames(song) : page.similarFrom,
     );
-    final playlists = widget.playlists.playlists.take(6).toList();
+    final playlists = widget.playlists.playlists.take(_playlistCount).toList();
     return ListView(
       controller: _scroll,
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
+      padding: const EdgeInsets.fromLTRB(24, _fade + 4, 24, 40),
       children: [
         Text(
           [
@@ -239,7 +255,7 @@ class _ContentState extends State<_Content> {
               SongListPage.songs(similarTitle, page.similarSongs),
             ),
           ),
-          for (final s in page.similarSongs.take(3)) _SongRow(s),
+          _SongPager(page.similarSongs),
         ],
         if (playlists.isNotEmpty) ...[
           _Header(
@@ -569,6 +585,50 @@ class _VideoCard extends StatelessWidget {
   }
 }
 
+/// 和 QQ 音乐一样每列三首，左右滑动换列，右边露出下一列的一截。
+class _SongPager extends StatefulWidget {
+  const _SongPager(this.songs);
+
+  final List<Song> songs;
+
+  @override
+  State<_SongPager> createState() => _SongPagerState();
+}
+
+class _SongPagerState extends State<_SongPager> {
+  static const _rows = 3, _rowHeight = 60.0;
+  final _pages = PageController(viewportFraction: 0.9);
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final songs = widget.songs;
+    final columns = (songs.length + _rows - 1) ~/ _rows;
+    return SizedBox(
+      height: _rows * _rowHeight,
+      child: PageView.builder(
+        controller: _pages,
+        padEnds: false,
+        itemCount: columns,
+        itemBuilder: (_, c) => Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: Column(
+            children: [
+              for (final s in songs.skip(c * _rows).take(_rows))
+                SizedBox(height: _rowHeight, child: _SongRow(s)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 点一下插到当前歌后面并马上播放，队列里其他歌不动。
 class _SongRow extends StatelessWidget {
   const _SongRow(this.song);
@@ -612,7 +672,39 @@ class _SongRow extends StatelessWidget {
                 ],
               ),
             ),
+            _RowLike(song),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 行尾的红心，和播放页的红心同一个收藏状态。
+class _RowLike extends StatelessWidget {
+  const _RowLike(this.song);
+
+  final Song song;
+
+  @override
+  Widget build(BuildContext context) {
+    final liked = context.select<LibraryController, bool>(
+      (lib) => lib.isLiked(song),
+    );
+    final l = AppLocalizations.of(context);
+    return IconButton(
+      tooltip: liked ? l.unlike : l.like,
+      onPressed: () => toggleLike(context, song),
+      icon: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 450),
+        switchInCurve: Curves.elasticOut,
+        transitionBuilder: (child, a) =>
+            ScaleTransition(scale: a, child: child),
+        child: Icon(
+          liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+          key: ValueKey(liked),
+          size: 20,
+          color: liked ? const Color(0xFFFF4D6D) : Colors.white60,
         ),
       ),
     );

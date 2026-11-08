@@ -286,13 +286,13 @@ class _PlayerPageState extends State<PlayerPage>
       ),
     );
 
-    // 窄屏翻到队列时，返回键先翻回主页面；歌词页按返回直接关掉播放页
+    // 窄屏翻到队列时，返回键先翻回主页面；歌词页、歌曲信息页按返回直接关掉播放页
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Theme(
         data: _art?.theme ?? _fallbackTheme,
         child: PopScope(
-          canPop: wide || _page.isDismissed || _side == _Panel.lyrics,
+          canPop: wide || _page.isDismissed || _side != _Panel.queue,
           onPopInvokedWithResult: (didPop, _) {
             if (!didPop) _page.animateBack(0, duration: _motion, curve: _curve);
           },

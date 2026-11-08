@@ -139,22 +139,42 @@ void main() {
     await drag(page.center, const Offset(0, -40), 12);
     await wait(800);
     await tester.runAsync(() => shoot('detail_scrolled'));
-    // 左滑翻回主页面
-    await drag(
-      page.center,
-      const Offset(-24, 0),
-      10,
-      midShot: 'detail_back_mid',
+    // 也在听左右滑动换一列
+    final pager = find.descendant(
+      of: find.byType(SongDetailView),
+      matching: find.byType(PageView),
     );
+    if (pager.evaluate().isNotEmpty) {
+      await drag(
+        tester.getCenter(pager),
+        const Offset(-24, 0),
+        10,
+        midShot: 'detail_pager_mid',
+      );
+      await frames('detail_pager', [100, 600]);
+    }
+    // 换一批
+    final swap = find.text('换一批').evaluate().isNotEmpty
+        ? find.text('换一批')
+        : find.text('Show others');
+    if (swap.evaluate().isNotEmpty) {
+      await tester.tap(swap);
+      await wait(3000);
+      await tester.runAsync(() => shoot('detail_swapped'));
+    }
+    // 在顶上封面歌名那条左滑翻回主页面（内容区里有横向列表会先接住手势）
+    final top = Offset(page.center.dx, page.top + 60);
+    await drag(top, const Offset(-24, 0), 10, midShot: 'detail_back_mid');
     await frames('detail_back', [100, 600]);
     expect(find.byType(SongDetailView), findsNothing);
-    // 信息页按返回只翻回主页面，不关播放页
+    // 信息页按返回直接关掉播放页
     await drag(page.center, const Offset(24, 0), 10);
     await wait(600);
     await nav.maybePop();
     await frames('detail_pop', [100, 700]);
-    expect(find.byType(PlayerPage), findsOneWidget);
-    expect(find.byType(SongDetailView), findsNothing);
+    expect(find.byType(PlayerPage), findsNothing);
+    unawaited(nav.push(PlayerRoute(anchor: MiniPlayer.anchor)));
+    await wait(1200);
 
     // 上滑翻到队列；队列页按返回只翻回主页面，不关播放页
     await drag(page.center, const Offset(0, -30), 10);
