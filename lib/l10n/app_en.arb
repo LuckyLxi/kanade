@@ -10,6 +10,8 @@
   "windowClose": "Close",
   "language": "Language",
   "languageSystem": "System default",
+  "themeToDark": "Switch to dark",
+  "themeToLight": "Switch to light",
   "retry": "Retry",
   "loading": "Loading",
   "cancel": "Cancel",

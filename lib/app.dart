@@ -12,12 +12,14 @@ import 'library/library_controller.dart';
 import 'player/media_session.dart';
 import 'player/player_controller.dart';
 import 'settings/locale_controller.dart';
+import 'settings/theme_controller.dart';
 import 'src/rust/api/music.dart' as api;
 import 'src/rust/frb_generated.dart';
 import 'ui/glass.dart';
 import 'ui/home_shell.dart';
 import 'ui/player_page.dart';
 import 'ui/theme.dart';
+import 'ui/theme_reveal.dart';
 import 'ui/title_bar.dart';
 
 /// 启动前的初始化：播放器、Rust 层和它的数据目录、窗口、着色器。main 和集成测试共用。
@@ -64,6 +66,7 @@ class AppProviders extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => LocaleController()),
+        ChangeNotifierProvider(create: (_) => ThemeController()),
         ChangeNotifierProvider(create: (_) => AuthController()),
         // 启动时就去取红心列表
         ChangeNotifierProvider(
@@ -122,16 +125,25 @@ class KanadeApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
-      locale: context.watch<LocaleController>().locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      debugShowCheckedModeBanner: false,
-      theme: buildTheme(Brightness.light),
-      darkTheme: buildTheme(Brightness.dark),
-      builder: (context, child) => WindowFrame(child: child!),
-      home: const HomeShell(),
+    final locale = context.watch<LocaleController>().locale;
+    final themeMode = context.watch<ThemeController>().mode;
+    return ThemeReveal(
+      builder: (context, revealing) => MaterialApp(
+        onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+        locale: locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        debugShowCheckedModeBanner: false,
+        theme: buildTheme(Brightness.light),
+        darkTheme: buildTheme(Brightness.dark),
+        themeMode: themeMode,
+        // 圆形切换时新主题要一步到位，渐变交给圆圈；跟随系统切换时保持默认渐变
+        themeAnimationDuration: revealing
+            ? Duration.zero
+            : kThemeAnimationDuration,
+        builder: (context, child) => WindowFrame(child: child!),
+        home: const HomeShell(),
+      ),
     );
   }
 }

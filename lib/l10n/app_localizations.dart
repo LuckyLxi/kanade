@@ -158,6 +158,18 @@ abstract class AppLocalizations {
   /// **'跟随系统'**
   String get languageSystem;
 
+  /// No description provided for @themeToDark.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换到深色'**
+  String get themeToDark;
+
+  /// No description provided for @themeToLight.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换到浅色'**
+  String get themeToLight;
+
   /// No description provided for @retry.
   ///
   /// In zh, this message translates to:

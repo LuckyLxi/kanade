@@ -10,6 +10,7 @@ import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'foryou_settings_page.dart';
 import 'smooth_scroll.dart';
+import 'theme_reveal.dart';
 import 'toast.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -220,7 +221,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ],
         );
     return Scaffold(
-      appBar: AppBar(title: Text(l.settings)),
+      appBar: AppBar(title: Text(l.settings), actions: const [ThemeToggleButton()]),
       body: ListView(
         controller: _scroll,
         children: [

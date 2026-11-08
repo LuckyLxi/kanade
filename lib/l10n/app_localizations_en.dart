@@ -40,6 +40,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get languageSystem => 'System default';
 
   @override
+  String get themeToDark => 'Switch to dark';
+
+  @override
+  String get themeToLight => 'Switch to light';
+
+  @override
   String get retry => 'Retry';
 
   @override

@@ -40,6 +40,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get languageSystem => '跟随系统';
 
   @override
+  String get themeToDark => '切换到深色';
+
+  @override
+  String get themeToLight => '切换到浅色';
+
+  @override
   String get retry => '重试';
 
   @override
