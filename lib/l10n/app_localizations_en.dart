@@ -944,4 +944,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get anotherBatch => 'Show others';
+
+  @override
+  String get sleepTimer => 'Sleep timer';
+
+  @override
+  String sleepTimerUntil(String time) {
+    return 'Stops at $time';
+  }
+
+  @override
+  String get sleepTimerWaiting => 'Stops after this song';
+
+  @override
+  String get sleepTimerWaitingShort => 'After song';
+
+  @override
+  String get sleepTimerCustomHint => 'Custom length';
+
+  @override
+  String get sleepTimerMinutes => 'min';
+
+  @override
+  String get sleepTimerStart => 'Start';
+
+  @override
+  String get sleepAfterSong => 'Finish the current song';
+
+  @override
+  String get sleepTimerOff => 'Turn off timer';
 }

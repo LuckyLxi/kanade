@@ -1675,6 +1675,60 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'换一批'**
   String get anotherBatch;
+
+  /// No description provided for @sleepTimer.
+  ///
+  /// In zh, this message translates to:
+  /// **'定时关闭'**
+  String get sleepTimer;
+
+  /// No description provided for @sleepTimerUntil.
+  ///
+  /// In zh, this message translates to:
+  /// **'{time} 停止播放'**
+  String sleepTimerUntil(String time);
+
+  /// No description provided for @sleepTimerWaiting.
+  ///
+  /// In zh, this message translates to:
+  /// **'这首放完后停止'**
+  String get sleepTimerWaiting;
+
+  /// No description provided for @sleepTimerWaitingShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'播完停'**
+  String get sleepTimerWaitingShort;
+
+  /// No description provided for @sleepTimerCustomHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义时长'**
+  String get sleepTimerCustomHint;
+
+  /// No description provided for @sleepTimerMinutes.
+  ///
+  /// In zh, this message translates to:
+  /// **'分钟'**
+  String get sleepTimerMinutes;
+
+  /// No description provided for @sleepTimerStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始'**
+  String get sleepTimerStart;
+
+  /// No description provided for @sleepAfterSong.
+  ///
+  /// In zh, this message translates to:
+  /// **'播完整首再停止'**
+  String get sleepAfterSong;
+
+  /// No description provided for @sleepTimerOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭定时'**
+  String get sleepTimerOff;
 }
 
 class _AppLocalizationsDelegate

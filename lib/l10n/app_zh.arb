@@ -584,5 +584,21 @@
     }
   },
   "relatedPlaylists": "相关歌单",
-  "anotherBatch": "换一批"
+  "anotherBatch": "换一批",
+  "sleepTimer": "定时关闭",
+  "sleepTimerUntil": "{time} 停止播放",
+  "@sleepTimerUntil": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "sleepTimerWaiting": "这首放完后停止",
+  "sleepTimerWaitingShort": "播完停",
+  "sleepTimerCustomHint": "自定义时长",
+  "sleepTimerMinutes": "分钟",
+  "sleepTimerStart": "开始",
+  "sleepAfterSong": "播完整首再停止",
+  "sleepTimerOff": "关闭定时"
 }

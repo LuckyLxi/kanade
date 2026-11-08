@@ -229,13 +229,17 @@ class PlayerController extends ChangeNotifier {
   bool _restored = false;
 
   /// 设置里的默认音质，启动时作为播放器的初始音质。
-  Quality defaultQuality = Quality.values.asNameMap()[api.getPref(key: _defaultQualityKey)] ?? Quality.high;
+  Quality defaultQuality =
+      Quality.values.asNameMap()[api.getPref(key: _defaultQualityKey)] ??
+      Quality.high;
 
   /// 播放器里选择的音质，切歌后继续沿用；歌曲没有该档位或播不了时会降级。
   late Quality quality = defaultQuality;
 
   /// 播放模式单独存一份，队列空着的时候也记得住。
-  PlayMode mode = PlayMode.values.asNameMap()[api.getPref(key: _modeKey)] ?? PlayMode.sequence;
+  PlayMode mode =
+      PlayMode.values.asNameMap()[api.getPref(key: _modeKey)] ??
+      PlayMode.sequence;
 
   bool playing = false;
   bool buffering = false;
@@ -283,7 +287,9 @@ class PlayerController extends ChangeNotifier {
   /// 当前这首已经放到结尾（马上会自动切歌）。
   bool _atEnd() {
     final s = _player.state;
-    return s.completed || (s.duration > Duration.zero && s.position >= s.duration - const Duration(seconds: 1));
+    return s.completed ||
+        (s.duration > Duration.zero &&
+            s.position >= s.duration - const Duration(seconds: 1));
   }
 
   /// 切歌失败停下来时，按播放器的真实状态更新（放完时报的暂停之前被忽略了）。
@@ -523,6 +529,13 @@ class PlayerController extends ChangeNotifier {
 
   void _onCompleted() {
     if (queue.isEmpty) return;
+    if (_sleepPending) {
+      // 定时已到，等的就是这首放完：停在这首开头
+      _clearSleep();
+      unawaited(_player.seek(Duration.zero));
+      unawaited(pause());
+      return;
+    }
     if (mode == PlayMode.repeatOne) {
       _player.seek(Duration.zero);
       _player.play();
@@ -539,7 +552,9 @@ class PlayerController extends ChangeNotifier {
       await playAt((index + 1) % queue.length);
       return;
     }
-    if (mode == PlayMode.shuffle && _pinnedNext > 0 && index + 1 < queue.length) {
+    if (mode == PlayMode.shuffle &&
+        _pinnedNext > 0 &&
+        index + 1 < queue.length) {
       await playAt(index + 1, pinnedNext: _pinnedNext - 1);
     } else if (mode == PlayMode.shuffle && queue.length > 1) {
       var n = index;
@@ -592,7 +607,8 @@ class PlayerController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void cycleMode() => setMode(PlayMode.values[(mode.index + 1) % PlayMode.values.length]);
+  void cycleMode() =>
+      setMode(PlayMode.values[(mode.index + 1) % PlayMode.values.length]);
 
   void setMode(PlayMode m) {
     mode = m;
@@ -602,7 +618,8 @@ class PlayerController extends ChangeNotifier {
   }
 
   /// 音量 0–100，重启后恢复上次的值。
-  double volume = (double.tryParse(api.getPref(key: _volumeKey) ?? '') ?? 100).clamp(0, 100);
+  double volume = (double.tryParse(api.getPref(key: _volumeKey) ?? '') ?? 100)
+      .clamp(0, 100);
   Timer? _volumeSave;
 
   Future<void> setVolume(double v) {
@@ -617,6 +634,59 @@ class PlayerController extends ChangeNotifier {
   void _saveVolume() {
     _volumeSave = null;
     api.setPref(key: _volumeKey, value: volume.toStringAsFixed(1));
+  }
+
+  static const _sleepAfterSongKey = 'sleep_after_song';
+
+  /// 定时关闭的时间点，null 表示没开。只放在内存里，关掉 App 就没了。
+  /// 到点时还要等这首放完的话，它会停在过去，直到真的停下。
+  DateTime? sleepAt;
+
+  /// 定时到了先把当前这首放完再停。
+  bool sleepAfterSong = api.getPref(key: _sleepAfterSongKey) == 'true';
+
+  Timer? _sleepTimer;
+
+  /// 已经到点，在等当前这首放完。
+  bool _sleepPending = false;
+
+  /// [d] 之后停止播放，null 关闭定时。
+  void setSleepTimer(Duration? d) {
+    _clearSleep();
+    if (d != null) {
+      sleepAt = DateTime.now().add(d);
+      _sleepTimer = Timer(d, _onSleep);
+    }
+    notifyListeners();
+  }
+
+  void setSleepAfterSong(bool v) {
+    sleepAfterSong = v;
+    api.setPref(key: _sleepAfterSongKey, value: '$v');
+    // 正在等这首放完时关掉开关，就不再等了
+    if (!v && _sleepPending) {
+      _clearSleep();
+      unawaited(pause());
+      return;
+    }
+    notifyListeners();
+  }
+
+  void _clearSleep() {
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+    _sleepPending = false;
+    sleepAt = null;
+  }
+
+  void _onSleep() {
+    _sleepTimer = null;
+    if (sleepAfterSong && playing) {
+      _sleepPending = true;
+      return;
+    }
+    _clearSleep();
+    unawaited(pause());
   }
 
   /// 切换当前歌曲的音质：从当前进度继续播放，暂停状态保持暂停。
@@ -699,6 +769,7 @@ class PlayerController extends ChangeNotifier {
   void dispose() {
     ++_token;
     ++_qualitiesToken;
+    _sleepTimer?.cancel();
     if (_volumeSave != null) {
       _volumeSave!.cancel();
       _saveVolume();

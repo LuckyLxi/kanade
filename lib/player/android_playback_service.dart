@@ -106,6 +106,8 @@ class _PlaybackServer {
       'mode': player.mode.name,
       'volume': player.volume,
       'fade': player.fade.inSeconds,
+      'sleepAt': player.sleepAt?.millisecondsSinceEpoch,
+      'sleepAfterSong': player.sleepAfterSong,
       'error': encodePlayerError(player.error),
       if (song != null && library.canLike) 'liked': library.isLiked(song),
     };
@@ -193,6 +195,12 @@ class _PlaybackServer {
         player.setDefaultQuality(Quality.values.byName(argument as String));
       case 'fade':
         player.setFade(Duration(seconds: argument as int));
+      case 'sleep':
+        player.setSleepTimer(
+          argument == null ? null : Duration(seconds: argument as int),
+        );
+      case 'sleepAfterSong':
+        player.setSleepAfterSong(argument as bool);
       case 'volume':
         await player.setVolume((argument as num).toDouble());
       case 'quality':

@@ -262,5 +262,14 @@
   "featuredVideos": "Featured videos",
   "alsoListening": "Fans of {name} also listen to",
   "relatedPlaylists": "Related playlists",
-  "anotherBatch": "Show others"
+  "anotherBatch": "Show others",
+  "sleepTimer": "Sleep timer",
+  "sleepTimerUntil": "Stops at {time}",
+  "sleepTimerWaiting": "Stops after this song",
+  "sleepTimerWaitingShort": "After song",
+  "sleepTimerCustomHint": "Custom length",
+  "sleepTimerMinutes": "min",
+  "sleepTimerStart": "Start",
+  "sleepAfterSong": "Finish the current song",
+  "sleepTimerOff": "Turn off timer"
 }

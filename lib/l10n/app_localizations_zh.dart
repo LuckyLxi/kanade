@@ -893,4 +893,33 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get anotherBatch => '换一批';
+
+  @override
+  String get sleepTimer => '定时关闭';
+
+  @override
+  String sleepTimerUntil(String time) {
+    return '$time 停止播放';
+  }
+
+  @override
+  String get sleepTimerWaiting => '这首放完后停止';
+
+  @override
+  String get sleepTimerWaitingShort => '播完停';
+
+  @override
+  String get sleepTimerCustomHint => '自定义时长';
+
+  @override
+  String get sleepTimerMinutes => '分钟';
+
+  @override
+  String get sleepTimerStart => '开始';
+
+  @override
+  String get sleepAfterSong => '播完整首再停止';
+
+  @override
+  String get sleepTimerOff => '关闭定时';
 }

@@ -17,17 +17,26 @@ Future<T?> showKanadeSheet<T>({
     elevation: 0,
     barrierColor: Colors.black.withValues(alpha: 0.6),
     constraints: const BoxConstraints(maxWidth: 480),
-    builder: (sheet) => _SheetFrame(heightFactor: heightFactor, padding: padding, child: builder(sheet)),
+    builder: (sheet) => _SheetFrame(
+      heightFactor: heightFactor,
+      padding: padding,
+      child: builder(sheet),
+    ),
   );
 }
 
 /// 卡片底色和里面分组的底色，亮色模式下是白卡片 + 浅灰分组。
-(Color, Color) sheetColors(ColorScheme scheme) => scheme.brightness == Brightness.dark
+(Color, Color) sheetColors(ColorScheme scheme) =>
+    scheme.brightness == Brightness.dark
     ? (scheme.surfaceContainer, scheme.surfaceContainerHigh)
     : (scheme.surface, scheme.surfaceContainer);
 
 class _SheetFrame extends StatelessWidget {
-  const _SheetFrame({required this.child, required this.padding, this.heightFactor});
+  const _SheetFrame({
+    required this.child,
+    required this.padding,
+    this.heightFactor,
+  });
 
   final Widget child;
   final EdgeInsets padding;
@@ -47,7 +56,10 @@ class _SheetFrame extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         const _Handle(),
-        if (heightFactor != null) Expanded(child: child) else Flexible(child: child),
+        if (heightFactor != null)
+          Expanded(child: child)
+        else
+          Flexible(child: child),
       ],
     );
     return Padding(
@@ -63,7 +75,10 @@ class _SheetFrame extends StatelessWidget {
           padding: padding,
           child: heightFactor != null
               ? SizedBox(height: available * heightFactor!, child: content)
-              : ConstrainedBox(constraints: BoxConstraints(maxHeight: available * 0.85), child: content),
+              : ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: available * 0.85),
+                  child: content,
+                ),
         ),
       ),
     );
@@ -89,7 +104,12 @@ class _Handle extends StatelessWidget {
 
 /// 弹窗顶部：封面 + 标题 + 副标题，没有封面时只有一行标题。
 class SheetHeader extends StatelessWidget {
-  const SheetHeader({super.key, required this.title, this.subtitle, this.leading});
+  const SheetHeader({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.leading,
+  });
 
   final String title;
   final String? subtitle;
@@ -112,7 +132,11 @@ class SheetHeader extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: scheme.onSurface),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
@@ -120,7 +144,10 @@ class SheetHeader extends StatelessWidget {
                     subtitle!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ],
@@ -153,7 +180,13 @@ class SheetQuickActions extends StatelessWidget {
 }
 
 class SheetQuickAction extends StatelessWidget {
-  const SheetQuickAction({super.key, required this.icon, required this.label, required this.onTap, this.iconColor});
+  const SheetQuickAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.iconColor,
+  });
 
   final IconData icon;
   final String label;
@@ -180,7 +213,11 @@ class SheetQuickAction extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurface,
+                ),
               ),
             ],
           ),
@@ -209,10 +246,17 @@ class SheetGroup extends StatelessWidget {
         controller: controller,
         shrinkWrap: true,
         padding: EdgeInsets.zero,
-        physics: controller == null ? const NeverScrollableScrollPhysics() : null,
+        physics: controller == null
+            ? const NeverScrollableScrollPhysics()
+            : null,
         itemCount: children.length,
         itemBuilder: (_, i) => children[i],
-        separatorBuilder: (_, _) => Divider(height: 0.5, thickness: 0.5, indent: 14, color: scheme.outlineVariant),
+        separatorBuilder: (_, _) => Divider(
+          height: 0.5,
+          thickness: 0.5,
+          indent: 14,
+          color: scheme.outlineVariant,
+        ),
       ),
     );
   }
@@ -226,6 +270,7 @@ class SheetRow extends StatelessWidget {
     this.subtitle,
     this.leading,
     this.onTap,
+    this.trailing,
     this.chevron = false,
     this.destructive = false,
   });
@@ -234,6 +279,9 @@ class SheetRow extends StatelessWidget {
   final String? subtitle;
   final Widget? leading;
   final VoidCallback? onTap;
+
+  /// 行尾的控件，比如开关。
+  final Widget? trailing;
   final bool chevron;
   final bool destructive;
 
@@ -249,7 +297,10 @@ class SheetRow extends StatelessWidget {
           children: [
             if (leading != null) ...[
               IconTheme.merge(
-                data: IconThemeData(size: 22, color: destructive ? scheme.error : scheme.onSurfaceVariant),
+                data: IconThemeData(
+                  size: 22,
+                  color: destructive ? scheme.error : scheme.onSurfaceVariant,
+                ),
                 child: leading!,
               ),
               const SizedBox(width: 14),
@@ -263,14 +314,30 @@ class SheetRow extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: color),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
                   ),
                   if (subtitle != null)
-                    Text(subtitle!, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
                 ],
               ),
             ),
-            if (chevron) Icon(Icons.chevron_right_rounded, size: 20, color: scheme.outline),
+            ?trailing,
+            if (chevron)
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: scheme.outline,
+              ),
           ],
         ),
       ),

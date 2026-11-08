@@ -19,8 +19,10 @@ import 'player_background.dart';
 import 'player_detail.dart';
 import 'player_lyrics.dart';
 import 'player_route.dart';
+import 'sleep_timer_sheet.dart';
 import 'smooth_scroll.dart';
 import 'song_actions.dart';
+import 'theme.dart';
 import 'toast.dart';
 import 'widgets.dart';
 
@@ -822,6 +824,7 @@ class _ControlsArea extends StatelessWidget {
                   ? () {}
                   : () => Navigator.of(context).push(CommentsPage.song(song)),
             ),
+            const _SleepButton(),
             if (onQueue != null)
               _ToggleIcon(
                 icon: Icons.format_list_bulleted_rounded,
@@ -871,6 +874,82 @@ class _ToggleIcon extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, size: 22, color: selected ? dark : Colors.white70),
+        ),
+      ),
+    );
+  }
+}
+
+/// 定时关闭：开着时图标变成柠檬绿，旁边显示剩余时间。
+class _SleepButton extends StatefulWidget {
+  const _SleepButton();
+
+  @override
+  State<_SleepButton> createState() => _SleepButtonState();
+}
+
+class _SleepButtonState extends State<_SleepButton> {
+  Timer? _tick;
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  static String _format(Duration d) {
+    final s = (d.inMilliseconds / 1000).ceil();
+    final mm = '${s ~/ 60 % 60}'.padLeft(2, '0');
+    final ss = '${s % 60}'.padLeft(2, '0');
+    return s >= 3600 ? '${s ~/ 3600}:$mm:$ss' : '$mm:$ss';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final at = context.select<PlayerController, DateTime?>((p) => p.sleepAt);
+    // 开着时每秒刷新一次倒计时
+    if (at == null) {
+      _tick?.cancel();
+      _tick = null;
+    } else {
+      _tick ??= Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => setState(() {}),
+      );
+    }
+    final left = at?.difference(DateTime.now());
+    final color = at != null ? KanadeColors.lime : Colors.white70;
+    return Tooltip(
+      message: l.sleepTimer,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => showSleepTimer(context),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 36),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.alarm_rounded, size: 22, color: color),
+              if (left != null) ...[
+                const SizedBox(width: 4),
+                Text(
+                  // 到点那一下还没停（要等这首放完，或者还没收到停下的消息）
+                  left > Duration.zero ||
+                          !context.read<PlayerController>().sleepAfterSong
+                      ? _format(left.isNegative ? Duration.zero : left)
+                      : l.sleepTimerWaitingShort,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

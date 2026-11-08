@@ -87,6 +87,11 @@ class _RemotePlayerController extends PlayerController {
     mode = PlayMode.values.byName(message['mode'] as String);
     volume = (message['volume'] as num).toDouble();
     fade = Duration(seconds: message['fade'] as int);
+    sleepAt = switch (message['sleepAt']) {
+      final int ms => DateTime.fromMillisecondsSinceEpoch(ms),
+      _ => null,
+    };
+    sleepAfterSong = message['sleepAfterSong'] as bool;
     error = decodePlayerError(message['error']);
     if (current case final song?) {
       if (message['liked'] case final bool liked) {
@@ -167,6 +172,21 @@ class _RemotePlayerController extends PlayerController {
     fade = d;
     notifyListeners();
     _ignore(_send('fade', d.inSeconds));
+  }
+
+  // 定时在播放服务里走，界面退到后台或被回收也照样到点停
+  @override
+  void setSleepTimer(Duration? d) {
+    sleepAt = d == null ? null : DateTime.now().add(d);
+    notifyListeners();
+    _ignore(_send('sleep', d?.inSeconds));
+  }
+
+  @override
+  void setSleepAfterSong(bool v) {
+    sleepAfterSong = v;
+    notifyListeners();
+    _ignore(_send('sleepAfterSong', v));
   }
 
   @override
