@@ -551,13 +551,36 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings => '设置';
 
   @override
-  String get settingsGeneral => '通用';
+  String get settingsPlayback => '播放';
 
   @override
-  String get settingsCache => '缓存';
+  String get settingsAppearance => '外观';
+
+  @override
+  String get settingsStorage => '存储';
 
   @override
   String get settingsAccount => '账号';
+
+  @override
+  String get theme => '主题';
+
+  @override
+  String get themeSystem => '跟随系统';
+
+  @override
+  String get themeLight => '浅色';
+
+  @override
+  String get themeDark => '深色';
+
+  @override
+  String audioCacheOfLimit(Object limit) {
+    return '/ 上限 $limit';
+  }
+
+  @override
+  String get audioCacheDisabled => '缓存已关闭';
 
   @override
   String get foryouSettings => '自定义推荐页';

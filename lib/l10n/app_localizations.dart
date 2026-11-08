@@ -1052,23 +1052,65 @@ abstract class AppLocalizations {
   /// **'设置'**
   String get settings;
 
-  /// No description provided for @settingsGeneral.
+  /// No description provided for @settingsPlayback.
   ///
   /// In zh, this message translates to:
-  /// **'通用'**
-  String get settingsGeneral;
+  /// **'播放'**
+  String get settingsPlayback;
 
-  /// No description provided for @settingsCache.
+  /// No description provided for @settingsAppearance.
   ///
   /// In zh, this message translates to:
-  /// **'缓存'**
-  String get settingsCache;
+  /// **'外观'**
+  String get settingsAppearance;
+
+  /// No description provided for @settingsStorage.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储'**
+  String get settingsStorage;
 
   /// No description provided for @settingsAccount.
   ///
   /// In zh, this message translates to:
   /// **'账号'**
   String get settingsAccount;
+
+  /// No description provided for @theme.
+  ///
+  /// In zh, this message translates to:
+  /// **'主题'**
+  String get theme;
+
+  /// No description provided for @themeSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随系统'**
+  String get themeSystem;
+
+  /// No description provided for @themeLight.
+  ///
+  /// In zh, this message translates to:
+  /// **'浅色'**
+  String get themeLight;
+
+  /// No description provided for @themeDark.
+  ///
+  /// In zh, this message translates to:
+  /// **'深色'**
+  String get themeDark;
+
+  /// No description provided for @audioCacheOfLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'/ 上限 {limit}'**
+  String audioCacheOfLimit(Object limit);
+
+  /// No description provided for @audioCacheDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'缓存已关闭'**
+  String get audioCacheDisabled;
 
   /// No description provided for @foryouSettings.
   ///

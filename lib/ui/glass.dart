@@ -15,8 +15,8 @@ abstract final class KanadeGlass {
   /// 玻璃控件要放在 [backdropSource] 外面，否则会采样到自己。
   /// 纹理截下来先做一次真正的高斯模糊，和安卓 premium 的背景模糊一致；
   /// 玻璃 shader 自带的五点近似模糊会让背后的文字出重影。
-  static Widget backdropScope({required Widget child}) =>
-      Platform.isWindows ? GlassBackdropScope(blurSigma: _blur, child: child) : child;
+  static Widget backdropScope({required Widget child, double blur = _blur}) =>
+      Platform.isWindows ? GlassBackdropScope(blurSigma: blur, child: child) : child;
 
   static const double _blur = 2;
 

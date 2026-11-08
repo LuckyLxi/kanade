@@ -574,13 +574,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settings => 'Settings';
 
   @override
-  String get settingsGeneral => 'General';
+  String get settingsPlayback => 'Playback';
 
   @override
-  String get settingsCache => 'Cache';
+  String get settingsAppearance => 'Appearance';
+
+  @override
+  String get settingsStorage => 'Storage';
 
   @override
   String get settingsAccount => 'Account';
+
+  @override
+  String get theme => 'Theme';
+
+  @override
+  String get themeSystem => 'System';
+
+  @override
+  String get themeLight => 'Light';
+
+  @override
+  String get themeDark => 'Dark';
+
+  @override
+  String audioCacheOfLimit(Object limit) {
+    return '/ $limit limit';
+  }
+
+  @override
+  String get audioCacheDisabled => 'Caching is off';
 
   @override
   String get foryouSettings => 'Customize For You';
