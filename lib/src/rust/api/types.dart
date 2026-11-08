@@ -9,7 +9,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'types.freezed.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 class AlbumBrief {
   final String mid;
@@ -871,6 +871,26 @@ class RecommendSection {
           refresh == other.refresh;
 }
 
+class RelatedPlaylists {
+  final List<PlaylistBrief> playlists;
+
+  /// 还能换一批。
+  final bool hasMore;
+
+  const RelatedPlaylists({required this.playlists, required this.hasMore});
+
+  @override
+  int get hashCode => playlists.hashCode ^ hasMore.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RelatedPlaylists &&
+          runtimeType == other.runtimeType &&
+          playlists == other.playlists &&
+          hasMore == other.hasMore;
+}
+
 /// 搜索分类，对应 Windows 客户端搜索结果页的标签。
 enum SearchKind {
   song,
@@ -1196,6 +1216,84 @@ class Song {
           hasHq == other.hasHq &&
           hasFlac == other.hasFlac &&
           mvVid == other.mvVid;
+}
+
+/// 播放页右滑的歌曲信息页。哪一栏没有内容就是空的。
+class SongPage {
+  /// 发行日期，`YYYY-MM-DD`。
+  final String publishDate;
+
+  /// 「85人在听」「本周热播」这类标签，按上游顺序。
+  final List<SongTag> tags;
+
+  /// AI 解读的标题和全文。
+  final String aiTitle;
+  final String aiContent;
+
+  /// 精选视频。
+  final List<VideoBrief> videos;
+
+  /// 「听「X」的也在听」里的 X。
+  final String similarFrom;
+  final List<Song> similarSongs;
+  final RelatedPlaylists playlists;
+
+  const SongPage({
+    required this.publishDate,
+    required this.tags,
+    required this.aiTitle,
+    required this.aiContent,
+    required this.videos,
+    required this.similarFrom,
+    required this.similarSongs,
+    required this.playlists,
+  });
+
+  @override
+  int get hashCode =>
+      publishDate.hashCode ^
+      tags.hashCode ^
+      aiTitle.hashCode ^
+      aiContent.hashCode ^
+      videos.hashCode ^
+      similarFrom.hashCode ^
+      similarSongs.hashCode ^
+      playlists.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SongPage &&
+          runtimeType == other.runtimeType &&
+          publishDate == other.publishDate &&
+          tags == other.tags &&
+          aiTitle == other.aiTitle &&
+          aiContent == other.aiContent &&
+          videos == other.videos &&
+          similarFrom == other.similarFrom &&
+          similarSongs == other.similarSongs &&
+          playlists == other.playlists;
+}
+
+/// 信息页标签。有的只是一个数字（热度），要配上图标才看得懂。
+class SongTag {
+  final String text;
+
+  /// 白色线条小图标，可能为空。
+  final String iconUrl;
+
+  const SongTag({required this.text, required this.iconUrl});
+
+  @override
+  int get hashCode => text.hashCode ^ iconUrl.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SongTag &&
+          runtimeType == other.runtimeType &&
+          text == other.text &&
+          iconUrl == other.iconUrl;
 }
 
 class SongUrl {

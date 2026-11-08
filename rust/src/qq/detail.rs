@@ -284,9 +284,136 @@ pub async fn comment_replies(root_id: &str, page: u32, last_seq_no: &str) -> Res
     })
 }
 
+/// 播放页右滑的歌曲信息页，参数照抄 Android 客户端（docs/qqmusic-player-detail-android-capture.md）。
+/// 各栏目分开请求，某一栏失败只让它为空，全部失败才报错。
+pub async fn song_page(id: i64, mid: &str) -> Result<SongPage> {
+    let c = core();
+    let (detail, labels, ai, videos, similar, playlists) = tokio::join!(
+        c.musicu("music.musichallSong.SongInfoServer", "GetSongDetail", json!({"songMid": mid})),
+        c.musicu("music.recommend.TrackRelationServer", "GetSongLabels", json!({"songid": id})),
+        c.musicu(
+            "music.SearchConfig.AiInterpretationSvr",
+            "GetAiInterpretation",
+            json!({"id": id.to_string(), "keyword": "", "custom_params": {"from": "player_leftSlide"}}),
+        ),
+        c.musicu("MvService.MvInfoProServer", "GetSongRelatedMv", json!({"songid": id.to_string(), "songtype": 1, "lastmvid": 0})),
+        c.musicu("music.recommend.TrackRelationServer", "GetSimilarSongs", json!({"songid": id})),
+        related_playlists_raw(id, &[]),
+    );
+    let all = [detail, labels, ai, videos, similar, playlists];
+    if all.iter().all(|r| r.is_err()) {
+        let [first, ..] = all;
+        return Err(first.unwrap_err());
+    }
+    let [detail, labels, ai, videos, similar, playlists] = all.map(|r| r.unwrap_or(Value::Null));
+    Ok(song_page_from(&detail, &labels, &ai, &videos, &similar, &playlists))
+}
+
+fn song_page_from(detail: &Value, labels: &Value, ai: &Value, videos: &Value, similar: &Value, playlists: &Value) -> SongPage {
+    let ai = &ai["aidirect_list"][0];
+    let similar = &similar["vecSongNew"][0];
+    SongPage {
+        publish_date: s(&detail["basic"]["album"]["pubTime"]),
+        // tagTxt 为空的标签文字由官方客户端自己填（如音频参数），这里没有，不显示
+        tags: labels["labels"].as_array().into_iter().flatten()
+            .map(|x| SongTag { text: s(&x["tagTxt"]), icon_url: s(&x["tagIcon"]) })
+            .filter(|x| !x.text.is_empty())
+            .collect(),
+        ai_title: s(&ai["title"]),
+        ai_content: s(&ai["content"]),
+        videos: related_videos(&videos["list"]),
+        similar_from: s(&similar["title_content"]),
+        similar_songs: similar["songs"].as_array().into_iter().flatten().filter_map(|x| parse::song(&x["track"])).collect(),
+        playlists: related_playlist_list(playlists),
+    }
+}
+
+/// 歌曲的相关视频。没有歌手的是用户上传的视频。
+fn related_videos(list: &Value) -> Vec<VideoBrief> {
+    list.as_array().into_iter().flatten().filter(|x| !s(&x["vid"]).is_empty()).map(|x| {
+        let singers: Vec<String> = x["singers"].as_array().into_iter().flatten().map(|singer| s(&singer["name"])).collect();
+        VideoBrief {
+            vid: s(&x["vid"]), name: s(&x["title"]), cover_url: s(&x["picurl"]),
+            duration_secs: 0, play_count: n(&x["playcnt"]) as u64,
+            uploaded: singers.is_empty(), creator: singers.join(" / "),
+        }
+    }).collect()
+}
+
+/// 信息页「相关歌单」换一批：`exclude` 是已经显示过的歌单 ID，服务端不再返回它们。
+pub async fn related_playlists(id: i64, exclude: &[String]) -> Result<RelatedPlaylists> {
+    let data = related_playlists_raw(id, exclude).await?;
+    let code = n(&data["retcode"]);
+    if code != 0 {
+        bail!(ApiError::ServerError { api: "music.recommend.TrackRelationServer.GetRelatedPlaylist".into(), code: code.to_string() });
+    }
+    Ok(related_playlist_list(&data))
+}
+
+async fn related_playlists_raw(id: i64, exclude: &[String]) -> Result<Value> {
+    // 首次打开不带 vecPlaylist；换一批时带上已显示的 tid，extra_info.module 为 "1"
+    let param = if exclude.is_empty() {
+        json!({"songid": id})
+    } else {
+        let tids: Vec<i64> = exclude.iter().filter_map(|x| x.parse().ok()).collect();
+        json!({"songid": id, "vecPlaylist": tids, "extra_info": {"module": "1"}})
+    };
+    core().musicu("music.recommend.TrackRelationServer", "GetRelatedPlaylist", param).await
+}
+
+fn related_playlist_list(data: &Value) -> RelatedPlaylists {
+    let list = &data["vecPlaylistNew"][0]["playlists"];
+    RelatedPlaylists {
+        playlists: list.as_array().into_iter().flatten().filter(|x| n(&x["tid"]) != 0).map(|x| PlaylistBrief {
+            id: s(&x["tid"]), title: s(&x["title"]), cover_url: s(&x["cover"]),
+            song_count: n(&x["songNum"]) as u32, play_count: n(&x["playCnt"]) as u64, creator: s(&x["creator"]),
+        }).collect(),
+        has_more: n(&data["hasMore"]) == 1,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn song_page_reads_each_section_and_tolerates_missing_ones() {
+        let detail = json!({"basic": {"album": {"mid": "004Frxzr1rthfN", "pubTime": "2026-05-07"}}});
+        let labels = json!({"labels": [
+            {"tagTxt": "", "tagType": 24, "tagIcon": "https://a"}, {"tagTxt": "85人在听", "tagType": 23, "tagIcon": "https://b"},
+            {"tagTxt": "本周热播", "tagType": 9},
+        ]});
+        let ai = json!({"aidirect_list": [{"title": "标题", "content": "正文"}]});
+        let videos = json!({"hasmore": 0, "list": [
+            {"mvid": 52772404, "vid": "010Sz9DR1a8FZ9", "title": "翻唱", "picurl": "http://p", "playcnt": 4010, "singers": []},
+            {"mvid": 293791, "vid": "w0026q7f01a", "title": "晴天", "picurl": "http://q", "playcnt": 1, "singers": [{"name": "周杰伦"}]},
+            {"mvid": 1, "vid": "", "title": "无效"},
+        ]});
+        let similar = json!({"retcode": 0, "vecSong": [], "vecSongNew": [{
+            "title_content": "Agera",
+            "songs": [{"track": {"id": 734300451, "mid": "001QXnoJ42a97l", "name": "旧绪难平", "singer": [{"mid": "0015CE5d0H9fsE", "name": "Agera"}], "album": {"mid": "000Vj5fR0eQXFQ"}}}],
+        }]});
+        let playlists = json!({"retcode": 0, "hasMore": 1, "vecPlaylist": [], "vecPlaylistNew": [{"playlists": [
+            {"tid": 7087747817_i64, "songNum": 31, "cover": "http://c", "title": "Summer Vibes", "creator": "QQ音乐官方歌单", "playCnt": "668357"},
+        ]}]});
+        let page = song_page_from(&detail, &labels, &ai, &videos, &similar, &playlists);
+        assert_eq!(page.publish_date, "2026-05-07");
+        let tags: Vec<_> = page.tags.iter().map(|t| (t.text.as_str(), t.icon_url.as_str())).collect();
+        assert_eq!(tags, [("85人在听", "https://b"), ("本周热播", "")]);
+        assert_eq!((page.ai_title.as_str(), page.ai_content.as_str()), ("标题", "正文"));
+        assert_eq!(page.videos.len(), 2);
+        assert!(page.videos[0].uploaded && page.videos[0].creator.is_empty());
+        assert!(!page.videos[1].uploaded && page.videos[1].creator == "周杰伦");
+        assert_eq!(page.similar_from, "Agera");
+        assert_eq!(page.similar_songs[0].mid, "001QXnoJ42a97l");
+        let p = &page.playlists;
+        assert!(p.has_more);
+        assert_eq!((p.playlists[0].id.as_str(), p.playlists[0].play_count), ("7087747817", 668357));
+
+        let empty = song_page_from(&Value::Null, &Value::Null, &Value::Null, &Value::Null, &Value::Null, &Value::Null);
+        assert!(empty.publish_date.is_empty() && empty.tags.is_empty() && empty.videos.is_empty());
+        assert!(empty.similar_songs.is_empty() && empty.playlists.playlists.is_empty() && !empty.playlists.has_more);
+    }
 
     #[test]
     fn guard_uses_display_title_instead_of_unrelated_zero_count() {

@@ -575,5 +575,14 @@
         "type": "int"
       }
     }
-  }
+  },
+  "featuredVideos": "精选视频",
+  "alsoListening": "听「{name}」的也在听",
+  "@alsoListening": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "relatedPlaylists": "相关歌单",
+  "anotherBatch": "换一批"
 }

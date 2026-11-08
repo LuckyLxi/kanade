@@ -160,6 +160,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Song> dco_decode_list_song(dynamic raw);
 
   @protected
+  List<SongTag> dco_decode_list_song_tag(dynamic raw);
+
+  @protected
   List<TopList> dco_decode_list_top_list(dynamic raw);
 
   @protected
@@ -251,6 +254,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RecommendSection dco_decode_recommend_section(dynamic raw);
 
   @protected
+  RelatedPlaylists dco_decode_related_playlists(dynamic raw);
+
+  @protected
   SearchKind dco_decode_search_kind(dynamic raw);
 
   @protected
@@ -276,6 +282,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Song dco_decode_song(dynamic raw);
+
+  @protected
+  SongPage dco_decode_song_page(dynamic raw);
+
+  @protected
+  SongTag dco_decode_song_tag(dynamic raw);
 
   @protected
   SongUrl dco_decode_song_url(dynamic raw);
@@ -473,6 +485,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Song> sse_decode_list_song(SseDeserializer deserializer);
 
   @protected
+  List<SongTag> sse_decode_list_song_tag(SseDeserializer deserializer);
+
+  @protected
   List<TopList> sse_decode_list_top_list(SseDeserializer deserializer);
 
   @protected
@@ -574,6 +589,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RecommendSection sse_decode_recommend_section(SseDeserializer deserializer);
 
   @protected
+  RelatedPlaylists sse_decode_related_playlists(SseDeserializer deserializer);
+
+  @protected
   SearchKind sse_decode_search_kind(SseDeserializer deserializer);
 
   @protected
@@ -599,6 +617,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Song sse_decode_song(SseDeserializer deserializer);
+
+  @protected
+  SongPage sse_decode_song_page(SseDeserializer deserializer);
+
+  @protected
+  SongTag sse_decode_song_tag(SseDeserializer deserializer);
 
   @protected
   SongUrl sse_decode_song_url(SseDeserializer deserializer);
@@ -841,6 +865,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_song(List<Song> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_song_tag(List<SongTag> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_top_list(List<TopList> self, SseSerializer serializer);
 
   @protected
@@ -967,6 +994,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_related_playlists(
+    RelatedPlaylists self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_search_kind(SearchKind self, SseSerializer serializer);
 
   @protected
@@ -998,6 +1031,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_song(Song self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_song_page(SongPage self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_song_tag(SongTag self, SseSerializer serializer);
 
   @protected
   void sse_encode_song_url(SongUrl self, SseSerializer serializer);

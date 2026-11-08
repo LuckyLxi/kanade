@@ -10,6 +10,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:kanade/player/player_controller.dart';
 import 'package:kanade/src/rust/api/music.dart' as api;
 import 'package:kanade/ui/mini_player.dart';
+import 'package:kanade/ui/player_detail.dart';
 import 'package:kanade/ui/player_lyrics.dart';
 import 'package:kanade/ui/player_page.dart';
 import 'package:kanade/ui/player_route.dart';
@@ -36,30 +37,45 @@ void main() {
     Future<void> shoot(String name) async {
       // ignore: invalid_use_of_protected_member
       final layer = view.layer! as OffsetLayer;
-      final image = await layer.toImage(Offset.zero & view.flutterView.physicalSize, pixelRatio: 1);
+      final image = await layer.toImage(
+        Offset.zero & view.flutterView.physicalSize,
+        pixelRatio: 1,
+      );
       final png = await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
-      File('${out.path}/${(index++).toString().padLeft(2, '0')}_$name.png').writeAsBytesSync(png!.buffer.asUint8List());
+      File('${out.path}/${(index++).toString().padLeft(2, '0')}_$name.png')
+          .writeAsBytesSync(png!.buffer.asUint8List());
     }
 
-    Future<void> wait(int ms) => tester.runAsync(() => Future<void>.delayed(Duration(milliseconds: ms)));
-    Future<void> frames(String name, List<int> times) => tester.runAsync(() async {
-      var last = 0;
-      for (final ms in times) {
-        await Future<void>.delayed(Duration(milliseconds: ms - last));
-        last = ms;
-        await shoot('${name}_${ms.toString().padLeft(3, '0')}');
-      }
-    });
+    Future<void> wait(int ms) =>
+        tester.runAsync(() => Future<void>.delayed(Duration(milliseconds: ms)));
+    Future<void> frames(String name, List<int> times) =>
+        tester.runAsync(() async {
+          var last = 0;
+          for (final ms in times) {
+            await Future<void>.delayed(Duration(milliseconds: ms - last));
+            last = ms;
+            await shoot('${name}_${ms.toString().padLeft(3, '0')}');
+          }
+        });
+
     /// [midShot] 在拖到一半、手指还按着时截一张；[hold] 是松手前停住不动多久（慢慢松手，没有速度）。
-    Future<void> drag(Offset from, Offset step, int steps, {String? midShot, int hold = 0}) async {
+    Future<void> drag(
+      Offset from,
+      Offset step,
+      int steps, {
+      String? midShot,
+      int hold = 0,
+    }) async {
       final g = await tester.startGesture(from);
       var time = Duration.zero;
       for (var i = 0; i < steps; i++) {
         time += const Duration(milliseconds: 16);
         await g.moveBy(step, timeStamp: time);
         await wait(16);
-        if (i == steps ~/ 2 && midShot != null) await tester.runAsync(() => shoot(midShot));
+        if (i == steps ~/ 2 && midShot != null) {
+          await tester.runAsync(() => shoot(midShot));
+        }
       }
       if (hold > 0) {
         await wait(hold);
@@ -69,11 +85,16 @@ void main() {
       await g.up(timeStamp: time + const Duration(milliseconds: 16));
     }
 
-    final (player, nav) = await launchWithSong(tester, setup: () => windowManager.setSize(const Size(430, 900)));
+    final (player, nav) = await launchWithSong(
+      tester,
+      setup: () => windowManager.setSize(const Size(430, 900)),
+    );
     final mode = player.mode;
     // 测试会切换播放模式，结束时把存的值改回去
     final savedMode = api.getPref(key: 'play_mode');
-    addTearDown(() => api.setPref(key: 'play_mode', value: savedMode ?? mode.name));
+    addTearDown(
+      () => api.setPref(key: 'play_mode', value: savedMode ?? mode.name),
+    );
 
     // 播放条先是小圆，点开成长条再打开播放页
     await tester.tap(find.byType(MiniPlayer));
@@ -88,7 +109,12 @@ void main() {
     await frames('lyrics', [100, 250, 600]);
     expect(find.byType(LyricView), findsOneWidget);
     // 右滑翻回来
-    await drag(page.center, const Offset(24, 0), 10, midShot: 'lyrics_back_mid');
+    await drag(
+      page.center,
+      const Offset(24, 0),
+      10,
+      midShot: 'lyrics_back_mid',
+    );
     await frames('lyrics_back', [100, 250, 600]);
     expect(find.byType(LyricView), findsNothing);
     // 拖不到一半、慢慢松手：弹回主页面
@@ -104,20 +130,54 @@ void main() {
     unawaited(nav.push(PlayerRoute(anchor: MiniPlayer.anchor)));
     await wait(1200);
 
+    // 右滑翻到歌曲信息页，等接口回来再截；往上拖滚动内容
+    await drag(page.center, const Offset(24, 0), 10, midShot: 'detail_mid');
+    await frames('detail', [100, 250, 600]);
+    expect(find.byType(SongDetailView), findsOneWidget);
+    await wait(4000);
+    await tester.runAsync(() => shoot('detail_loaded'));
+    await drag(page.center, const Offset(0, -40), 12);
+    await wait(800);
+    await tester.runAsync(() => shoot('detail_scrolled'));
+    // 左滑翻回主页面
+    await drag(
+      page.center,
+      const Offset(-24, 0),
+      10,
+      midShot: 'detail_back_mid',
+    );
+    await frames('detail_back', [100, 600]);
+    expect(find.byType(SongDetailView), findsNothing);
+    // 信息页按返回只翻回主页面，不关播放页
+    await drag(page.center, const Offset(24, 0), 10);
+    await wait(600);
+    await nav.maybePop();
+    await frames('detail_pop', [100, 700]);
+    expect(find.byType(PlayerPage), findsOneWidget);
+    expect(find.byType(SongDetailView), findsNothing);
+
     // 上滑翻到队列；队列页按返回只翻回主页面，不关播放页
     await drag(page.center, const Offset(0, -30), 10);
     await wait(600);
     await nav.maybePop();
     await frames('queue_pop', [100, 700]);
     expect(find.byType(PlayerPage), findsOneWidget);
-    expect(find.text('接下来播放').evaluate().length + find.text('Up next').evaluate().length, 0);
+    expect(
+      find.text('接下来播放').evaluate().length +
+          find.text('Up next').evaluate().length,
+      0,
+    );
 
     // 再上滑翻到队列，在列表顶上往下拉翻回来
     await drag(page.center, const Offset(0, -30), 10, midShot: 'queue_mid');
     await frames('queue', [100, 250, 600]);
     await drag(page.center, const Offset(0, 24), 12, midShot: 'queue_back_mid');
     await frames('queue_back', [100, 250, 600]);
-    expect(find.text('接下来播放').evaluate().length + find.text('Up next').evaluate().length, 0);
+    expect(
+      find.text('接下来播放').evaluate().length +
+          find.text('Up next').evaluate().length,
+      0,
+    );
 
     // 播放模式点一下换一种
     await tester.tap(find.byIcon(_icon(player.mode)).last);

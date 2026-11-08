@@ -258,5 +258,9 @@
   "durationHoursMinutes": "{hours} hr {minutes} min",
   "durationMinutes": "{minutes} min",
   "filterFound": "{count, plural, =1{1 song found} other{{count} songs found}}",
-  "playFiltered": "Play {count}"
+  "playFiltered": "Play {count}",
+  "featuredVideos": "Featured videos",
+  "alsoListening": "Fans of {name} also listen to",
+  "relatedPlaylists": "Related playlists",
+  "anotherBatch": "Show others"
 }

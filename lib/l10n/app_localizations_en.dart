@@ -930,4 +930,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String playFiltered(int count) {
     return 'Play $count';
   }
+
+  @override
+  String get featuredVideos => 'Featured videos';
+
+  @override
+  String alsoListening(String name) {
+    return 'Fans of $name also listen to';
+  }
+
+  @override
+  String get relatedPlaylists => 'Related playlists';
+
+  @override
+  String get anotherBatch => 'Show others';
 }

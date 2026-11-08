@@ -16,6 +16,7 @@ import '../player/player_controller.dart';
 import '../src/rust/api/types.dart';
 import 'comments_page.dart';
 import 'player_background.dart';
+import 'player_detail.dart';
 import 'player_lyrics.dart';
 import 'player_route.dart';
 import 'smooth_scroll.dart';
@@ -23,7 +24,7 @@ import 'song_actions.dart';
 import 'toast.dart';
 import 'widgets.dart';
 
-enum _Panel { lyrics, queue }
+enum _Panel { lyrics, queue, detail }
 
 enum _Drag { none, route, page }
 
@@ -32,7 +33,10 @@ const _curve = Curves.easeInOutCubicEmphasized;
 
 final _fallbackTheme = ThemeData(
   useMaterial3: true,
-  colorScheme: ColorScheme.fromSeed(seedColor: fallbackPalette[1], brightness: Brightness.dark),
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: fallbackPalette[1],
+    brightness: Brightness.dark,
+  ),
 );
 
 /// Apple Music 风格的全屏播放页：封面取色流动背景、下拉关闭，
@@ -52,7 +56,8 @@ class PlayerPage extends StatefulWidget {
     await warmUpPlayerBackground();
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    final pixelRatio = ui.PlatformDispatcher.instance.views.first.devicePixelRatio;
+    final pixelRatio =
+        ui.PlatformDispatcher.instance.views.first.devicePixelRatio;
     canvas.scale(pixelRatio);
     for (final lifted in [false, true]) {
       for (final t in [0.1, 0.5, 1.0]) {
@@ -60,7 +65,11 @@ class PlayerPage extends StatefulWidget {
           borderRadius: BorderRadius.circular(14),
           boxShadow: [albumArtShadow(lifted: lifted).scale(t)],
         ).createBoxPainter();
-        painter.paint(canvas, const Offset(100, 100), ImageConfiguration(size: Size.square(54 + 346 * t)));
+        painter.paint(
+          canvas,
+          const Offset(100, 100),
+          ImageConfiguration(size: Size.square(54 + 346 * t)),
+        );
         painter.dispose();
       }
     }
@@ -82,17 +91,20 @@ class PlayerPage extends StatefulWidget {
   State<PlayerPage> createState() => _PlayerPageState();
 }
 
-class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateMixin {
+class _PlayerPageState extends State<PlayerPage>
+    with SingleTickerProviderStateMixin {
   CoverArt? _art;
   String? _artUrl;
 
   /// 宽屏右侧显示队列还是歌词。
   late bool _wideQueue = widget.showQueue;
 
-  /// 窄屏翻页的进度：0 是主页面，1 是 [_side] 那一页（队列在下面、歌词在右边）。
+  /// 窄屏翻页的进度：0 是主页面，1 是 [_side] 那一页（队列在下面、歌词在右边、歌曲信息在左边）。
   /// 拖动时手指直接改它，封面、歌名、控件、面板的位置都由它算出来。
-  late final AnimationController _page = AnimationController(vsync: this, value: widget.showQueue ? 1 : 0)
-    ..addStatusListener((_) => setState(() {}));
+  late final AnimationController _page = AnimationController(
+    vsync: this,
+    value: widget.showQueue ? 1 : 0,
+  )..addStatusListener((_) => setState(() {}));
   late _Panel _side = widget.showQueue ? _Panel.queue : _Panel.lyrics;
 
   /// 窄屏内容区的大小，翻页时手指位移按它换算成进度。
@@ -113,12 +125,9 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
       _art = cached;
       return;
     }
-    loadCoverArt(url).then(
-      (art) {
-        if (mounted && _artUrl == url) setState(() => _art = art);
-      },
-      onError: (_) {},
-    );
+    loadCoverArt(url).then((art) {
+      if (mounted && _artUrl == url) setState(() => _art = art);
+    }, onError: (_) {});
   }
 
   @override
@@ -130,7 +139,10 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
   // ---- 窄屏翻页 ----
 
   /// 松手后接着手指的速度弹到位，临界阻尼不回弹。
-  static final _pageSpring = SpringDescription.withDampingRatio(mass: 1, stiffness: 520);
+  static final _pageSpring = SpringDescription.withDampingRatio(
+    mass: 1,
+    stiffness: 520,
+  );
 
   double get _extent => _side == _Panel.queue ? _area.height : _area.width;
 
@@ -149,7 +161,13 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
     final v = _extent > 0 ? -velocity / _extent : 0.0;
     final open = v.abs() > 1.2 ? v > 0 : _page.value > 0.5;
     // 落点要正好是 0 / 1，往回翻要用 animateBackWith，停下时才算回到主页面
-    final spring = SpringSimulation(_pageSpring, _page.value, open ? 1 : 0, v, snapToEnd: true);
+    final spring = SpringSimulation(
+      _pageSpring,
+      _page.value,
+      open ? 1 : 0,
+      v,
+      snapToEnd: true,
+    );
     open ? _page.animateWith(spring) : _page.animateBackWith(spring);
   }
 
@@ -181,14 +199,20 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
     return _Drag.page;
   }
 
+  /// 主页面往左翻出歌词、往右翻出歌曲信息；翻开后横向拖动都交给同一页。
   _Drag _decideHorizontal(double dx) {
     final t = _page.value;
-    if ((t == 0 && dx < 0) || (t > 0 && _side == _Panel.lyrics)) {
-      _pageDragStart(_Panel.lyrics);
-      return _Drag.page;
-    }
-    return _Drag.none;
+    final side = t > 0
+        ? (_side == _Panel.queue ? null : _side)
+        : (dx < 0 ? _Panel.lyrics : (dx > 0 ? _Panel.detail : null));
+    if (side == null) return _Drag.none;
+    _pageDragStart(side);
+    return _Drag.page;
   }
+
+  /// 歌曲信息在左边，手指往右才是离开主页面，横向位移要反过来算。
+  double _alongPage(Axis axis, double v) =>
+      axis == Axis.horizontal && _side == _Panel.detail ? -v : v;
 
   Widget _gestures({required bool narrow, required Widget child}) {
     final route = ModalRoute.of(context);
@@ -197,28 +221,38 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
       _drag = null;
       _dragAxis = axis;
     }
+
     void update(Axis axis, double delta) {
       if (_listPull || _dragAxis != axis) return;
-      _drag ??= axis == Axis.vertical ? _decideVertical(narrow, r, delta) : _decideHorizontal(delta);
+      _drag ??= axis == Axis.vertical
+          ? _decideVertical(narrow, r, delta)
+          : _decideHorizontal(delta);
       if (_drag == _Drag.route) r!.dragUpdate(delta);
-      if (_drag == _Drag.page) _pageDragUpdate(delta);
+      if (_drag == _Drag.page) _pageDragUpdate(_alongPage(axis, delta));
     }
+
     // 点按钮时拖动手势没真正开始也会收到取消，这时 _drag 还是空的
     void end(Axis axis, double velocity) {
       if (_dragAxis != axis) return;
       if (_drag == _Drag.route) r!.dragEnd(velocity);
-      if (_drag == _Drag.page) _pageDragEnd(velocity);
+      if (_drag == _Drag.page) _pageDragEnd(_alongPage(axis, velocity));
       _drag = null;
       _dragAxis = null;
     }
+
     return GestureDetector(
       onVerticalDragStart: (_) => start(Axis.vertical),
       onVerticalDragUpdate: (d) => update(Axis.vertical, d.delta.dy),
-      onVerticalDragEnd: (d) => end(Axis.vertical, d.velocity.pixelsPerSecond.dy),
+      onVerticalDragEnd: (d) =>
+          end(Axis.vertical, d.velocity.pixelsPerSecond.dy),
       onVerticalDragCancel: () => end(Axis.vertical, 0),
       onHorizontalDragStart: narrow ? (_) => start(Axis.horizontal) : null,
-      onHorizontalDragUpdate: narrow ? (d) => update(Axis.horizontal, d.delta.dx) : null,
-      onHorizontalDragEnd: narrow ? (d) => end(Axis.horizontal, d.velocity.pixelsPerSecond.dx) : null,
+      onHorizontalDragUpdate: narrow
+          ? (d) => update(Axis.horizontal, d.delta.dx)
+          : null,
+      onHorizontalDragEnd: narrow
+          ? (d) => end(Axis.horizontal, d.velocity.pixelsPerSecond.dx)
+          : null,
       onHorizontalDragCancel: narrow ? () => end(Axis.horizontal, 0) : null,
       child: child,
     );
@@ -279,6 +313,7 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
         : RepaintBoundary(
             child: switch (_side) {
               _Panel.lyrics => const LyricView(key: ValueKey('lyrics')),
+              _Panel.detail => const SongDetailView(key: ValueKey('detail')),
               _Panel.queue => _QueuePanel(
                 key: const ValueKey('queue'),
                 onPullStart: () {
@@ -306,14 +341,21 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
           animation: _page,
           builder: (context, _) {
             final t = _page.value;
-            // 整页翻走的距离：队列竖着翻一屏，歌词横着翻一屏
-            final shift = _side == _Panel.queue ? Offset(0, area.maxHeight) : Offset(area.maxWidth, 0);
+            // 整页翻走的距离：队列竖着翻一屏，歌词往左、歌曲信息往右横着翻一屏
+            final shift = switch (_side) {
+              _Panel.queue => Offset(0, area.maxHeight),
+              _Panel.lyrics => Offset(area.maxWidth, 0),
+              _Panel.detail => Offset(-area.maxWidth, 0),
+            };
             return Stack(
               children: [
                 if (panel != null)
                   Positioned.fill(
                     top: small + 16,
-                    child: Transform.translate(offset: shift * (1 - t), child: panel),
+                    child: Transform.translate(
+                      offset: shift * (1 - t),
+                      child: panel,
+                    ),
                   ),
                 // 从下往上排：控件先画，封面歌名盖在上面
                 Column(
@@ -322,23 +364,47 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
                     // 控件翻走时从顶上那条封面歌名下面钻过去，和面板一样在那条线以上看不见
                     ClipRect(
                       clipper: _ClipAbove(() => small + 16 - _headerHeight),
-                      child: Transform.translate(offset: -shift * t, child: controls),
+                      child: Transform.translate(
+                        offset: -shift * t,
+                        child: controls,
+                      ),
                     ),
                     Expanded(
                       child: LayoutBuilder(
                         builder: (context, c) {
                           _headerHeight = c.maxHeight;
                           const pad = 28.0, titleH = 64.0;
-                          final size = min(c.maxWidth - pad * 2, c.maxHeight - titleH - 28).clamp(80.0, 560.0);
-                          final top = max(0.0, (c.maxHeight - size - titleH - 24) / 2);
+                          final size = min(
+                            c.maxWidth - pad * 2,
+                            c.maxHeight - titleH - 28,
+                          ).clamp(80.0, 560.0);
+                          final top = max(
+                            0.0,
+                            (c.maxHeight - size - titleH - 24) / 2,
+                          );
                           final coverRect = Rect.lerp(
-                            Rect.fromLTWH((c.maxWidth - size) / 2, top, size, size),
+                            Rect.fromLTWH(
+                              (c.maxWidth - size) / 2,
+                              top,
+                              size,
+                              size,
+                            ),
                             const Rect.fromLTWH(24, 4, small, small),
                             t,
                           )!;
                           final titleRect = Rect.lerp(
-                            Rect.fromLTWH(pad, top + size + 24, c.maxWidth - pad * 2, titleH),
-                            Rect.fromLTWH(24 + small + 14, 4, c.maxWidth - 24 - small - 14 - 20, small),
+                            Rect.fromLTWH(
+                              pad,
+                              top + size + 24,
+                              c.maxWidth - pad * 2,
+                              titleH,
+                            ),
+                            Rect.fromLTWH(
+                              24 + small + 14,
+                              4,
+                              c.maxWidth - 24 - small - 14 - 20,
+                              small,
+                            ),
                             t,
                           )!;
                           return Stack(
@@ -352,7 +418,10 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
                                   expanded: t < 0.5,
                                 ),
                               ),
-                              Positioned.fromRect(rect: titleRect, child: _TitleRow(song: song, t: t)),
+                              Positioned.fromRect(
+                                rect: titleRect,
+                                child: _TitleRow(song: song, t: t),
+                              ),
                             ],
                           );
                         },
@@ -483,7 +552,10 @@ class _AlbumArt extends StatelessWidget {
             duration: const Duration(milliseconds: 450),
             transitionBuilder: (child, a) => FadeTransition(
               opacity: a,
-              child: ScaleTransition(scale: Tween(begin: 0.94, end: 1.0).animate(a), child: child),
+              child: ScaleTransition(
+                scale: Tween(begin: 0.94, end: 1.0).animate(a),
+                child: child,
+              ),
             ),
             child: SizedBox.expand(
               key: ValueKey(url),
@@ -523,7 +595,11 @@ class _TitleRow extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               DefaultTextStyle(
-                style: TextStyle(fontSize: lerpDouble(22, 17, t), fontWeight: FontWeight.w800, color: Colors.white),
+                style: TextStyle(
+                  fontSize: lerpDouble(22, 17, t),
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
                 child: _Marquee(song.name),
               ),
               const SizedBox(height: 2),
@@ -533,10 +609,14 @@ class _TitleRow extends StatelessWidget {
                   style: TextStyle(
                     fontSize: lerpDouble(18, 14, t),
                     fontWeight: FontWeight.w500,
-                    color: error != null ? const Color(0xFFFF9A9A) : Colors.white60,
+                    color: error != null
+                        ? const Color(0xFFFF9A9A)
+                        : Colors.white60,
                   ),
                   child: Text(
-                    error != null ? playerErrorText(l, error) : singerNames(song),
+                    error != null
+                        ? playerErrorText(l, error)
+                        : singerNames(song),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -551,7 +631,11 @@ class _TitleRow extends StatelessWidget {
         _GlassButton(
           tooltip: l.more,
           onTap: () => showSongActions(context, song),
-          child: const Icon(Icons.more_horiz_rounded, color: Colors.white, size: 22),
+          child: const Icon(
+            Icons.more_horiz_rounded,
+            color: Colors.white,
+            size: 22,
+          ),
         ),
       ],
     );
@@ -568,7 +652,8 @@ class _Marquee extends StatefulWidget {
   State<_Marquee> createState() => _MarqueeState();
 }
 
-class _MarqueeState extends State<_Marquee> with SingleTickerProviderStateMixin {
+class _MarqueeState extends State<_Marquee>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(vsync: this);
   static const _gap = 48.0;
 
@@ -621,15 +706,24 @@ class _MarqueeState extends State<_Marquee> with SingleTickerProviderStateMixin 
               child: AnimatedBuilder(
                 animation: _c,
                 builder: (_, child) {
-                  final t = _c.value < hold ? 0.0 : (_c.value - hold) / (1 - hold);
-                  return Transform.translate(offset: Offset(-t * travel, 0), child: child);
+                  final t = _c.value < hold
+                      ? 0.0
+                      : (_c.value - hold) / (1 - hold);
+                  return Transform.translate(
+                    offset: Offset(-t * travel, 0),
+                    child: child,
+                  );
                 },
                 child: OverflowBox(
                   alignment: Alignment.centerLeft,
                   maxWidth: double.infinity,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: [Text(widget.text, maxLines: 1), const SizedBox(width: _gap), Text(widget.text, maxLines: 1)],
+                    children: [
+                      Text(widget.text, maxLines: 1),
+                      const SizedBox(width: _gap),
+                      Text(widget.text, maxLines: 1),
+                    ],
                   ),
                 ),
               ),
@@ -654,7 +748,10 @@ class _GlassButton extends StatelessWidget {
       color: Colors.white.withValues(alpha: 0.14),
       shape: const CircleBorder(),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(onTap: onTap, child: SizedBox.square(dimension: 36, child: Center(child: child))),
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox.square(dimension: 36, child: Center(child: child)),
+      ),
     );
     return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
   }
@@ -675,7 +772,8 @@ class _LikeButton extends StatelessWidget {
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 450),
         switchInCurve: Curves.elasticOut,
-        transitionBuilder: (child, a) => ScaleTransition(scale: a, child: child),
+        transitionBuilder: (child, a) =>
+            ScaleTransition(scale: a, child: child),
         child: Icon(
           liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
           key: ValueKey(liked),
@@ -689,7 +787,11 @@ class _LikeButton extends StatelessWidget {
 
 /// 进度条 + 播放按钮一排 + 底部按钮。
 class _ControlsArea extends StatelessWidget {
-  const _ControlsArea({required this.accent, this.queueOpen = false, this.onQueue});
+  const _ControlsArea({
+    required this.accent,
+    this.queueOpen = false,
+    this.onQueue,
+  });
 
   final Color accent;
   final bool queueOpen;
@@ -716,7 +818,9 @@ class _ControlsArea extends StatelessWidget {
               tooltip: l.comments,
               selected: false,
               accent: accent,
-              onTap: song == null ? () {} : () => Navigator.of(context).push(CommentsPage.song(song)),
+              onTap: song == null
+                  ? () {}
+                  : () => Navigator.of(context).push(CommentsPage.song(song)),
             ),
             if (onQueue != null)
               _ToggleIcon(
@@ -761,7 +865,9 @@ class _ToggleIcon extends StatelessWidget {
           width: 44,
           height: 36,
           decoration: BoxDecoration(
-            color: selected ? Colors.white.withValues(alpha: 0.9) : Colors.transparent,
+            color: selected
+                ? Colors.white.withValues(alpha: 0.9)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, size: 22, color: selected ? dark : Colors.white70),
@@ -824,7 +930,11 @@ class _ThinSlider extends StatelessWidget {
                     child: FractionallySizedBox(
                       widthFactor: value.clamp(0.0, 1.0),
                       heightFactor: 1,
-                      child: ColoredBox(color: active ? Colors.white : Colors.white.withValues(alpha: 0.75)),
+                      child: ColoredBox(
+                        color: active
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.75),
+                      ),
                     ),
                   ),
                 ),
@@ -872,12 +982,19 @@ class _ProgressBarState extends State<_ProgressBar> {
               onEnd: () {
                 final d = _drag;
                 setState(() => _drag = null);
-                if (d != null && total > 0) unawaited(p.seek(Duration(milliseconds: (d * total).round())));
+                if (d != null && total > 0) {
+                  unawaited(
+                    p.seek(Duration(milliseconds: (d * total).round())),
+                  );
+                }
               },
             ),
             Row(
               children: [
-                SizedBox(width: 56, child: Text(formatDuration(shown), style: timeStyle)),
+                SizedBox(
+                  width: 56,
+                  child: Text(formatDuration(shown), style: timeStyle),
+                ),
                 const Expanded(child: Center(child: QualityMenu())),
                 SizedBox(
                   width: 56,
@@ -911,7 +1028,11 @@ class _Transport extends StatelessWidget {
           size: 44,
           nudge: -1,
           onTap: p.previous,
-          child: const Icon(Icons.fast_rewind_rounded, size: 44, color: Colors.white),
+          child: const Icon(
+            Icons.fast_rewind_rounded,
+            size: 44,
+            color: Colors.white,
+          ),
         ),
         _PressButton(
           size: 60,
@@ -923,7 +1044,10 @@ class _Transport extends StatelessWidget {
               if (p.loading || p.buffering)
                 const SizedBox.square(
                   dimension: 74,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white54,
+                  ),
                 ),
             ],
           ),
@@ -932,7 +1056,11 @@ class _Transport extends StatelessWidget {
           size: 44,
           nudge: 1,
           onTap: p.next,
-          child: const Icon(Icons.fast_forward_rounded, size: 44, color: Colors.white),
+          child: const Icon(
+            Icons.fast_forward_rounded,
+            size: 44,
+            color: Colors.white,
+          ),
         ),
         const _VolumeButton(),
       ],
@@ -943,7 +1071,12 @@ class _Transport extends StatelessWidget {
 /// 按下时缩小并亮起圆形底；上一首 / 下一首额外往对应方向轻推一下。
 /// 圆形底比按钮本身大，画在布局范围外面，不把一排按钮撑宽。
 class _PressButton extends StatefulWidget {
-  const _PressButton({required this.size, required this.onTap, required this.child, this.nudge = 0});
+  const _PressButton({
+    required this.size,
+    required this.onTap,
+    required this.child,
+    this.nudge = 0,
+  });
 
   final double size;
   final VoidCallback onTap;
@@ -954,13 +1087,17 @@ class _PressButton extends StatefulWidget {
   State<_PressButton> createState() => _PressButtonState();
 }
 
-class _PressButtonState extends State<_PressButton> with TickerProviderStateMixin {
+class _PressButtonState extends State<_PressButton>
+    with TickerProviderStateMixin {
   late final AnimationController _press = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 90),
     reverseDuration: const Duration(milliseconds: 350),
   );
-  late final AnimationController _nudge = AnimationController(vsync: this, duration: const Duration(milliseconds: 380));
+  late final AnimationController _nudge = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 380),
+  );
 
   @override
   void dispose() {
@@ -992,10 +1129,21 @@ class _PressButtonState extends State<_PressButton> with TickerProviderStateMixi
             builder: (_, child) => Container(
               width: box,
               height: box,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.16 * _press.value)),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.16 * _press.value),
+              ),
               child: Transform.translate(
-                offset: Offset(widget.nudge * 12 * sin(Curves.easeOut.transform(_nudge.value) * pi), 0),
-                child: Transform.scale(scale: 1 - 0.14 * _press.value, child: child),
+                offset: Offset(
+                  widget.nudge *
+                      12 *
+                      sin(Curves.easeOut.transform(_nudge.value) * pi),
+                  0,
+                ),
+                child: Transform.scale(
+                  scale: 1 - 0.14 * _press.value,
+                  child: child,
+                ),
               ),
             ),
             child: Center(child: widget.child),
@@ -1033,7 +1181,10 @@ class _ModeButton extends StatelessWidget {
           switchInCurve: Curves.easeOutBack,
           transitionBuilder: (child, a) => FadeTransition(
             opacity: a,
-            child: ScaleTransition(scale: Tween(begin: 0.5, end: 1.0).animate(a), child: child),
+            child: ScaleTransition(
+              scale: Tween(begin: 0.5, end: 1.0).animate(a),
+              child: child,
+            ),
           ),
           child: Icon(
             switch (mode) {
@@ -1054,8 +1205,8 @@ class _ModeButton extends StatelessWidget {
 IconData _volumeIcon(double volume) => volume == 0
     ? Icons.volume_off_rounded
     : volume < 50
-        ? Icons.volume_down_rounded
-        : Icons.volume_up_rounded;
+    ? Icons.volume_down_rounded
+    : Icons.volume_up_rounded;
 
 /// 音量按钮：点开时按钮本身长成一条竖着的音量条，点外面再缩回按钮。
 class _VolumeButton extends StatefulWidget {
@@ -1078,9 +1229,11 @@ class _VolumeButtonState extends State<_VolumeButton> {
     // 展开期间按钮藏起来，看起来就是它自己变成了音量条；缩回去落地了再露出来
     setState(() => _open = true);
     unawaited(Navigator.of(context, rootNavigator: true).push(route));
-    unawaited(route.completed.then((_) {
-      if (mounted) setState(() => _open = false);
-    }));
+    unawaited(
+      route.completed.then((_) {
+        if (mounted) setState(() => _open = false);
+      }),
+    );
   }
 
   @override
@@ -1102,7 +1255,11 @@ class _VolumeButtonState extends State<_VolumeButton> {
 }
 
 class _VolumeRoute extends PopupRoute<void> {
-  _VolumeRoute({required this.anchor, required this.player, required this.barrierLabel});
+  _VolumeRoute({
+    required this.anchor,
+    required this.player,
+    required this.barrierLabel,
+  });
 
   /// 音量按钮在屏幕上的位置，音量条从这里长出来、缩回这里。
   final Rect anchor;
@@ -1136,12 +1293,25 @@ class _VolumeRoute extends PopupRoute<void> {
   }
 
   @override
-  Widget buildPage(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation) =>
-      _VolumePanel(anchor: anchor, player: player, animation: _curved, route: animation);
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) => _VolumePanel(
+    anchor: anchor,
+    player: player,
+    animation: _curved,
+    route: animation,
+  );
 }
 
 class _VolumePanel extends StatelessWidget {
-  const _VolumePanel({required this.anchor, required this.player, required this.animation, required this.route});
+  const _VolumePanel({
+    required this.anchor,
+    required this.player,
+    required this.animation,
+    required this.route,
+  });
 
   final Rect anchor;
   final PlayerController player;
@@ -1164,7 +1334,12 @@ class _VolumePanel extends StatelessWidget {
     // 底部那一格放图标，正好盖在按钮原来的位置上
     final left = (c.dx - _width / 2).clamp(8.0, screen.width - _width - 8);
     final bottom = c.dy + _width / 2;
-    final panel = Rect.fromLTRB(left, max(top + 8, bottom - _height), left + _width, bottom);
+    final panel = Rect.fromLTRB(
+      left,
+      max(top + 8, bottom - _height),
+      left + _width,
+      bottom,
+    );
     return Material(
       type: MaterialType.transparency,
       child: AnimatedBuilder(
@@ -1189,20 +1364,35 @@ class _VolumePanel extends StatelessWidget {
                         color: Colors.white.withValues(alpha: 0.16 * t),
                         child: LayoutBuilder(
                           builder: (context, box) {
-                            double at(Offset o) => (1 - o.dy / box.maxHeight).clamp(0.0, 1.0);
+                            double at(Offset o) =>
+                                (1 - o.dy / box.maxHeight).clamp(0.0, 1.0);
                             return Listener(
                               onPointerSignal: (e) {
-                                if (e is PointerScrollEvent) _set((player.volume - e.scrollDelta.dy / 8) / 100);
+                                if (e is PointerScrollEvent) {
+                                  _set(
+                                    (player.volume - e.scrollDelta.dy / 8) /
+                                        100,
+                                  );
+                                }
                               },
                               child: GestureDetector(
                                 behavior: HitTestBehavior.opaque,
-                                onVerticalDragStart: (d) => _set(at(d.localPosition)),
-                                onVerticalDragUpdate: (d) => _set(at(d.localPosition)),
+                                onVerticalDragStart: (d) =>
+                                    _set(at(d.localPosition)),
+                                onVerticalDragUpdate: (d) =>
+                                    _set(at(d.localPosition)),
                                 onTapUp: (d) => _set(at(d.localPosition)),
                                 child: ListenableBuilder(
                                   listenable: player,
-                                  builder: (context, _) =>
-                                      _VolumeFill(volume: player.volume, content: content, iconBox: lerpDouble(anchor.height, _width, t)!),
+                                  builder: (context, _) => _VolumeFill(
+                                    volume: player.volume,
+                                    content: content,
+                                    iconBox: lerpDouble(
+                                      anchor.height,
+                                      _width,
+                                      t,
+                                    )!,
+                                  ),
                                 ),
                               ),
                             );
@@ -1223,7 +1413,11 @@ class _VolumePanel extends StatelessWidget {
 
 /// 音量条里面：从下往上的填充、顶上的数值、底部的图标。图标被填充盖住时换成深色。
 class _VolumeFill extends StatelessWidget {
-  const _VolumeFill({required this.volume, required this.content, required this.iconBox});
+  const _VolumeFill({
+    required this.volume,
+    required this.content,
+    required this.iconBox,
+  });
 
   final double volume;
   final double content;
@@ -1235,7 +1429,8 @@ class _VolumeFill extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, box) {
         final filled = v * box.maxHeight;
-        Color on(bool covered) => Color.lerp(Colors.white70, Colors.black87, covered ? content : 0)!;
+        Color on(bool covered) =>
+            Color.lerp(Colors.white70, Colors.black87, covered ? content : 0)!;
         return Stack(
           fit: StackFit.expand,
           children: [
@@ -1244,7 +1439,9 @@ class _VolumeFill extends StatelessWidget {
               child: SizedBox(
                 height: filled,
                 width: double.infinity,
-                child: ColoredBox(color: Colors.white.withValues(alpha: 0.9 * content)),
+                child: ColoredBox(
+                  color: Colors.white.withValues(alpha: 0.9 * content),
+                ),
               ),
             ),
             Positioned(
@@ -1270,7 +1467,13 @@ class _VolumeFill extends StatelessWidget {
               right: 0,
               bottom: 0,
               height: iconBox,
-              child: Center(child: Icon(_volumeIcon(volume), size: 24, color: on(filled > iconBox / 2))),
+              child: Center(
+                child: Icon(
+                  _volumeIcon(volume),
+                  size: 24,
+                  color: on(filled > iconBox / 2),
+                ),
+              ),
             ),
           ],
         );
@@ -1288,7 +1491,8 @@ class _PlayPauseIcon extends StatefulWidget {
   State<_PlayPauseIcon> createState() => _PlayPauseIconState();
 }
 
-class _PlayPauseIconState extends State<_PlayPauseIcon> with SingleTickerProviderStateMixin {
+class _PlayPauseIconState extends State<_PlayPauseIcon>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 320),
@@ -1298,7 +1502,9 @@ class _PlayPauseIconState extends State<_PlayPauseIcon> with SingleTickerProvide
   @override
   void didUpdateWidget(_PlayPauseIcon old) {
     super.didUpdateWidget(old);
-    if (old.playing != widget.playing) widget.playing ? _c.forward() : _c.reverse();
+    if (old.playing != widget.playing) {
+      widget.playing ? _c.forward() : _c.reverse();
+    }
   }
 
   @override
@@ -1327,7 +1533,8 @@ class QualityMenu extends StatefulWidget {
   State<QualityMenu> createState() => _QualityMenuState();
 }
 
-class _QualityMenuState extends State<QualityMenu> with SingleTickerProviderStateMixin {
+class _QualityMenuState extends State<QualityMenu>
+    with SingleTickerProviderStateMixin {
   static const _headerHeight = 34.0;
   static const _rowHeight = 44.0;
   static const _pad = 6.0;
@@ -1335,8 +1542,16 @@ class _QualityMenuState extends State<QualityMenu> with SingleTickerProviderStat
   static const _menuRadius = 22.0;
 
   // 展开带一点回弹，收起不回弹、干脆利落
-  static final _openSpring = SpringDescription.withDampingRatio(mass: 1, stiffness: 380, ratio: 0.68);
-  static final _closeSpring = SpringDescription.withDampingRatio(mass: 1, stiffness: 560, ratio: 1);
+  static final _openSpring = SpringDescription.withDampingRatio(
+    mass: 1,
+    stiffness: 380,
+    ratio: 0.68,
+  );
+  static final _closeSpring = SpringDescription.withDampingRatio(
+    mass: 1,
+    stiffness: 560,
+    ratio: 1,
+  );
 
   final _link = LayerLink();
   final _chipKey = GlobalKey();
@@ -1365,13 +1580,17 @@ class _QualityMenuState extends State<QualityMenu> with SingleTickerProviderStat
       _picked = null;
     });
     _portal.show();
-    unawaited(_c.animateWith(SpringSimulation(_openSpring, _c.value, 1, _c.velocity)));
+    unawaited(
+      _c.animateWith(SpringSimulation(_openSpring, _c.value, 1, _c.velocity)),
+    );
   }
 
   Future<void> _close() async {
     if (!_expanded) return;
     _expanded = false;
-    await _c.animateBackWith(SpringSimulation(_closeSpring, _c.value, 0, _c.velocity, snapToEnd: true));
+    await _c.animateBackWith(
+      SpringSimulation(_closeSpring, _c.value, 0, _c.velocity, snapToEnd: true),
+    );
     if (!mounted || _expanded) return;
     _portal.hide();
     setState(() => _picked = null);
@@ -1391,7 +1610,9 @@ class _QualityMenuState extends State<QualityMenu> with SingleTickerProviderStat
     final actual = p.actualQuality;
     // 请求的音质没权限时 Rust 层会自动降级，按钮上只显示实际在播的档位
     final label = actual == null ? l.quality : qualityLabel(l, actual);
-    final options = p.qualityOptions.where((option) => option.available).toList();
+    final options = p.qualityOptions
+        .where((option) => option.available)
+        .toList();
     return OverlayPortal(
       controller: _portal,
       overlayChildBuilder: (_) => _buildMenu(p, l, label, options),
@@ -1404,17 +1625,20 @@ class _QualityMenuState extends State<QualityMenu> with SingleTickerProviderStat
             message: p.qualitiesLoading
                 ? l.qualityLoading
                 : p.qualitiesError != null
-                    ? l.qualityFailed(errorText(l, p.qualitiesError!))
-                    : options.isEmpty
-                        ? l.qualityNoneForSong
-                        : l.quality,
+                ? l.qualityFailed(errorText(l, p.qualitiesError!))
+                : options.isEmpty
+                ? l.qualityNoneForSong
+                : l.quality,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: p.qualitiesLoading ? null : _open,
               child: Container(
                 key: _chipKey,
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: const ShapeDecoration(color: Color(0x1FFFFFFF), shape: StadiumBorder()),
+                decoration: const ShapeDecoration(
+                  color: Color(0x1FFFFFFF),
+                  shape: StadiumBorder(),
+                ),
                 child: _chipContent(label, loading: p.qualitiesLoading),
               ),
             ),
@@ -1434,24 +1658,41 @@ class _QualityMenuState extends State<QualityMenu> with SingleTickerProviderStat
           child: Text(
             label,
             maxLines: 1,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white70),
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Colors.white70,
+            ),
             overflow: TextOverflow.ellipsis,
           ),
         ),
         if (loading)
           const Padding(
             padding: EdgeInsets.only(left: 5),
-            child: SizedBox.square(dimension: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white70)),
+            child: SizedBox.square(
+              dimension: 10,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: Colors.white70,
+              ),
+            ),
           ),
       ],
     );
   }
 
-  Widget _buildMenu(PlayerController p, AppLocalizations l, String label, List<QualityOption> options) {
+  Widget _buildMenu(
+    PlayerController p,
+    AppLocalizations l,
+    String label,
+    List<QualityOption> options,
+  ) {
     final error = p.qualitiesError != null;
     final count = error || options.isEmpty ? 1 : options.length;
     final selected = _picked ?? p.actualQuality;
-    final selectedIndex = error ? -1 : options.indexWhere((o) => o.quality == selected);
+    final selectedIndex = error
+        ? -1
+        : options.indexWhere((o) => o.quality == selected);
     final menuSize = Size(
       max(_menuWidth, _chipSize.width),
       _headerHeight + count * _rowHeight + _pad * 2,
@@ -1460,7 +1701,10 @@ class _QualityMenuState extends State<QualityMenu> with SingleTickerProviderStat
     return Stack(
       children: [
         Positioned.fill(
-          child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: () => unawaited(_close())),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => unawaited(_close()),
+          ),
         ),
         CompositedTransformFollower(
           link: _link,
@@ -1472,25 +1716,34 @@ class _QualityMenuState extends State<QualityMenu> with SingleTickerProviderStat
             builder: (_, _) {
               final v = _c.value;
               final t = v.clamp(0.0, 1.0);
-              double fade(double from, double to) => ((v - from) / (to - from)).clamp(0.0, 1.0);
+              double fade(double from, double to) =>
+                  ((v - from) / (to - from)).clamp(0.0, 1.0);
               // 选项一行接一行浮上来，行多的时候间隔压缩，保证在弹簧到位前都出来
               final step = min(0.06, 0.3 / count);
               final chipFade = 1 - fade(0, 0.3);
 
               Widget appear(int i, Widget child) {
-                final a = Curves.easeOut.transform(fade(0.3 + i * step, 0.7 + i * step));
+                final a = Curves.easeOut.transform(
+                  fade(0.3 + i * step, 0.7 + i * step),
+                );
                 return Opacity(
                   opacity: a,
-                  child: Transform.translate(offset: Offset(0, 10 * (1 - a)), child: child),
+                  child: Transform.translate(
+                    offset: Offset(0, 10 * (1 - a)),
+                    child: child,
+                  ),
                 );
               }
 
               final rows = <Widget>[
                 if (error)
-                  _row(l.qualityFailedRetry, onTap: () {
-                    unawaited(p.refreshQualities());
-                    unawaited(_close());
-                  })
+                  _row(
+                    l.qualityFailedRetry,
+                    onTap: () {
+                      unawaited(p.refreshQualities());
+                      unawaited(_close());
+                    },
+                  )
                 else if (options.isEmpty)
                   _row(l.qualityNone)
                 else
@@ -1516,11 +1769,19 @@ class _QualityMenuState extends State<QualityMenu> with SingleTickerProviderStat
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: Row(
                             children: [
-                              const Icon(Icons.graphic_eq_rounded, size: 15, color: Colors.white54),
+                              const Icon(
+                                Icons.graphic_eq_rounded,
+                                size: 15,
+                                color: Colors.white54,
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 l.quality,
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white54),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white54,
+                                ),
                               ),
                             ],
                           ),
@@ -1543,7 +1804,9 @@ class _QualityMenuState extends State<QualityMenu> with SingleTickerProviderStat
                               child: const DecoratedBox(
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.all(Radius.circular(_menuRadius - _pad)),
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(_menuRadius - _pad),
+                                  ),
                                 ),
                               ),
                             ),
@@ -1551,7 +1814,10 @@ class _QualityMenuState extends State<QualityMenu> with SingleTickerProviderStat
                         Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [for (var i = 0; i < rows.length; i++) appear(i, rows[i])],
+                          children: [
+                            for (var i = 0; i < rows.length; i++)
+                              appear(i, rows[i]),
+                          ],
                         ),
                       ],
                     ),
@@ -1567,14 +1833,24 @@ class _QualityMenuState extends State<QualityMenu> with SingleTickerProviderStat
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(_menuRadius),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.28 * t), blurRadius: 30 * t, offset: Offset(0, 10 * t))],
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.28 * t),
+                        blurRadius: 30 * t,
+                        offset: Offset(0, 10 * t),
+                      ),
+                    ],
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(lerpDouble(_chipSize.height / 2, _menuRadius, t)!),
+                    borderRadius: BorderRadius.circular(
+                      lerpDouble(_chipSize.height / 2, _menuRadius, t)!,
+                    ),
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 24 * t, sigmaY: 24 * t),
                       child: ColoredBox(
-                        color: Colors.white.withValues(alpha: lerpDouble(0.12, 0.16, t)!),
+                        color: Colors.white.withValues(
+                          alpha: lerpDouble(0.12, 0.16, t)!,
+                        ),
                         child: Stack(
                           children: [
                             if (chipFade > 0)
@@ -1617,8 +1893,8 @@ class _QualityMenuState extends State<QualityMenu> with SingleTickerProviderStat
     final color = onTap == null
         ? Colors.white38
         : selected
-            ? Colors.black
-            : Colors.white;
+        ? Colors.black
+        : Colors.white;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -1631,8 +1907,16 @@ class _QualityMenuState extends State<QualityMenu> with SingleTickerProviderStat
               Expanded(
                 child: AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 200),
-                  style: TextStyle(fontSize: 14, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: color),
-                  child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: color,
+                  ),
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
               if (spec != null)
@@ -1670,7 +1954,10 @@ class _QueuePanel extends StatefulWidget {
 class _QueuePanelState extends State<_QueuePanel> {
   static const _extent = 64.0;
   late final ScrollController _scroll = SmoothScrollController(
-    initialScrollOffset: max(0, (context.read<PlayerController>().index - 1) * _extent),
+    initialScrollOffset: max(
+      0,
+      (context.read<PlayerController>().index - 1) * _extent,
+    ),
   );
 
   /// 直接看手指，不进手势竞争：比列表的滚动手势先一步判断是不是在顶上往下拉。
@@ -1681,7 +1968,8 @@ class _QueuePanelState extends State<_QueuePanel> {
 
   void _onDown(PointerDownEvent e) {
     if (widget.onPull == null) return;
-    _tracker = VelocityTracker.withKind(e.kind)..addPosition(e.timeStamp, e.position);
+    _tracker = VelocityTracker.withKind(e.kind)
+      ..addPosition(e.timeStamp, e.position);
     _moved = 0;
     _decided = false;
   }
@@ -1699,7 +1987,9 @@ class _QueuePanelState extends State<_QueuePanel> {
     // 比列表滚动的判定距离小，列表还没开始滚就决定好
     if (_moved.abs() < 8) return;
     _decided = true;
-    final atTop = _scroll.hasClients && _scroll.position.pixels <= _scroll.position.minScrollExtent;
+    final atTop =
+        _scroll.hasClients &&
+        _scroll.position.pixels <= _scroll.position.minScrollExtent;
     if (_moved < 0 || !atTop) return;
     // 拉的时候列表本身不能滚，换掉滚动物理也会结束列表已经开始的那次滚动
     setState(() => _pulling = true);
@@ -1712,7 +2002,9 @@ class _QueuePanelState extends State<_QueuePanel> {
     _tracker = null;
     if (!_pulling) return;
     setState(() => _pulling = false);
-    widget.onPullEnd!(cancel || tracker == null ? 0 : tracker.getVelocity().pixelsPerSecond.dy);
+    widget.onPullEnd!(
+      cancel || tracker == null ? 0 : tracker.getVelocity().pixelsPerSecond.dy,
+    );
   }
 
   @override
@@ -1730,7 +2022,14 @@ class _QueuePanelState extends State<_QueuePanel> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 8, 20, 12),
-          child: Text(l.upNext, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: Colors.white)),
+          child: Text(
+            l.upNext,
+            style: const TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
         ),
         Expanded(
           child: ShaderMask(
@@ -1738,7 +2037,12 @@ class _QueuePanelState extends State<_QueuePanel> {
             shaderCallback: (r) => const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Colors.transparent, Colors.black, Colors.black, Colors.transparent],
+              colors: [
+                Colors.transparent,
+                Colors.black,
+                Colors.black,
+                Colors.transparent,
+              ],
               stops: [0, 0.04, 0.9, 1],
             ).createShader(r),
             child: Listener(
@@ -1797,7 +2101,9 @@ class _QueueTile extends StatelessWidget {
           duration: const Duration(milliseconds: 300),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: current ? Colors.white.withValues(alpha: 0.12) : Colors.transparent,
+            color: current
+                ? Colors.white.withValues(alpha: 0.12)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -1811,18 +2117,24 @@ class _QueueTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                       child: Image.network(
                         httpsUrl(song.coverUrl),
-                        cacheWidth: (46 * MediaQuery.devicePixelRatioOf(context)).round(),
+                        cacheWidth:
+                            (46 * MediaQuery.devicePixelRatioOf(context))
+                                .round(),
                         fit: BoxFit.cover,
                         color: played ? const Color(0x73FFFFFF) : null,
                         colorBlendMode: BlendMode.modulate,
-                        errorBuilder: (_, _, _) => const ColoredBox(color: Colors.white12),
+                        errorBuilder: (_, _, _) =>
+                            const ColoredBox(color: Colors.white12),
                       ),
                     ),
                   ),
                   if (current)
                     Positioned.fill(
                       child: DecoratedBox(
-                        decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(6)),
+                        decoration: BoxDecoration(
+                          color: Colors.black45,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                         child: Center(child: _NowPlayingBars(playing: playing)),
                       ),
                     ),
@@ -1848,14 +2160,20 @@ class _QueueTile extends StatelessWidget {
                       singerNames(song),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.6 * fg)),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withValues(alpha: 0.6 * fg),
+                      ),
                     ),
                   ],
                 ),
               ),
               Text(
                 formatDuration(Duration(seconds: song.durationSecs)),
-                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.38 * fg)),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.38 * fg),
+                ),
               ),
             ],
           ),
@@ -1875,8 +2193,12 @@ class _NowPlayingBars extends StatefulWidget {
   State<_NowPlayingBars> createState() => _NowPlayingBarsState();
 }
 
-class _NowPlayingBarsState extends State<_NowPlayingBars> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
+class _NowPlayingBarsState extends State<_NowPlayingBars>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  );
 
   @override
   void initState() {
@@ -1909,8 +2231,20 @@ class _NowPlayingBarsState extends State<_NowPlayingBars> with SingleTickerProvi
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 1.2),
               width: 3,
-              height: widget.playing ? 5 + 11 * (0.5 + 0.5 * sin(_c.value * 2 * pi * (i.isEven ? 2 : 3) + i * 1.3)) : 4,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(2)),
+              height: widget.playing
+                  ? 5 +
+                        11 *
+                            (0.5 +
+                                0.5 *
+                                    sin(
+                                      _c.value * 2 * pi * (i.isEven ? 2 : 3) +
+                                          i * 1.3,
+                                    ))
+                  : 4,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
         ],
       ),

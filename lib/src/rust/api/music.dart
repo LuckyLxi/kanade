@@ -41,6 +41,24 @@ Future<List<SearchSuggestion>> getSearchSuggestions({required String query}) =>
 Future<List<Song>> getSimilarSongs({required PlatformInt64 songId}) =>
     RustLib.instance.api.crateApiMusicGetSimilarSongs(songId: songId);
 
+/// 播放页右滑的歌曲信息页。
+Future<SongPage> getSongPage({
+  required PlatformInt64 songId,
+  required String songMid,
+}) => RustLib.instance.api.crateApiMusicGetSongPage(
+  songId: songId,
+  songMid: songMid,
+);
+
+/// 信息页「相关歌单」换一批，`exclude` 是已经显示过的歌单 ID。
+Future<RelatedPlaylists> getRelatedPlaylists({
+  required PlatformInt64 songId,
+  required List<String> exclude,
+}) => RustLib.instance.api.crateApiMusicGetRelatedPlaylists(
+  songId: songId,
+  exclude: exclude,
+);
+
 Future<SongUrl> getSongUrl({
   required String mid,
   required String mediaMid,

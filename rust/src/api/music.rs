@@ -39,6 +39,16 @@ pub async fn get_similar_songs(song_id: i64) -> Result<Vec<Song>, ApiError> {
     Ok(music::similar_songs(song_id).await?)
 }
 
+/// 播放页右滑的歌曲信息页。
+pub async fn get_song_page(song_id: i64, song_mid: String) -> Result<SongPage, ApiError> {
+    Ok(detail::song_page(song_id, &song_mid).await?)
+}
+
+/// 信息页「相关歌单」换一批，`exclude` 是已经显示过的歌单 ID。
+pub async fn get_related_playlists(song_id: i64, exclude: Vec<String>) -> Result<RelatedPlaylists, ApiError> {
+    Ok(detail::related_playlists(song_id, &exclude).await?)
+}
+
 pub async fn get_song_url(mid: String, media_mid: String, quality: Quality) -> Result<SongUrl, ApiError> {
     Ok(music::song_url(&mid, &media_mid, quality).await?)
 }

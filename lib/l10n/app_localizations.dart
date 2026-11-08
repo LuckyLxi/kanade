@@ -1651,6 +1651,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'播放这 {count} 首'**
   String playFiltered(int count);
+
+  /// No description provided for @featuredVideos.
+  ///
+  /// In zh, this message translates to:
+  /// **'精选视频'**
+  String get featuredVideos;
+
+  /// No description provided for @alsoListening.
+  ///
+  /// In zh, this message translates to:
+  /// **'听「{name}」的也在听'**
+  String alsoListening(String name);
+
+  /// No description provided for @relatedPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'相关歌单'**
+  String get relatedPlaylists;
+
+  /// No description provided for @anotherBatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'换一批'**
+  String get anotherBatch;
 }
 
 class _AppLocalizationsDelegate

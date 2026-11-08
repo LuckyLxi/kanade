@@ -879,4 +879,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String playFiltered(int count) {
     return '播放这 $count 首';
   }
+
+  @override
+  String get featuredVideos => '精选视频';
+
+  @override
+  String alsoListening(String name) {
+    return '听「$name」的也在听';
+  }
+
+  @override
+  String get relatedPlaylists => '相关歌单';
+
+  @override
+  String get anotherBatch => '换一批';
 }

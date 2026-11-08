@@ -261,6 +261,39 @@ pub struct VideoBrief {
     pub uploaded: bool,
 }
 
+/// 播放页右滑的歌曲信息页。哪一栏没有内容就是空的。
+#[derive(Debug, Clone)]
+pub struct SongPage {
+    /// 发行日期，`YYYY-MM-DD`。
+    pub publish_date: String,
+    /// 「85人在听」「本周热播」这类标签，按上游顺序。
+    pub tags: Vec<SongTag>,
+    /// AI 解读的标题和全文。
+    pub ai_title: String,
+    pub ai_content: String,
+    /// 精选视频。
+    pub videos: Vec<VideoBrief>,
+    /// 「听「X」的也在听」里的 X。
+    pub similar_from: String,
+    pub similar_songs: Vec<Song>,
+    pub playlists: RelatedPlaylists,
+}
+
+/// 信息页标签。有的只是一个数字（热度），要配上图标才看得懂。
+#[derive(Debug, Clone)]
+pub struct SongTag {
+    pub text: String,
+    /// 白色线条小图标，可能为空。
+    pub icon_url: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct RelatedPlaylists {
+    pub playlists: Vec<PlaylistBrief>,
+    /// 还能换一批。
+    pub has_more: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct SingerBrief {
     pub mid: String,
