@@ -130,8 +130,33 @@ class GlassDropdownState<T> extends State<GlassDropdown<T>>
     );
   }
 
+  /// 收起途中盯着的页面滚动；玻璃钉在 overlay 里不会跟着走。
+  ScrollPosition? _scroll;
+
+  void _watchScroll() {
+    _scroll = Scrollable.maybeOf(context)?.position?..addListener(_hide);
+  }
+
+  void _unwatchScroll() {
+    _scroll?.removeListener(_hide);
+    _scroll = null;
+  }
+
+  /// 收起收尾：玻璃拿掉，真按钮露出来。收起途中页面一滚就直接走到这一步，
+  /// 不然玻璃和里面那份字留在原处，真按钮跟着页面跑了，看起来像按钮被挪开。
+  void _hide() {
+    _unwatchScroll();
+    _c.stop();
+    _fade.stop();
+    _c.value = 0;
+    _fade.value = 0;
+    if (_portal.isShowing) _portal.hide();
+    if (mounted) setState(() => _hasPicked = false);
+  }
+
   @override
   void dispose() {
+    _unwatchScroll();
     _c.dispose();
     _fade.dispose();
     super.dispose();
@@ -175,6 +200,7 @@ class GlassDropdownState<T> extends State<GlassDropdown<T>>
       _hasPicked = false;
     });
     // 淡出途中又点开：玻璃直接回到不透明
+    _unwatchScroll();
     _fade.value = 0;
     _portal.show();
     unawaited(
@@ -188,19 +214,20 @@ class GlassDropdownState<T> extends State<GlassDropdown<T>>
     // 选完以后按钮上的字变了，收回到新的宽度
     final chip = _measureChip();
     if (chip != null) setState(() => _chip = chip);
+    // 遮罩一撤页面就能滚了
+    _watchScroll();
     final shrink = _c.animateBackWith(
       SpringSimulation(_closeSpring, _c.value, 0, _c.velocity, snapToEnd: true),
     );
     await Future<void>.delayed(_fadeDelay);
-    if (!mounted || _expanded) return;
+    // 又点开了，或者滚动时已经收尾了
+    if (!mounted || _expanded || !_portal.isShowing) return;
     await Future.wait([
       shrink.orCancel.catchError((_) {}),
       _fade.forward(from: 0).orCancel.catchError((_) {}),
     ]);
-    if (!mounted || _expanded) return;
-    _portal.hide();
-    _fade.value = 0;
-    setState(() => _hasPicked = false);
+    if (!mounted || _expanded || !_portal.isShowing) return;
+    _hide();
   }
 
   Future<void> _pick(T v) async {
