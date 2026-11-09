@@ -94,6 +94,8 @@ class PlayerController extends ChangeNotifier {
         // 否则 Android 会撤掉后台播放服务和唤醒锁，切歌时在后台重新起不来，
         // 结果是被杀后台，或者进度在走却没声音。
         if (!v && _atEnd()) return;
+        // 换音源时 media_kit 会先 stop 报一次「暂停」再接着播，封面会因此缩一下又弹回
+        if (!v && _opening) return;
         playing = v;
         _reportPlay();
         notifyListeners();
@@ -242,6 +244,9 @@ class PlayerController extends ChangeNotifier {
       PlayMode.sequence;
 
   bool playing = false;
+
+  /// 正在把新音源交给播放器并接着播放，期间忽略它报的暂停。
+  bool _opening = false;
   bool buffering = false;
   bool loading = false;
   Duration duration = Duration.zero;
@@ -477,10 +482,12 @@ class PlayerController extends ChangeNotifier {
     _setGain(_gainAt(start ?? Duration.zero));
     try {
       await _setNetworkTimeout(decoded: ready != null);
+      _opening = play;
       await _player.open(src.media(start: start), play: play);
     } catch (e) {
       _downgrade(e);
     } finally {
+      _opening = false;
       _holdGain = false;
     }
   }
