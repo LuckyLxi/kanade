@@ -443,13 +443,27 @@ class PlayerController extends ChangeNotifier {
       await _androidDiskCache;
       if (stale()) return;
     }
+    final attempt = _Attempt(song, src, start, play, token, urlToken);
+    final ready = src.waitUntilReady();
+    if (ready != null) {
+      try {
+        await ready;
+      } catch (e) {
+        if (!stale()) {
+          _attempt = attempt;
+          _downgrade(e);
+        }
+        return;
+      }
+      if (stale()) return;
+    }
     actualQuality = src.quality;
     // 链接取到了再淡出，取链接的这段时间旧歌照常放
     if (fadeOut) {
       await _fadeOutCurrent();
       if (stale()) return;
     }
-    _attempt = _Attempt(song, src, start, play, token, urlToken);
+    _attempt = attempt;
     // 新歌从静音开始，等进度走起来再渐强
     _setGain(_gainAt(start ?? Duration.zero));
     try {
@@ -695,7 +709,7 @@ class PlayerController extends ChangeNotifier {
     final song = current;
     final previous = quality;
     quality = q;
-    if (song == null || q == actualQuality) {
+    if (song == null || (q == actualQuality && !loading)) {
       notifyListeners();
       return;
     }

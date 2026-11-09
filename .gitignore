@@ -55,6 +55,7 @@ app.*.map.json
 /android/build/
 /android/app/build/
 /android/app/nac-local/
+/android/app/dts-local/
 
 # Local QQ Music captures (may contain login credentials).
 /qqmusic*.har

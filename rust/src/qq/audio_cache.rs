@@ -265,6 +265,21 @@ impl AudioCache {
         Ok(format!("http://127.0.0.1:{port}/a/{id}"))
     }
 
+    /// 完整解码完成后再让播放器打开本地地址。
+    pub async fn wait_for_decoded(&self, url: &str) -> Result<()> {
+        let (_, id) = url.rsplit_once("/a/").context("invalid decoded audio URL")?;
+        let stream = self.streams.lock().unwrap().get(id).cloned();
+        let Some(Stream::Cached(d)) = stream.as_deref() else {
+            bail!("decoded audio source was replaced");
+        };
+        let mut progress = d.progress.clone();
+        let ready = progress.wait_for(|p| p.done || p.failed).await?.done;
+        if !ready || d.cancelled.load(Ordering::Relaxed) {
+            bail!("audio decode did not complete");
+        }
+        Ok(())
+    }
+
     /// 换歌后之前没下完的歌不再下载。
     fn cancel_downloads(&self) {
         for (_, stream) in self.streams.lock().unwrap().drain() {

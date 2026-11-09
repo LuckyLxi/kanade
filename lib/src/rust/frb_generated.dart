@@ -71,7 +71,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 1104470618;
+  int get rustContentHash => -1009237917;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -328,6 +328,8 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<UserAssetPage> crateApiTypesUserAssetPageDefault();
+
+  Future<void> crateApiMusicWaitForDecodedAudio({required String url});
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -2485,6 +2487,37 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiTypesUserAssetPageDefaultConstMeta =>
       const TaskConstMeta(debugName: "user_asset_page_default", argNames: []);
+
+  @override
+  Future<void> crateApiMusicWaitForDecodedAudio({required String url}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(url, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 72,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_api_error,
+        ),
+        constMeta: kCrateApiMusicWaitForDecodedAudioConstMeta,
+        argValues: [url],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMusicWaitForDecodedAudioConstMeta =>
+      const TaskConstMeta(
+        debugName: "wait_for_decoded_audio",
+        argNames: ["url"],
+      );
 
   @protected
   String dco_decode_String(dynamic raw) {

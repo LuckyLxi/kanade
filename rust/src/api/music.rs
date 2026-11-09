@@ -88,6 +88,11 @@ pub fn stream_audio(
     Ok(cache().stream(&mid, quality, &url, ekey.as_deref())?)
 }
 
+/// 等待需要整曲解码的音源准备好，再交给播放器。
+pub async fn wait_for_decoded_audio(url: String) -> Result<(), ApiError> {
+    Ok(cache().wait_for_decoded(&url).await?)
+}
+
 /// 歌曲缓存上限（MB），0 表示关闭。
 #[flutter_rust_bridge::frb(sync)]
 pub fn get_audio_cache_limit_mb() -> i64 {

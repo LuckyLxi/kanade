@@ -46,6 +46,11 @@ class AudioSource {
       ? Media(url, start: start)
       : Media(url, httpHeaders: const {'Referer': 'https://y.qq.com/'}, start: start);
 
+  Future<void>? waitUntilReady() =>
+      !cached && (quality == Quality.aicodec || quality == Quality.dts)
+      ? api.waitForDecodedAudio(url: url)
+      : null;
+
   /// 这个音源播不了时下一次用哪档：缓存文件坏了就删掉，同一档重新在线取；
   /// 在线的降一档；已经是最低档时返回 null。
   Quality? fallback() {

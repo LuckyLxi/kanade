@@ -206,7 +206,7 @@ PC 取链接会带 `ctx=0`；未登录的 `song_url` 调用不加这个字段。
 | Atmos51 | Q001 | flac | `size_new[2]` | 扩展音质候选 |
 | Atmos71 | Q003 | ogg | `size_new[6]` | 扩展音质候选 |
 | Dolby | D004 | mp4 | `size_dolby` | 明文样本为 AC-4，播放走下表的 `D0M1` |
-| Dts | DT03 | mp4 | `size_new[9]` | Windows x64 可用本机 DTS:X 解码库 |
+| Dts | DT03 | mp4 | `size_new[9]` | Windows x64 和 Android ARM64 可用本地 DTS:X 解码库 |
 | Aicodec | TL01 | nac | `size_new[7]` | Android ARM64 和 Windows x64 可用内置模型解码加密 NAC |
 | Lossless | F000 | flac | `size_flac` | 无损候选 |
 | High | M800 | mp3 | `size_320mp3` | 高品质候选 |
@@ -244,11 +244,17 @@ PC 取链接会带 `ctx=0`；未登录的 `song_url` 调用不加这个字段。
 | DTS:X | `DTM3…mmp4`，`track.vs[30]` | MP4 音轨为 DTS-UHD Profile 2（`dtsx`）。《Mood》的解密文件与 `DT03` 明文文件逐字节相同。重新切分裸流会漏帧，Windows 解码器按 MP4 原始 sample 边界完整解出三首真实样本。 |
 | NAC | `TLM1…mnac`，`track.vs[28]` | 解密后以 `NAC_` 开头。Android ARM64 和 Windows x64 的专用解码器通过 MNN 生成临时 WAV，再交给播放器。 |
 
-两端使用同一份本地模型 `android/app/nac-local/7187332.mnn`，也可用环境变量 `KANADE_NAC_MODEL` 指定路径。执行 `flutter build apk --target-platform android-arm64` 或 `flutter build windows` 时，构建会校验模型的 SHA-256 并嵌入原生库。只有加载到该库并验证授权音源后，现有音质菜单才显示 AI 音质。NAC 在整首下载和解码完成后开始播放，切歌时会取消解码并回收临时 WAV。
+两端使用同一份本地模型 `android/app/nac-local/7187332.mnn`，也可用环境变量 `KANADE_NAC_MODEL` 指定路径。执行 `flutter build apk --target-platform android-arm64` 或 `flutter build windows` 时，构建会校验模型的 SHA-256 并嵌入原生库。只有加载到该库并验证授权音源后，现有音质菜单才显示 AI 音质。播放器在 Rust 完成整曲下载和解码后才打开本机地址，避免触发播放器的 5 秒网络超时。切歌时会取消解码并回收临时 WAV。
 
 Windows x64 使用抓包登录态实测了音质探测、重新取源、本机解码、HTTP Range 和跳转后的非静音输出。关闭音频缓存时，解码产物只供当前音源使用，切歌后回收。
 
-Windows x64 的 DTS:X 由启动时的 `KANADE_DTS_RUNTIME` 指定本机 `DTSXDecoder.dll` 的绝对路径。解码库及其运行时依赖由使用者提供，安装包不含这些文件。由于该接口取决于二进制布局，当前只加载 SHA-256 为 `0fb48a12aef354016992e5fc2a34ea7ef4852711a5f48a66bdff07661285c4ca` 的版本。加载成功且有授权音源时才显示该档。播放优先用明文 `DT03`，取不到时尝试 `DTM3`。整曲解码为临时 48 kHz、24 bit、5.1 PCM WAV，切歌时回收。Android 暂无 DTS:X 解码链路。
+Windows x64 的 DTS:X 由启动时的 `KANADE_DTS_RUNTIME` 指定本机 `DTSXDecoder.dll` 的绝对路径。解码库及其运行时依赖由使用者提供。由于该接口取决于二进制布局，当前只加载 SHA-256 为 `0fb48a12aef354016992e5fc2a34ea7ef4852711a5f48a66bdff07661285c4ca` 的版本。输出为 48 kHz、24 bit、5.1 PCM。
+
+Android ARM64 的 DTS:X 由构建者提供兼容的 DTS Playback SDK、配置和许可。将 `libDTSPlaybackSDK.so`、`dts_config.yaml` 和 `dts_hpx.lic` 放入 Git 忽略的 `android/app/dts-local/`，或用 `KANADE_DTS_ANDROID_RUNTIME` 指向该目录，再构建 APK。当前验证的 SDK SHA-256 为 `71b9872cca9e031b293eef7ec8a5762cf1069ad8762a9e17f261d20d1bff95d1`。SDK 输出 48 kHz 双声道浮点 PCM。
+
+该 SDK 的 ELF 段按 4 KB 对齐，16 KB 页大小的 Android 环境尚未验证。
+
+两端均在解码器初始化成功且当前歌曲有授权音源时显示 DTS:X。播放优先用明文 `DT03`，取不到时尝试 `DTM3`。整曲解码为临时 WAV 后交给播放器，切歌时回收。
 
 取链接从用户指定音质开始降级。Master / Hires / Atmos 等扩展档位按 `指定档位 → Lossless → High → Standard → Low`；High 为 `High → Standard → Low`；Lossless 为 `Lossless → High → Standard → Low`。额外编码的回退规则以 `quality::playback_chain` 为准。返回 `SongUrl.quality` 是最终取得的音质，调用方不能始终显示请求值。
 

@@ -1,14 +1,25 @@
-//! Optional Windows DTS-UHD Profile 2 playback using a local decoder runtime.
+//! DTS-UHD Profile 2 playback using optional platform decoders.
 
 #[cfg(all(windows, target_arch = "x86_64"))]
 pub(super) use windows::{available, decode};
 
-#[cfg(not(all(windows, target_arch = "x86_64")))]
+#[cfg(all(target_os = "android", target_arch = "aarch64"))]
+mod android;
+#[cfg(all(target_os = "android", target_arch = "aarch64"))]
+pub(super) use android::{available, decode};
+
+#[cfg(not(any(
+    all(windows, target_arch = "x86_64"),
+    all(target_os = "android", target_arch = "aarch64")
+)))]
 pub(super) fn available() -> bool {
     false
 }
 
-#[cfg(not(all(windows, target_arch = "x86_64")))]
+#[cfg(not(any(
+    all(windows, target_arch = "x86_64"),
+    all(target_os = "android", target_arch = "aarch64")
+)))]
 pub(super) fn decode(
     _: &[u8],
     _: &std::path::Path,
@@ -17,15 +28,53 @@ pub(super) fn decode(
     anyhow::bail!("DTS:X decoder is unavailable on this platform")
 }
 
+#[cfg(any(
+    all(windows, target_arch = "x86_64"),
+    all(target_os = "android", target_arch = "aarch64")
+))]
+fn decode_samples(
+    data: &[u8],
+    cancelled: &std::sync::atomic::AtomicBool,
+    mut decode: impl FnMut(&[u8]) -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
+    use anyhow::{ensure, Context};
+    use std::io::Cursor;
+    use std::sync::atomic::Ordering;
+
+    let mut mp4 = mp4::Mp4Reader::read_header(Cursor::new(data), data.len() as u64)?;
+    let track = mp4
+        .tracks()
+        .values()
+        .find(|track| matches!(track.track_type(), Ok(mp4::TrackType::Audio)))
+        .context("DTS:X MP4 has no audio track")?;
+    let id = track.track_id();
+    let count = mp4.sample_count(id)?;
+    ensure!(count > 0, "DTS:X MP4 has no samples");
+    for index in 1..=count {
+        ensure!(!cancelled.load(Ordering::Relaxed), "DTS:X decode cancelled");
+        // Keep the MP4 sample boundaries, including continuation frames.
+        let sample = mp4
+            .read_sample(id, index)?
+            .context("missing DTS:X MP4 sample")?;
+        ensure!(
+            sample.bytes.starts_with(b"\x40\x41\x1b\xf2")
+                || sample.bytes.starts_with(b"\x71\xc4\x42\xe8"),
+            "invalid DTS-UHD sample sync"
+        );
+        decode(&sample.bytes)?;
+    }
+    Ok(())
+}
+
 #[cfg(all(windows, target_arch = "x86_64"))]
 mod windows {
     use std::ffi::c_void;
     use std::fs::File;
-    use std::io::{BufWriter, Cursor};
+    use std::io::BufWriter;
     use std::os::windows::ffi::OsStrExt;
     use std::path::{Path, PathBuf};
     use std::ptr::{self, NonNull};
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::AtomicBool;
     use std::sync::OnceLock;
 
     use anyhow::{ensure, Context, Result};
@@ -157,10 +206,6 @@ mod windows {
             data: &[u8],
             wave: &mut hound::WavWriter<BufWriter<File>>,
         ) -> Result<()> {
-            ensure!(
-                data.starts_with(b"\x40\x41\x1b\xf2") || data.starts_with(b"\x71\xc4\x42\xe8"),
-                "invalid DTS-UHD sample sync"
-            );
             let packet = Packet {
                 data: data.as_ptr(),
                 len: data.len().try_into()?,
@@ -228,16 +273,6 @@ mod windows {
 
     pub(in crate::qq) fn decode(data: &[u8], output: &Path, cancelled: &AtomicBool) -> Result<u64> {
         let runtime = runtime().context("DTS:X decoder is unavailable")?;
-        let mut mp4 = mp4::Mp4Reader::read_header(Cursor::new(data), data.len() as u64)?;
-        let track = mp4
-            .tracks()
-            .values()
-            .find(|track| matches!(track.track_type(), Ok(mp4::TrackType::Audio)))
-            .context("DTS:X MP4 has no audio track")?;
-        let id = track.track_id();
-        let count = mp4.sample_count(id)?;
-        ensure!(count > 0, "DTS:X MP4 has no samples");
-
         let mut decoder = Decoder::new(runtime)?;
         let mut wave = hound::WavWriter::create(
             output,
@@ -248,14 +283,9 @@ mod windows {
                 sample_format: hound::SampleFormat::Int,
             },
         )?;
-        for index in 1..=count {
-            ensure!(!cancelled.load(Ordering::Relaxed), "DTS:X decode cancelled");
-            // Preserve the MP4 sample boundaries, including continuation frames.
-            let sample = mp4
-                .read_sample(id, index)?
-                .context("missing DTS:X MP4 sample")?;
-            decoder.decode_sample(&sample.bytes, &mut wave)?;
-        }
+        super::decode_samples(data, cancelled, |sample| {
+            decoder.decode_sample(sample, &mut wave)
+        })?;
         wave.finalize()?;
         Ok(std::fs::metadata(output)?.len())
     }

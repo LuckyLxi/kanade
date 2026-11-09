@@ -16,6 +16,8 @@ val separateAndroidPlayback = providers.gradleProperty("dart-defines").orNull
     ?: true
 val nacModel = providers.environmentVariable("KANADE_NAC_MODEL").orNull?.let { file(it) }
     ?: file("nac-local/7187332.mnn").takeIf { it.isFile }
+val dtsRuntime = providers.environmentVariable("KANADE_DTS_ANDROID_RUNTIME").orNull?.let { file(it) }
+    ?: file("dts-local").takeIf { it.isDirectory }
 
 android {
     namespace = "com.lxi.kanade"
@@ -43,14 +45,17 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        if (nacModel != null) {
-            require(nacModel.isFile) { "KANADE_NAC_MODEL must point to the NAC model file" }
+        if (nacModel != null || dtsRuntime != null) {
+            if (nacModel != null) {
+                require(nacModel.isFile) { "KANADE_NAC_MODEL must point to the NAC model file" }
+            }
             externalNativeBuild {
                 cmake {
                     abiFilters += "arm64-v8a"
                     arguments += listOf(
-                        "-DKANADE_NAC_MODEL=${nacModel.invariantSeparatorsPath}",
                         "-DANDROID_STL=c++_shared",
+                        "-DKANADE_NAC_MODEL=${nacModel?.invariantSeparatorsPath.orEmpty()}",
+                        "-DKANADE_DTS_ANDROID_RUNTIME=${dtsRuntime?.invariantSeparatorsPath.orEmpty()}",
                     )
                 }
             }
@@ -59,9 +64,11 @@ android {
 
     if (nacModel != null) {
         sourceSets.getByName("main").assets.srcDir("../../native/nac/licenses")
+    }
+    if (nacModel != null || dtsRuntime != null) {
         externalNativeBuild {
             cmake {
-                path = file("../../native/nac/CMakeLists.txt")
+                path = file("../../native/android/CMakeLists.txt")
                 version = "3.22.1"
             }
         }

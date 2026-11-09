@@ -104,6 +104,10 @@ String streamAudio({
   ekey: ekey,
 );
 
+/// 等待需要整曲解码的音源准备好，再交给播放器。
+Future<void> waitForDecodedAudio({required String url}) =>
+    RustLib.instance.api.crateApiMusicWaitForDecodedAudio(url: url);
+
 /// 歌曲缓存上限（MB），0 表示关闭。
 PlatformInt64 getAudioCacheLimitMb() =>
     RustLib.instance.api.crateApiMusicGetAudioCacheLimitMb();

@@ -32,9 +32,11 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 [target.'cfg(all(target_os = "android", target_arch = "aarch64"))'.dependencies]
 libc = "0.2"
 
-[target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
+[target.'cfg(any(all(windows, target_arch = "x86_64"), all(target_os = "android", target_arch = "aarch64")))'.dependencies]
 hound = "3.5.1"
 mp4 = "0.14.0"
+
+[target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_LibraryLoader"] }
 
 [lints.rust]
