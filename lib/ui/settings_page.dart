@@ -35,6 +35,9 @@ const _qualities = [
   Quality.lossless,
   Quality.hires,
   Quality.master,
+  Quality.atmos,
+  Quality.atmos51,
+  Quality.atmos71,
 ];
 
 /// 切歌淡入淡出的档位（秒），0 表示关闭。
