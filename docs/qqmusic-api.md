@@ -196,7 +196,7 @@ PC 取链接会带 `ctx=0`；未登录的 `song_url` 调用不加这个字段。
 
 ### 音质文件映射
 
-文件名公式：`前缀 + media_mid + media_mid + "." + 扩展名`。以下为项目中的本地映射，不代表每首歌都提供这些文件。
+明文路径使用 `前缀 + media_mid + media_mid + "." + 扩展名`。下表保留项目的本地映射，各歌曲提供的文件以服务端响应为准。
 
 | `Quality` | 前缀 | 扩展名 | `file` 下的大小字段 | 当前处理 |
 | --- | --- | --- | --- | --- |
@@ -205,10 +205,9 @@ PC 取链接会带 `ctx=0`；未登录的 `song_url` 调用不加这个字段。
 | Atmos | Q000 | flac | `size_new[1]` | 扩展音质候选 |
 | Atmos51 | Q001 | flac | `size_new[2]` | 扩展音质候选 |
 | Atmos71 | Q003 | ogg | `size_new[6]` | 扩展音质候选 |
-| Dolby | D004 | mp4 | `size_dolby` | 未通过播放验证，不请求播放 |
-| Dts | DT03 | mp4 | `size_new[9]` | 未通过播放验证，不请求播放 |
-| Vinyl | V0M0 | mflac | `size_new[4]` | 不支持，不处理加密音频 |
-| Aicodec | TL01 | nac | `size_new[7]` | 不支持，不处理加密音频 |
+| Dolby | D004 | mp4 | `size_dolby` | 明文样本为 AC-4，播放走下表的 `D0M1` |
+| Dts | DT03 | mp4 | `size_new[9]` | Windows x64 可用本机 DTS:X 解码库 |
+| Aicodec | TL01 | nac | `size_new[7]` | Android ARM64 和 Windows x64 可用内置模型解码加密 NAC |
 | Lossless | F000 | flac | `size_flac` | 无损候选 |
 | High | M800 | mp3 | `size_320mp3` | 高品质候选 |
 | Standard | M500 | mp3 | `size_128mp3` | 标准候选 |
@@ -221,6 +220,35 @@ PC 取链接会带 `ctx=0`；未登录的 `song_url` 调用不加这个字段。
 | Aac48 | C200 | m4a | `size_48aac` | 同上 |
 
 仅大小大于零的音质档位进入候选列表，再按授权和 CDN 检查计算 `available/reason`。`104003` 映射为当前账号无权限，`104013` 映射为设备受限，其他没有链接的授权结果映射为 `NoLink`；这些是项目内解释，不是完整的官方错误码定义。
+
+登录后，明文候选不可用时，可在降档前通过 PC 公共通道调用 `music.vkey.GetEVkey.CgiGetEVkey`（`ctx=1`）。杜比全景声直接请求 `D0M1`。`musicfile[]` 使用歌曲详情的 `file.media_mid`，`filename[]` 使用下表的文件 ID，两个字段都只拼接一次 ID。队列预取的样本中，原请求的部分媒体 ID 与歌曲详情不同，实际文件名使用歌曲详情的 ID。
+
+| 档位 | 加密文件 | `filename[]` 的 ID | 解密后的容器 |
+| --- | --- | --- | --- |
+| Master | `AIM0…mflac` | `track.vs[3]` | FLAC |
+| Atmos | `Q0M0…mflac` | `track.vs[29]` | FLAC |
+| Lossless | `F0M0…mflac` | `file.media_mid` | FLAC |
+| High | `O8M0…mgg` | `file.media_mid` | Ogg |
+| Dolby | `D0M1…mmp4` | `file.media_mid` | MP4，样本音轨为 E-AC-3 |
+| Dts | `DTM3…mmp4` | `track.vs[30]` | MP4，音轨为 DTS-UHD Profile 2 |
+
+加密候选须返回匹配文件的授权链接及有效 `ekey`，并能从 CDN 首段解出对应的容器头。Rust 回环中转按 CDN 的字节偏移解密，数据不写入 Kanade 的音频缓存。使用 2026-11-09 PC 抓包中的登录态重新取源，母带、全景声、SQ 和 HQ 均通过 FFmpeg 的回环读取、跳转和解码验证。
+
+同日 Hi-Res 补抓的 `pc-hires/raw/067` 记录了《小小奇迹》的 `RSM1` 下载授权。对同一首歌，`UrlGetVkey` 按现有命名规则返回了 `RS01` 明文链接，CDN 文件头为 `fLaC`，总长 48,836,278 字节，与 `file.size_hires` 一致。Kanade 的 Hi-Res 播放沿用这个明文路径。`RSM1` 也已通过 `CgiGetEVkey` 单独验证，解密后为 96 kHz、24 bit FLAC，跳到第 7 秒后可解码出声音。
+
+另用同一登录态重新取得以下三档的授权链接和密钥。三份完整样本均可解密，独立请求并解密的字节范围与完整样本对应位置一致。Windows 内核测试直接加载 Kanade 随包的 libmpv，使用 SQ FLAC 样本作对照。
+
+| 档位 | 加密文件与 ID | 解密及解码结果 |
+| --- | --- | --- |
+| 杜比全景声 | `D0M1…mmp4`，`file.media_mid` | MP4 内为 E-AC-3（`ec-3`），FFmpeg 识别为 Dolby Digital Plus + Atmos。Windows libmpv 跳至第 7 秒后输出非静音的 48 kHz 六声道 PCM。对象渲染和设备透传待验证。 |
+| DTS:X | `DTM3…mmp4`，`track.vs[30]` | MP4 音轨为 DTS-UHD Profile 2（`dtsx`）。《Mood》的解密文件与 `DT03` 明文文件逐字节相同。重新切分裸流会漏帧，Windows 解码器按 MP4 原始 sample 边界完整解出三首真实样本。 |
+| NAC | `TLM1…mnac`，`track.vs[28]` | 解密后以 `NAC_` 开头。Android ARM64 和 Windows x64 的专用解码器通过 MNN 生成临时 WAV，再交给播放器。 |
+
+两端使用同一份本地模型 `android/app/nac-local/7187332.mnn`，也可用环境变量 `KANADE_NAC_MODEL` 指定路径。执行 `flutter build apk --target-platform android-arm64` 或 `flutter build windows` 时，构建会校验模型的 SHA-256 并嵌入原生库。只有加载到该库并验证授权音源后，现有音质菜单才显示 AI 音质。NAC 在整首下载和解码完成后开始播放，切歌时会取消解码并回收临时 WAV。
+
+Windows x64 使用抓包登录态实测了音质探测、重新取源、本机解码、HTTP Range 和跳转后的非静音输出。关闭音频缓存时，解码产物只供当前音源使用，切歌后回收。
+
+Windows x64 的 DTS:X 由启动时的 `KANADE_DTS_RUNTIME` 指定本机 `DTSXDecoder.dll` 的绝对路径。解码库及其运行时依赖由使用者提供，安装包不含这些文件。由于该接口取决于二进制布局，当前只加载 SHA-256 为 `0fb48a12aef354016992e5fc2a34ea7ef4852711a5f48a66bdff07661285c4ca` 的版本。加载成功且有授权音源时才显示该档。播放优先用明文 `DT03`，取不到时尝试 `DTM3`。整曲解码为临时 48 kHz、24 bit、5.1 PCM WAV，切歌时回收。Android 暂无 DTS:X 解码链路。
 
 取链接从用户指定音质开始降级。Master / Hires / Atmos 等扩展档位按 `指定档位 → Lossless → High → Standard → Low`；High 为 `High → Standard → Low`；Lossless 为 `Lossless → High → Standard → Low`。额外编码的回退规则以 `quality::playback_chain` 为准。返回 `SongUrl.quality` 是最终取得的音质，调用方不能始终显示请求值。
 
@@ -720,7 +748,7 @@ HAR 凭据辅助函数依赖该文件内存在可解析的 `comm.uin/authst/tmeL
 
 `desktop_like_iris_and_restore` 会真实更改固定歌曲的收藏状态，需要另外明确授权，并显式设置 `QQMUSIC_TEST_SESSION_DB` 和 `QQMUSIC_TEST_ALLOW_LIKE_IRIS=1`。本次编写未执行该测试，也未执行任何其他账号写入。
 
-本轮新建歌单及关注操作已实现，真实应用写入尚待用户触发验证；原生签名与当前应用通道的差异没有被抓包成功替代。其余未提供或未完整验证的能力包括：收藏整个歌单、歌单及专辑完整大列表分页、最近播放增量同步与删除、推荐区块持续翻页、上传视频列表、评论写入、QRC 逐字歌词、加密音频解码，以及全账号 / 全平台兼容性。
+本轮新建歌单及关注操作已实现，真实应用写入尚待用户触发验证；原生签名与当前应用通道的差异没有被抓包成功替代。其余未提供或未完整验证的能力包括：收藏整个歌单、歌单及专辑完整大列表分页、最近播放增量同步与删除、推荐区块持续翻页、上传视频列表、评论写入、QRC 逐字歌词、Android NAC 真机播放，以及全账号 / 全平台兼容性。
 
 ## 源码与抓包笔记
 

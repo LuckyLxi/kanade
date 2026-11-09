@@ -77,10 +77,15 @@ pub fn remove_cached_audio(mid: String, quality: Quality) {
     cache().remove(&mid, quality)
 }
 
-/// 把播放链接换成边播边存的本机地址；缓存关闭时原样返回。
+/// 加密音频走本机解密。普通音频在启用缓存时走边播边存的本机地址。
 #[flutter_rust_bridge::frb(sync)]
-pub fn stream_audio(mid: String, quality: Quality, url: String) -> Result<String, ApiError> {
-    Ok(cache().stream(&mid, quality, &url)?)
+pub fn stream_audio(
+    mid: String,
+    quality: Quality,
+    url: String,
+    ekey: Option<String>,
+) -> Result<String, ApiError> {
+    Ok(cache().stream(&mid, quality, &url, ekey.as_deref())?)
 }
 
 /// 歌曲缓存上限（MB），0 表示关闭。

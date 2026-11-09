@@ -8,6 +8,8 @@ class _FakeApi implements RustLibApi {
   final cache = <(String, Quality), String>{};
   final served = <Quality, Quality>{};
   Object? urlError;
+  String? sourceKey;
+  String? streamKey;
   final removed = <(String, Quality)>[];
   final urlRequests = <Quality>[];
 
@@ -15,6 +17,7 @@ class _FakeApi implements RustLibApi {
     cache.clear();
     served.clear();
     urlError = null;
+    sourceKey = streamKey = null;
     removed.clear();
     urlRequests.clear();
   }
@@ -33,12 +36,23 @@ class _FakeApi implements RustLibApi {
     urlRequests.add(quality);
     final error = urlError;
     if (error != null) throw error;
-    return SongUrl(url: 'https://qq.example/$mediaMid', quality: served[quality] ?? quality);
+    return SongUrl(
+      url: 'https://qq.example/$mediaMid',
+      quality: served[quality] ?? quality,
+      ekey: sourceKey,
+    );
   }
 
   @override
-  String crateApiMusicStreamAudio({required String mid, required Quality quality, required String url}) =>
-      'http://127.0.0.1:1/$mid/${quality.name}';
+  String crateApiMusicStreamAudio({
+    required String mid,
+    required Quality quality,
+    required String url,
+    String? ekey,
+  }) {
+    streamKey = ekey;
+    return 'http://127.0.0.1:1/$mid/${quality.name}';
+  }
 
   @override
   void crateApiMusicRemoveCachedAudio({required String mid, required Quality quality}) {
@@ -92,6 +106,20 @@ void main() {
     final src = (await AudioSource.resolve(_song, Quality.high, stale: _fresh))!;
     expect((src.url, src.quality, src.cached), ('http://127.0.0.1:1/m1/high', Quality.high, false));
     expect(fake.urlRequests, [Quality.high]);
+  });
+
+  test('加密音源的密钥交给本机中转，播放器只拿到回环地址', () async {
+    fake.sourceKey = 'test-ekey';
+    final src = (await AudioSource.resolve(
+      _song,
+      Quality.high,
+      stale: _fresh,
+    ))!;
+    expect(
+      (src.url, src.quality),
+      ('http://127.0.0.1:1/m1/high', Quality.high),
+    );
+    expect(fake.streamKey, 'test-ekey');
   });
 
   test('在线降级拿到的那档之前缓存过：用缓存', () async {

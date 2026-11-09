@@ -14,6 +14,8 @@ val separateAndroidPlayback = providers.gradleProperty("dart-defines").orNull
     ?.substringAfter('=')
     ?.toBooleanStrict()
     ?: true
+val nacModel = providers.environmentVariable("KANADE_NAC_MODEL").orNull?.let { file(it) }
+    ?: file("nac-local/7187332.mnn").takeIf { it.isFile }
 
 android {
     namespace = "com.lxi.kanade"
@@ -40,6 +42,29 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        if (nacModel != null) {
+            require(nacModel.isFile) { "KANADE_NAC_MODEL must point to the NAC model file" }
+            externalNativeBuild {
+                cmake {
+                    abiFilters += "arm64-v8a"
+                    arguments += listOf(
+                        "-DKANADE_NAC_MODEL=${nacModel.invariantSeparatorsPath}",
+                        "-DANDROID_STL=c++_shared",
+                    )
+                }
+            }
+        }
+    }
+
+    if (nacModel != null) {
+        sourceSets.getByName("main").assets.srcDir("../../native/nac/licenses")
+        externalNativeBuild {
+            cmake {
+                path = file("../../native/nac/CMakeLists.txt")
+                version = "3.22.1"
+            }
+        }
     }
 
     // Only ship arm64. abiFilters doesn't work here because the Flutter plugin

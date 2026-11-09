@@ -2563,9 +2563,11 @@ fn wire__crate__api__music__stream_audio_impl(
             let api_mid = <String>::sse_decode(&mut deserializer);
             let api_quality = <crate::api::types::Quality>::sse_decode(&mut deserializer);
             let api_url = <String>::sse_decode(&mut deserializer);
+            let api_ekey = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             transform_result_sse::<_, crate::api::error::ApiError>((move || {
-                let output_ok = crate::api::music::stream_audio(api_mid, api_quality, api_url)?;
+                let output_ok =
+                    crate::api::music::stream_audio(api_mid, api_quality, api_url, api_ekey)?;
                 Ok(output_ok)
             })())
         },
@@ -3826,9 +3828,11 @@ impl SseDecode for crate::api::types::SongUrl {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_url = <String>::sse_decode(deserializer);
         let mut var_quality = <crate::api::types::Quality>::sse_decode(deserializer);
+        let mut var_ekey = <Option<String>>::sse_decode(deserializer);
         return crate::api::types::SongUrl {
             url: var_url,
             quality: var_quality,
+            ekey: var_ekey,
         };
     }
 }
@@ -5170,6 +5174,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::SongUrl {
         [
             self.url.into_into_dart().into_dart(),
             self.quality.into_into_dart().into_dart(),
+            self.ekey.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -6384,6 +6389,7 @@ impl SseEncode for crate::api::types::SongUrl {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <String>::sse_encode(self.url, serializer);
         <crate::api::types::Quality>::sse_encode(self.quality, serializer);
+        <Option<String>>::sse_encode(self.ekey, serializer);
     }
 }
 

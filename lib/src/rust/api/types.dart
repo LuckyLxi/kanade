@@ -1302,10 +1302,13 @@ class SongUrl {
   /// 实际拿到的音质（请求的音质不可用时会自动降级）。
   final Quality quality;
 
-  const SongUrl({required this.url, required this.quality});
+  /// 加密音源的密钥，由调用方交给本机音频中转。
+  final String? ekey;
+
+  const SongUrl({required this.url, required this.quality, this.ekey});
 
   @override
-  int get hashCode => url.hashCode ^ quality.hashCode;
+  int get hashCode => url.hashCode ^ quality.hashCode ^ ekey.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1313,7 +1316,8 @@ class SongUrl {
       other is SongUrl &&
           runtimeType == other.runtimeType &&
           url == other.url &&
-          quality == other.quality;
+          quality == other.quality &&
+          ekey == other.ekey;
 }
 
 enum SuggestionKind { song, singer, album }

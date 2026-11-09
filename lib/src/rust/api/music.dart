@@ -91,15 +91,17 @@ void removeCachedAudio({required String mid, required Quality quality}) =>
       quality: quality,
     );
 
-/// 把播放链接换成边播边存的本机地址；缓存关闭时原样返回。
+/// 加密音频走本机解密。普通音频在启用缓存时走边播边存的本机地址。
 String streamAudio({
   required String mid,
   required Quality quality,
   required String url,
+  String? ekey,
 }) => RustLib.instance.api.crateApiMusicStreamAudio(
   mid: mid,
   quality: quality,
   url: url,
+  ekey: ekey,
 );
 
 /// 歌曲缓存上限（MB），0 表示关闭。

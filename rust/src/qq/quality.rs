@@ -4,10 +4,14 @@ use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 use tokio::task::JoinSet;
 
+use super::audio_cache::verify_encrypted_audio;
 use super::client::core;
+use super::dts;
 use super::error::ApiError;
+use super::nac;
 use super::parse::{n, s};
-use crate::api::types::{Quality, QualityOption, QualityUnavailableReason as Reason};
+use super::qmc::Qmc;
+use crate::api::types::{Quality, QualityOption, QualityUnavailableReason as Reason, SongUrl};
 
 struct Format {
     quality: Quality,
@@ -67,13 +71,6 @@ const FORMATS: &[Format] = &[
         ext: "mp4",
         field: "size_new",
         index: Some(9),
-    },
-    Format {
-        quality: Quality::Vinyl,
-        prefix: "V0M0",
-        ext: "mflac",
-        field: "size_new",
-        index: Some(4),
     },
     Format {
         quality: Quality::Aicodec,
@@ -156,10 +153,20 @@ const FORMATS: &[Format] = &[
 
 fn unsupported_reason(quality: Quality) -> Option<Reason> {
     match quality {
-        Quality::Aicodec | Quality::Vinyl => Some(Reason::Unsupported),
-        Quality::Dts | Quality::Dolby => Some(Reason::Unverified),
+        Quality::Aicodec if !nac::available() => Some(Reason::Unsupported),
+        Quality::Vinyl => Some(Reason::Unsupported),
+        Quality::Dts if !dts::available() => Some(Reason::Unverified),
         _ => None,
     }
+}
+
+pub(super) fn uses_plain_source(quality: Quality) -> bool {
+    // D004 is AC-4. The player can decode the E-AC-3 from D0M1.
+    !matches!(quality, Quality::Dolby | Quality::Aicodec)
+}
+
+pub(super) fn requires_pcm(quality: Quality) -> bool {
+    matches!(quality, Quality::Dts | Quality::Aicodec)
 }
 
 fn ensure_playable(quality: Quality) -> Result<()> {
@@ -188,7 +195,7 @@ pub fn playback_chain(quality: Quality) -> Result<Vec<Quality>> {
         Quality::Aac48 => &[],
         Quality::Low | Quality::Ogg96 => &[Quality::Low],
         Quality::Standard | Quality::Ogg192 | Quality::Aac192 => &[Quality::Standard, Quality::Low],
-        Quality::High | Quality::Ogg320 | Quality::Ogg640 => {
+        Quality::High | Quality::Ogg320 | Quality::Ogg640 | Quality::Aicodec => {
             &[Quality::High, Quality::Standard, Quality::Low]
         }
         _ => &[
@@ -218,6 +225,9 @@ pub fn from_cache_key(key: &str) -> Option<Quality> {
 }
 
 pub fn extension(quality: Quality) -> &'static str {
+    if requires_pcm(quality) {
+        return "wav";
+    }
     FORMATS.iter().find(|f| f.quality == quality).map_or("bin", |f| f.ext)
 }
 
@@ -241,7 +251,8 @@ fn options_from_file(file: &Value) -> Vec<QualityOption> {
                 Some(index) => n(&file[format.field][index]),
                 None => n(&file[format.field]),
             };
-            (size > 0).then(|| QualityOption {
+            let has_hq_ogg = format.quality == Quality::High && n(&file["size_new"][3]) > 0;
+            (size > 0 || has_hq_ogg).then(|| QualityOption {
                 quality: format.quality,
                 available: false,
                 reason: Some(unsupported_reason(format.quality).unwrap_or(Reason::NoLink)),
@@ -277,23 +288,170 @@ pub async fn stream_available(url: &str) -> Result<bool> {
     Ok(core().http.head(url).send().await?.status().is_success())
 }
 
+#[derive(Clone, Copy)]
+pub(super) enum EncryptedAudio {
+    Flac,
+    Ogg,
+    Nac,
+    Mp4,
+}
+
+impl EncryptedAudio {
+    pub(super) fn matches_header(self, header: &[u8; 8]) -> bool {
+        match self {
+            Self::Flac => header.starts_with(b"fLaC"),
+            Self::Ogg => header.starts_with(b"OggS"),
+            Self::Nac => header.starts_with(b"NAC_"),
+            Self::Mp4 => &header[4..] == b"ftyp",
+        }
+    }
+
+    pub(super) fn mime(self) -> &'static str {
+        match self {
+            Self::Flac => "audio/flac",
+            Self::Ogg => "audio/ogg",
+            Self::Nac => "audio/wav",
+            Self::Mp4 => "audio/mp4",
+        }
+    }
+}
+
+pub(super) struct EncryptedFormat {
+    prefix: &'static str,
+    vs_index: Option<usize>,
+    pub(super) audio: EncryptedAudio,
+}
+
+pub(super) fn encrypted_format(quality: Quality) -> Option<EncryptedFormat> {
+    use EncryptedAudio::{Flac, Mp4, Nac, Ogg};
+    let (prefix, vs_index, audio) = match quality {
+        Quality::Master => ("AIM0", Some(3), Flac),
+        Quality::Atmos => ("Q0M0", Some(29), Flac),
+        Quality::Lossless => ("F0M0", None, Flac),
+        Quality::High => ("O8M0", None, Ogg),
+        Quality::Dolby => ("D0M1", None, Mp4),
+        Quality::Dts if dts::available() => ("DTM3", Some(30), Mp4),
+        Quality::Aicodec if nac::available() => ("TLM1", Some(28), Nac),
+        _ => return None,
+    };
+    Some(EncryptedFormat {
+        prefix,
+        vs_index,
+        audio,
+    })
+}
+
+impl EncryptedFormat {
+    fn file_name(&self, id: &str) -> String {
+        let ext = match self.audio {
+            EncryptedAudio::Flac => "mflac",
+            EncryptedAudio::Ogg => "mgg",
+            EncryptedAudio::Nac => "mnac",
+            EncryptedAudio::Mp4 => "mmp4",
+        };
+        format!("{}{id}.{ext}", self.prefix)
+    }
+
+    fn file_id<'a>(&self, media_mid: &'a str, track: &'a Value) -> Option<&'a str> {
+        match self.vs_index {
+            Some(index) => track["vs"][index].as_str().filter(|id| !id.is_empty()),
+            None => Some(media_mid),
+        }
+    }
+}
+
+pub(super) async fn encrypted_source(
+    mid: &str,
+    media_mid: &str,
+    quality: Quality,
+    track: Option<&Value>,
+) -> std::result::Result<SongUrl, Reason> {
+    let c = core();
+    let session = c.session().ok_or(Reason::NoPermission)?;
+    let format = encrypted_format(quality).ok_or(Reason::Unsupported)?;
+    let fetched;
+    let track = match track {
+        Some(track) => track,
+        None => {
+            fetched = quality_track(mid, true)
+                .await
+                .map_err(|_| Reason::VerifyFailed)?;
+            &fetched["tracks"][0]
+        }
+    };
+    let media_mid = track["file"]["media_mid"]
+        .as_str()
+        .filter(|id| !id.is_empty())
+        .unwrap_or(if media_mid.is_empty() { mid } else { media_mid });
+    let file_id = format.file_id(media_mid, track).ok_or(Reason::NoLink)?;
+    let filename = format.file_name(file_id);
+    let param = json!({
+        "uin": session.uin, "guid": c.desktop_guid, "ctx": 1,
+        "songmid": [mid], "songtype": [0], "filename": [&filename],
+        "musicfile": [format.file_name(media_mid)], "checklimit": 0,
+        "downloadfrom": 0, "nettype": "", "referer": "y.qq.com", "scene": 0,
+    });
+    let data = c
+        .desktop_musicu("music.vkey.GetEVkey", "CgiGetEVkey", param)
+        .await
+        .map_err(|_| Reason::VerifyFailed)?;
+    let item = grant(&data, &filename).map_err(|_| Reason::VerifyFailed)?;
+    let result = grant_result(item).map_err(|_| Reason::VerifyFailed)?;
+    let purl = item["purl"].as_str().filter(|url| !url.is_empty());
+    let Some(purl) = purl.filter(|_| result == 0) else {
+        return Err(unavailable_reason(item).unwrap_or(Reason::VerifyFailed));
+    };
+    let ekey = item["ekey"].as_str().ok_or(Reason::NoLink)?;
+    let cipher = Qmc::from_ekey(ekey).map_err(|_| Reason::NoLink)?;
+    let url = if purl.starts_with("https://") {
+        purl.to_owned()
+    } else {
+        let sip = data["sip"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .find(|url| url.starts_with("https://"))
+            .unwrap_or("https://isure.stream.qqmusic.qq.com/");
+        format!(
+            "{}/{}",
+            sip.trim_end_matches('/'),
+            purl.trim_start_matches('/')
+        )
+    };
+    match verify_encrypted_audio(&c.http, &url, &cipher, format.audio).await {
+        Ok(true) => Ok(SongUrl {
+            url,
+            quality,
+            ekey: Some(ekey.to_owned()),
+        }),
+        Ok(false) => Err(Reason::FileUnavailable),
+        Err(_) => Err(Reason::VerifyFailed),
+    }
+}
+
+async fn quality_track(mid: &str, desktop: bool) -> Result<Value> {
+    let c = core();
+    c.cached(&format!("quality-track:{mid}"), 600, || async {
+        let param =
+            json!({ "ctx": 0, "client": 1, "types": [0], "modify_stamp": [0], "mids": [mid] });
+        if desktop {
+            c.desktop_musicu("music.trackInfo.UniformRuleCtrl", "CgiGetTrackInfo", param)
+                .await
+        } else {
+            c.musicu("music.trackInfo.UniformRuleCtrl", "CgiGetTrackInfo", param)
+                .await
+        }
+    })
+    .await
+}
+
 pub async fn song_qualities(mid: &str) -> Result<Vec<QualityOption>> {
     let c = core();
     let desktop = c.session().is_some();
-    let track = c
-        .cached(&format!("quality-track:{mid}"), 600, || async {
-            let param =
-                json!({ "ctx": 0, "client": 1, "types": [0], "modify_stamp": [0], "mids": [mid] });
-            if desktop {
-                c.desktop_musicu("music.trackInfo.UniformRuleCtrl", "CgiGetTrackInfo", param)
-                    .await
-            } else {
-                c.musicu("music.trackInfo.UniformRuleCtrl", "CgiGetTrackInfo", param)
-                    .await
-            }
-        })
-        .await?;
-    let file = &track["tracks"][0]["file"];
+    let tracks = quality_track(mid, desktop).await?;
+    let track = &tracks["tracks"][0];
+    let file = &track["file"];
     if !file.is_object() {
         bail!(ApiError::bad_response("track response is missing file info"));
     }
@@ -304,15 +462,30 @@ pub async fn song_qualities(mid: &str) -> Result<Vec<QualityOption>> {
     } else {
         &media_mid
     };
+    if desktop && nac::available() && track["vs"][28].as_str().is_some_and(|id| !id.is_empty()) {
+        let result = encrypted_source(mid, media_mid, Quality::Aicodec, Some(track)).await;
+        if let Some(option) = options
+            .iter_mut()
+            .find(|option| option.quality == Quality::Aicodec)
+        {
+            option.available = result.is_ok();
+            option.reason = result.err();
+        } else if result.is_ok() {
+            options.push(QualityOption {
+                quality: Quality::Aicodec,
+                available: true,
+                reason: None,
+            });
+        }
+    }
     let files: Vec<_> = options
         .iter()
         .enumerate()
-        .filter(|(_, option)| unsupported_reason(option.quality).is_none())
+        .filter(|(_, option)| {
+            uses_plain_source(option.quality) && unsupported_reason(option.quality).is_none()
+        })
         .map(|(index, option)| Ok((index, file_name(option.quality, media_mid)?)))
         .collect::<Result<_>>()?;
-    if files.is_empty() {
-        return Ok(options);
-    }
     let param = json!({
         "guid": if desktop { &c.desktop_guid } else { &c.guid },
         "uin": c.uin(),
@@ -332,9 +505,12 @@ pub async fn song_qualities(mid: &str) -> Result<Vec<QualityOption>> {
         ]
     };
     let mut urls: Vec<Option<String>> = vec![None; options.len()];
-    let mut responded = false;
+    let mut responded = files.is_empty();
     let mut last_error = None;
     for &(module, method) in apis {
+        if files.iter().all(|(index, _)| urls[*index].is_some()) {
+            break;
+        }
         let response = if desktop {
             c.desktop_musicu(module, method, param.clone()).await
         } else {
@@ -355,7 +531,7 @@ pub async fn song_qualities(mid: &str) -> Result<Vec<QualityOption>> {
             let item = grant(&data, filename)?;
             let purl = s(&item["purl"]);
             let result = grant_result(item)?;
-            if result == 0 && !purl.is_empty() {
+            if result == 0 && !purl.is_empty() && s(&item["ekey"]).is_empty() {
                 let sip = data["sip"]
                     .as_array()
                     .context(ApiError::bad_response("quality response is missing sip"))?
@@ -368,9 +544,6 @@ pub async fn song_qualities(mid: &str) -> Result<Vec<QualityOption>> {
             } else {
                 options[*index].reason = Some(unavailable_reason(item)?);
             }
-        }
-        if files.iter().all(|(index, _)| urls[*index].is_some()) {
-            break;
         }
     }
     if !responded {
@@ -401,12 +574,64 @@ pub async fn song_qualities(mid: &str) -> Result<Vec<QualityOption>> {
             options[index].reason = (!options[index].available).then_some(Reason::FileUnavailable);
         }
     }
+    if desktop {
+        for option in options.iter_mut().filter(|option| {
+            !option.available
+                && option.quality != Quality::Aicodec
+                && encrypted_format(option.quality).is_some()
+        }) {
+            let result = encrypted_source(mid, media_mid, option.quality, Some(track)).await;
+            if result.is_ok() || !uses_plain_source(option.quality) {
+                option.available = result.is_ok();
+                option.reason = result.err();
+            }
+        }
+    }
     Ok(options)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn uses_per_quality_ids_for_encrypted_files() {
+        let mut vs = vec![""; 31];
+        vs[3] = "master";
+        vs[29] = "atmos";
+        vs[30] = "dts";
+        let track = json!({ "vs": vs });
+        for (quality, expected) in [
+            (Quality::Master, "AIM0master.mflac"),
+            (Quality::Atmos, "Q0M0atmos.mflac"),
+            (Quality::Lossless, "F0M0media.mflac"),
+            (Quality::High, "O8M0media.mgg"),
+            (Quality::Dolby, "D0M1media.mmp4"),
+        ] {
+            let format = encrypted_format(quality).unwrap();
+            assert_eq!(
+                format.file_name(format.file_id("media", &track).unwrap()),
+                expected
+            );
+        }
+        assert_eq!(
+            encrypted_format(Quality::Master)
+                .unwrap()
+                .file_id("media", &Value::Null),
+            None
+        );
+        assert!(encrypted_format(Quality::Hires).is_none());
+        assert!(encrypted_format(Quality::Aicodec).is_none());
+        assert!(encrypted_format(Quality::Vinyl).is_none());
+        if let Some(format) = encrypted_format(Quality::Dts) {
+            assert_eq!(
+                format.file_name(format.file_id("media", &track).unwrap()),
+                "DTM3dts.mmp4"
+            );
+        }
+        assert!(EncryptedAudio::Mp4.matches_header(b"\0\0\0\x18ftyp"));
+        assert!(!EncryptedAudio::Mp4.matches_header(b"fLaC\0\0\0\0"));
+    }
 
     #[test]
     fn lists_quality_tiers_instead_of_all_codec_variants() {
@@ -437,7 +662,7 @@ mod tests {
             "size_128mp3": 1024,
             "size_flac": 0,
             "size_dolby": 128,
-            "size_new": [4096, 0, 0, 0, 0, 0, 0, 512, 0, 256],
+            "size_new": [4096, 0, 0, 0, 128, 0, 0, 512, 0, 256],
         }));
         let qualities: Vec<_> = options.iter().map(|option| option.quality).collect();
         assert_eq!(
@@ -451,9 +676,16 @@ mod tests {
             ]
         );
         assert!(options[1..4].iter().all(|option| !option.available));
-        assert_eq!(options[1].reason, Some(Reason::Unverified));
+        assert_eq!(options[1].reason, Some(Reason::NoLink));
+        assert_eq!(
+            options[2].reason,
+            Some(if dts::available() { Reason::NoLink } else { Reason::Unverified })
+        );
         assert_eq!(options[3].reason, Some(Reason::Unsupported));
         assert!(options_from_file(&json!({})).is_empty());
+        let hq_only = options_from_file(&json!({ "size_new": [0, 0, 0, 512] }));
+        assert_eq!(hq_only.len(), 1);
+        assert_eq!(hq_only[0].quality, Quality::High);
     }
 
     #[test]
@@ -505,8 +737,10 @@ mod tests {
             file_name(Quality::Master, "test").unwrap(),
             "AI00testtest.flac"
         );
+        assert_eq!(file_name(Quality::Hires, "test").unwrap(), "RS01testtest.flac");
         assert!(file_name(Quality::Vinyl, "test").is_err());
-        assert!(playback_chain(Quality::Dts).is_err());
-        assert!(playback_chain(Quality::Dolby).is_err());
+        assert_eq!(playback_chain(Quality::Dts).is_ok(), dts::available());
+        assert!(!uses_plain_source(Quality::Dolby));
+        assert_eq!(lower(Quality::Dolby), Some(Quality::Lossless));
     }
 }

@@ -23,8 +23,15 @@ class AudioSource {
       if (stale()) return null;
       // 选的音质没有、降级拿到的那档之前缓存过
       final local = api.getCachedAudio(mid: song.mid, quality: u.quality);
-      if (local != null) return AudioSource._(song.mid, local, u.quality, cached: true);
-      final url = api.streamAudio(mid: song.mid, quality: u.quality, url: u.url);
+      if (local != null) {
+        return AudioSource._(song.mid, local, u.quality, cached: true);
+      }
+      final url = api.streamAudio(
+        mid: song.mid,
+        quality: u.quality,
+        url: u.url,
+        ekey: u.ekey,
+      );
       return AudioSource._(song.mid, url, u.quality, cached: false);
     } catch (_) {
       if (stale()) return null;
@@ -34,7 +41,7 @@ class AudioSource {
     }
   }
 
-  /// 缓存关闭时 Rust 原样返回 QQ 的链接，在线地址要带 Referer。
+  /// 普通音频在缓存关闭时直接使用 QQ 链接，在线地址要带 Referer。
   Media media({Duration? start}) => cached
       ? Media(url, start: start)
       : Media(url, httpHeaders: const {'Referer': 'https://y.qq.com/'}, start: start);

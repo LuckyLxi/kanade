@@ -80,11 +80,21 @@ pub struct QualityOption {
     pub reason: Option<QualityUnavailableReason>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SongUrl {
     pub url: String,
     /// 实际拿到的音质（请求的音质不可用时会自动降级）。
     pub quality: Quality,
+    /// 加密音源的密钥，由调用方交给本机音频中转。
+    pub ekey: Option<String>,
+}
+
+impl std::fmt::Debug for SongUrl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SongUrl")
+            .field("quality", &self.quality)
+            .finish_non_exhaustive()
+    }
 }
 
 /// 本地缓存的歌曲文件。

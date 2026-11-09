@@ -8,13 +8,16 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
+use reqwest::{header, Method, Response, StatusCode};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::runtime::Handle;
 use tokio::sync::watch;
 
 use super::client::{core, UA};
-use super::quality;
+use super::{dts, nac};
+use super::qmc::Qmc;
+use super::quality::{self, EncryptedAudio};
 use crate::api::types::Quality;
 
 const LIMIT_PREF: &str = "pref:audio_cache_limit_mb";
@@ -51,6 +54,16 @@ struct Download {
     file_name: String,
     progress: watch::Receiver<Progress>,
     cancelled: AtomicBool,
+    cipher: Option<Qmc>,
+}
+
+enum Stream {
+    Cached(Arc<Download>),
+    Encrypted {
+        url: String,
+        cipher: Qmc,
+        audio: EncryptedAudio,
+    },
 }
 
 pub struct AudioCache {
@@ -58,7 +71,7 @@ pub struct AudioCache {
     limit_mb: AtomicI64,
     http: reqwest::Client,
     server: Mutex<Option<(Handle, u16)>>,
-    downloads: Mutex<HashMap<String, Arc<Download>>>,
+    streams: Mutex<HashMap<String, Arc<Stream>>>,
     /// 正在播放的缓存文件名，淘汰和清除时跳过。
     playing: Mutex<Option<String>>,
 }
@@ -100,7 +113,7 @@ impl AudioCache {
             limit_mb: AtomicI64::new(limit),
             http,
             server: Mutex::new(None),
-            downloads: Mutex::new(HashMap::new()),
+            streams: Mutex::new(HashMap::new()),
             playing: Mutex::new(None),
         })
     }
@@ -191,9 +204,42 @@ impl AudioCache {
         }
     }
 
-    /// 返回给播放器的地址：缓存关闭时就是原链接，否则是本机中转地址。
-    pub fn stream(&'static self, mid: &str, q: Quality, url: &str) -> Result<String> {
-        if self.limit_mb() <= 0 {
+    /// 加密音频由本机中转解密。普通音频在启用缓存时中转。
+    pub fn stream(
+        &'static self,
+        mid: &str,
+        q: Quality,
+        url: &str,
+        ekey: Option<&str>,
+    ) -> Result<String> {
+        let decode = quality::requires_pcm(q);
+        let cipher = if let Some(ekey) = ekey {
+            let audio = quality::encrypted_format(q)
+                .context("unsupported encrypted audio quality")?
+                .audio;
+            let cipher = Qmc::from_ekey(ekey)?;
+            if decode {
+                Some(cipher)
+            } else {
+                let (_, port) = self.server()?;
+                let id = uuid::Uuid::new_v4().simple().to_string();
+                self.cancel_downloads();
+                self.streams.lock().unwrap().insert(
+                    id.clone(),
+                    Arc::new(Stream::Encrypted {
+                        url: url.to_owned(),
+                        cipher,
+                        audio,
+                    }),
+                );
+                *self.playing.lock().unwrap() = None;
+                return Ok(format!("http://127.0.0.1:{port}/a/{id}"));
+            }
+        } else {
+            None
+        };
+        if self.limit_mb() <= 0 && !decode {
+            self.cancel_downloads();
             return Ok(url.to_owned());
         }
         let (handle, port) = self.server()?;
@@ -208,8 +254,12 @@ impl AudioCache {
             file_name: file.clone(),
             progress: rx,
             cancelled: AtomicBool::new(false),
+            cipher,
         });
-        self.downloads.lock().unwrap().insert(id.clone(), d.clone());
+        self.streams
+            .lock()
+            .unwrap()
+            .insert(id.clone(), Arc::new(Stream::Cached(d.clone())));
         *self.playing.lock().unwrap() = Some(file);
         handle.spawn(self.download(d, tx));
         Ok(format!("http://127.0.0.1:{port}/a/{id}"))
@@ -217,8 +267,13 @@ impl AudioCache {
 
     /// 换歌后之前没下完的歌不再下载。
     fn cancel_downloads(&self) {
-        for (_, d) in self.downloads.lock().unwrap().drain() {
-            d.cancelled.store(true, Ordering::Relaxed);
+        for (_, stream) in self.streams.lock().unwrap().drain() {
+            if let Stream::Cached(d) = stream.as_ref() {
+                d.cancelled.store(true, Ordering::Relaxed);
+                if quality::requires_pcm(d.quality) {
+                    let _ = std::fs::remove_file(self.dir.join(&d.file_name));
+                }
+            }
         }
     }
 
@@ -254,7 +309,21 @@ impl AudioCache {
     }
 
     async fn download(&'static self, d: Arc<Download>, tx: watch::Sender<Progress>) {
-        match self.fetch(&d, &tx).await {
+        let decode = quality::requires_pcm(d.quality);
+        let result = if decode {
+            self.fetch_pcm(d.clone()).await
+        } else {
+            self.fetch(&d, &tx).await
+        };
+        match result {
+            Ok(size) if decode && !d.cancelled.load(Ordering::Relaxed) => {
+                tx.send_modify(|p| {
+                    p.started = true;
+                    p.total = Some(size);
+                    p.downloaded = size;
+                    p.done = true;
+                });
+            }
             Ok(size) if !d.cancelled.load(Ordering::Relaxed) => {
                 let store = &core().store;
                 let key = quality::cache_key(d.quality);
@@ -278,6 +347,37 @@ impl AudioCache {
                 tx.send_modify(|p| p.failed = true);
             }
         }
+    }
+
+    async fn fetch_pcm(&self, d: Arc<Download>) -> Result<u64> {
+        const MAX_ENCODED_BYTES: usize = 32 * 1024 * 1024;
+        let mut resp = self
+            .http
+            .get(&d.url)
+            .header("Referer", REFERER)
+            .send()
+            .await?
+            .error_for_status()?;
+        let mut encoded = Vec::new();
+        while let Some(chunk) = resp.chunk().await? {
+            if d.cancelled.load(Ordering::Relaxed) || encoded.len() + chunk.len() > MAX_ENCODED_BYTES
+            {
+                bail!("audio download cancelled or too large");
+            }
+            encoded.extend_from_slice(&chunk);
+        }
+        let output = self.dir.join(&d.file_name);
+        tokio::task::spawn_blocking(move || {
+            if let Some(cipher) = &d.cipher {
+                cipher.decrypt(&mut encoded, 0);
+            }
+            match d.quality {
+                Quality::Dts => dts::decode(&encoded, &output, &d.cancelled),
+                Quality::Aicodec => nac::decode(&encoded, &output, &d.cancelled),
+                _ => unreachable!("only decoded qualities use this download"),
+            }
+        })
+        .await?
     }
 
     /// 整首下载到临时文件，返回大小。被取消或没下完时报错。
@@ -365,10 +465,18 @@ impl AudioCache {
             }
         }
         let id = path.strip_prefix("/a/").unwrap_or_default();
-        let d = self.downloads.lock().unwrap().get(id).cloned();
-        let Some(d) = d else {
+        let stream = self.streams.lock().unwrap().get(id).cloned();
+        let Some(stream) = stream else {
             w.write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").await?;
             return Ok(());
+        };
+        let d = match stream.as_ref() {
+            Stream::Cached(d) => d,
+            Stream::Encrypted { url, cipher, audio } => {
+                return self
+                    .serve_encrypted(url, cipher, *audio, head, range, &mut w)
+                    .await;
+            }
         };
         let mut rx = d.progress.clone();
         let p = *rx.wait_for(|p| p.started || p.failed).await?;
@@ -380,6 +488,7 @@ impl AudioCache {
             "mp3" => "audio/mpeg",
             "flac" => "audio/flac",
             "ogg" => "audio/ogg",
+            "wav" => "audio/wav",
             _ => "audio/mp4",
         };
         let Some(total) = p.total else {
@@ -387,7 +496,7 @@ impl AudioCache {
             let header = format!("HTTP/1.1 200 OK\r\nContent-Type: {mime}\r\nConnection: close\r\n\r\n");
             w.write_all(header.as_bytes()).await?;
             if !head {
-                self.send_file(&d, 0, None, &mut w).await?;
+                self.send_file(d, 0, None, &mut w).await?;
             }
             return Ok(());
         };
@@ -416,10 +525,84 @@ impl AudioCache {
             return Ok(());
         }
         if start > d.progress.borrow().downloaded + AHEAD {
-            self.forward(&d, start, end, &mut w).await
+            self.forward(d, start, end, &mut w).await
         } else {
-            self.send_file(&d, start, Some(end + 1), &mut w).await
+            self.send_file(d, start, Some(end + 1), &mut w).await
         }
+    }
+
+    async fn serve_encrypted(
+        &self,
+        url: &str,
+        cipher: &Qmc,
+        audio: EncryptedAudio,
+        head: bool,
+        range: Option<(u64, Option<u64>)>,
+        w: &mut (impl AsyncWrite + Unpin),
+    ) -> Result<()> {
+        let mut req = self
+            .http
+            .request(if head { Method::HEAD } else { Method::GET }, url)
+            .header(header::REFERER, REFERER)
+            .header(header::ACCEPT_ENCODING, "identity");
+        if let Some((start, end)) = range {
+            req = req.header(
+                header::RANGE,
+                format!(
+                    "bytes={start}-{}",
+                    end.map_or_else(String::new, |n| n.to_string())
+                ),
+            );
+        }
+        let mut resp = req.send().await?;
+        let (status, mut offset, length) = match (resp.status(), range) {
+            (StatusCode::OK, None) => {
+                let length = resp
+                    .headers()
+                    .get(header::CONTENT_LENGTH)
+                    .and_then(|value| value.to_str().ok())
+                    .and_then(|value| value.parse::<usize>().ok())
+                    .context("encrypted stream has no content length")?;
+                ("200 OK".to_owned(), 0, length)
+            }
+            (StatusCode::PARTIAL_CONTENT, Some((requested_start, requested_end))) => {
+                let (start, end, total) =
+                    content_range(&resp).context("invalid encrypted stream range")?;
+                if start as u64 != requested_start
+                    || end as u64 != requested_end.unwrap_or(u64::MAX).min(total as u64 - 1)
+                {
+                    bail!("encrypted stream returned a different range");
+                }
+                (
+                    format!("206 Partial Content\r\nContent-Range: bytes {start}-{end}/{total}"),
+                    start,
+                    end - start + 1,
+                )
+            }
+            _ => {
+                w.write_all(
+                    b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                )
+                .await?;
+                return Ok(());
+            }
+        };
+        let mime = audio.mime();
+        let header = format!("HTTP/1.1 {status}\r\nContent-Type: {mime}\r\nContent-Length: {length}\r\nAccept-Ranges: bytes\r\nConnection: close\r\n\r\n");
+        w.write_all(header.as_bytes()).await?;
+        if head {
+            return Ok(());
+        }
+        let mut remaining = length;
+        while remaining > 0 {
+            let chunk = resp.chunk().await?.context("incomplete encrypted stream")?;
+            let mut bytes = chunk[..chunk.len().min(remaining)].to_vec();
+            cipher.decrypt(&mut bytes, offset);
+            w.write_all(&bytes).await?;
+            offset += bytes.len();
+            remaining -= bytes.len();
+        }
+        Ok(())
     }
 
     /// 从正在下载（或已下完）的文件里读 [start, end)，没下到的部分等着。
@@ -456,6 +639,9 @@ impl AudioCache {
 
     /// 直接向服务器要 [start, end] 这一段转给播放器。
     async fn forward(&self, d: &Download, start: u64, end: u64, w: &mut (impl AsyncWrite + Unpin)) -> Result<()> {
+        if quality::requires_pcm(d.quality) {
+            bail!("decoded audio is unavailable");
+        }
         let mut resp = self
             .http
             .get(&d.url)
@@ -469,6 +655,51 @@ impl AudioCache {
         }
         Ok(())
     }
+}
+
+fn content_range(resp: &Response) -> Option<(usize, usize, usize)> {
+    let value = resp
+        .headers()
+        .get(header::CONTENT_RANGE)?
+        .to_str()
+        .ok()?
+        .strip_prefix("bytes ")?;
+    let (bounds, total) = value.split_once('/')?;
+    let (start, end) = bounds.split_once('-')?;
+    let (start, end, total) = (start.parse().ok()?, end.parse().ok()?, total.parse().ok()?);
+    (start <= end && end < total).then_some((start, end, total))
+}
+
+pub(super) async fn verify_encrypted_audio(
+    http: &reqwest::Client,
+    url: &str,
+    cipher: &Qmc,
+    audio: EncryptedAudio,
+) -> Result<bool> {
+    let mut resp = http
+        .get(url)
+        .header(header::REFERER, REFERER)
+        .header(header::ACCEPT_ENCODING, "identity")
+        .header(header::RANGE, "bytes=0-7")
+        .send()
+        .await?;
+    if resp.status() != StatusCode::PARTIAL_CONTENT
+        || !matches!(content_range(&resp), Some((0, 7, _)))
+    {
+        return Ok(false);
+    }
+    let mut magic = [0; 8];
+    let mut read = 0;
+    while read < magic.len() {
+        let Some(chunk) = resp.chunk().await? else {
+            return Ok(false);
+        };
+        let count = chunk.len().min(magic.len() - read);
+        magic[read..read + count].copy_from_slice(&chunk[..count]);
+        read += count;
+    }
+    cipher.decrypt(&mut magic, 0);
+    Ok(audio.matches_header(&magic))
 }
 
 /// `bytes=起点-[终点]`；不支持只给结尾长度的写法。
@@ -534,13 +765,69 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
+    async fn decrypts_audio_ranges_and_streams_without_disk_cache() {
+        use crate::qq::qmc::tests::encode_test_ekey;
+
+        let key: Vec<_> = (0..512).map(|i| (i % 251 + 1) as u8).collect();
+        let ekey = encode_test_ekey(&key, true);
+        let cipher = Qmc::from_ekey(&ekey).unwrap();
+        let mut audio = b"OggS".to_vec();
+        audio.extend((4..100_000).map(|i| (i % 251) as u8));
+        let mut encrypted = audio.clone();
+        cipher.decrypt(&mut encrypted, 0);
+        let (upstream, resume) = fake_upstream(Arc::new(encrypted));
+        let dir = std::env::temp_dir().join(format!("kanade-qmc-{}", uuid::Uuid::new_v4()));
+        let cache = Box::leak(Box::new(AudioCache::new(dir.clone()).unwrap()));
+        cache.limit_mb.store(0, Ordering::Relaxed);
+        let http = reqwest::Client::new();
+
+        assert!(
+            verify_encrypted_audio(&http, &upstream, &cipher, EncryptedAudio::Ogg)
+                .await
+                .unwrap()
+        );
+        let local = cache
+            .stream("hq", Quality::High, &upstream, Some(&ekey))
+            .unwrap();
+        let response = http
+            .get(&local)
+            .header("Range", "bytes=5080-5240")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(
+            response.headers()[header::CONTENT_RANGE],
+            "bytes 5080-5240/100000"
+        );
+        assert_eq!(
+            response.bytes().await.unwrap().as_ref(),
+            &audio[5080..=5240]
+        );
+
+        let mut response = http.get(&local).send().await.unwrap();
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "audio/ogg");
+        let first = tokio::time::timeout(Duration::from_secs(3), response.chunk())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(audio.starts_with(&first));
+        resume.send(()).unwrap();
+        let mut body = first.to_vec();
+        body.extend_from_slice(&response.bytes().await.unwrap());
+        assert_eq!(body, audio);
+        std::fs::remove_dir(dir).unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
     async fn streams_caches_and_evicts() {
         let data: Arc<Vec<u8>> = Arc::new((0..700_000u32).map(|i| (i % 251) as u8).collect());
         let (upstream, resume) = fake_upstream(data.clone());
         let c = cache();
         let http = reqwest::Client::new();
 
-        let local = c.stream("mid1", Quality::High, &upstream).unwrap();
+        let local = c.stream("mid1", Quality::High, &upstream, None).unwrap();
         assert!(local.starts_with("http://127.0.0.1:"));
         // 远处的一段：后台还没下到，走直接转发
         let r = http.get(&local).header("Range", "bytes=600000-600999").send().await.unwrap();
@@ -586,7 +873,10 @@ mod tests {
 
         // 关闭后直接返回原链接
         c.set_limit_mb(0).unwrap();
-        assert_eq!(c.stream("mid2", Quality::High, &upstream).unwrap(), upstream);
+        assert_eq!(
+            c.stream("mid2", Quality::High, &upstream, None).unwrap(),
+            upstream
+        );
 
         c.clear();
         assert!(c.lookup("mid1", Quality::High).is_none());

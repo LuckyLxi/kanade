@@ -1,6 +1,7 @@
 pub mod audio_cache;
 pub mod client;
 pub mod detail;
+mod dts;
 pub mod error;
 pub mod history;
 pub mod library;
@@ -9,7 +10,9 @@ pub mod lyric;
 pub mod mqtt;
 pub mod music;
 pub mod mv;
+mod nac;
 pub mod parse;
+mod qmc;
 pub mod quality;
 pub mod recognize;
 pub mod sign;
