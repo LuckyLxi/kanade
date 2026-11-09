@@ -26,6 +26,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   });
 
   @protected
+  AnyhowException dco_decode_AnyhowException(dynamic raw);
+
+  @protected
+  RustStreamSink<SessionEndReason> dco_decode_StreamSink_session_end_reason_Sse(
+    dynamic raw,
+  );
+
+  @protected
   String dco_decode_String(dynamic raw);
 
   @protected
@@ -266,6 +274,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SearchSuggestion dco_decode_search_suggestion(dynamic raw);
 
   @protected
+  SessionEndReason dco_decode_session_end_reason(dynamic raw);
+
+  @protected
   Singer dco_decode_singer(dynamic raw);
 
   @protected
@@ -339,6 +350,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   VideoTag dco_decode_video_tag(dynamic raw);
+
+  @protected
+  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
+
+  @protected
+  RustStreamSink<SessionEndReason> sse_decode_StreamSink_session_end_reason_Sse(
+    SseDeserializer deserializer,
+  );
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
@@ -601,6 +620,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SearchSuggestion sse_decode_search_suggestion(SseDeserializer deserializer);
 
   @protected
+  SessionEndReason sse_decode_session_end_reason(SseDeserializer deserializer);
+
+  @protected
   Singer sse_decode_singer(SseDeserializer deserializer);
 
   @protected
@@ -674,6 +696,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   VideoTag sse_decode_video_tag(SseDeserializer deserializer);
+
+  @protected
+  void sse_encode_AnyhowException(
+    AnyhowException self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_session_end_reason_Sse(
+    RustStreamSink<SessionEndReason> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer);
@@ -1008,6 +1042,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_search_suggestion(
     SearchSuggestion self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_session_end_reason(
+    SessionEndReason self,
     SseSerializer serializer,
   );
 

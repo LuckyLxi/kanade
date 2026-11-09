@@ -689,6 +689,44 @@ class AppLocalizationsEn extends AppLocalizations {
   String get logoutConfirm => 'Log out?';
 
   @override
+  String get sessionEndedTitle => 'You\'ve been logged out';
+
+  @override
+  String get sessionExpired =>
+      'Your login expired, so you were logged out. Log in again to keep syncing playlists and playing VIP songs.';
+
+  @override
+  String get sessionRevoked =>
+      'QQ Music ended your login before it expired, so you were logged out.';
+
+  @override
+  String get sessionRejected =>
+      'QQ Music no longer accepts this login, so you were logged out.';
+
+  @override
+  String get sessionCausesTitle => 'Possible causes';
+
+  @override
+  String get sessionCauseOtherDevice =>
+      'Your account logged in on another device and replaced this one';
+
+  @override
+  String get sessionCauseDeviceRemoved =>
+      'This device was removed in QQ Music\'s device management';
+
+  @override
+  String get sessionCausePassword => 'The account password was changed';
+
+  @override
+  String get sessionCauseExpired => 'The login passed its expiry time';
+
+  @override
+  String get loginAgain => 'Log in again';
+
+  @override
+  String get later => 'Later';
+
+  @override
   String get ok => 'OK';
 
   @override

@@ -393,6 +393,13 @@ Future<UserInfo> loginWithCookie({required String cookie}) =>
 
 UserInfo? currentUser() => RustLib.instance.api.crateApiMusicCurrentUser();
 
+/// 登录凭证被服务器拒绝、已自动退出登录时推送原因。只在界面进程订阅。
+Stream<SessionEndReason> watchSessionEnd() =>
+    RustLib.instance.api.crateApiMusicWatchSessionEnd();
+
+/// 向服务器复核当前登录态，失效时通过 `watch_session_end` 推送。启动时调用。
+Future<void> checkSession() => RustLib.instance.api.crateApiMusicCheckSession();
+
 Future<void> logout() => RustLib.instance.api.crateApiMusicLogout();
 
 Future<void> clearCache() => RustLib.instance.api.crateApiMusicClearCache();

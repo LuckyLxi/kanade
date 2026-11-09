@@ -723,6 +723,12 @@ QQ / 微信会话交换前，当前实现会先清空旧会话；Cookie 登录�
 
 对外 `ApiError` 包括：`NotLoggedIn`、`NoPlayableUrl`、`UnsupportedFormat`、`UnverifiedFormat`、`LoginFailed{detail}`、`InvalidCookie{missing}`、`ServerError{api,code}`、`BadResponse{detail}`、`Network{detail}`、`Internal{detail}`。错误码以字符串保留给应用层，界面翻译由 Dart 处理。
 
+### 登录失效与自动退出
+
+登录凭证失效时，需要登录的接口返回内层 `code=1000`，不带说明（2026-11-10 用假 musickey 实测 `GetLoginUserInfo` 和 `GetPlayRecentlyInfo` 都返回 1000，公开接口忽略凭证照常返回）。服务器不区分过期、被其他设备挤下线或在登录设备管理里删除了本设备。官方 PC 客户端的 `music.login.LoginServer.Login` 响应带 `musickeyCreateTime`（Unix 秒）和 `keyExpiresIn`（抓包为 259200，即 3 天），Kanade 登录时据此记下到期时间；Cookie 登录没有这两个字段。
+
+已登录请求转成 `ApiError` 时遇到 1000（[error.rs](../rust/src/qq/error.rs)），界面进程会在后台用 `GetPlayRecentlyInfo`（`requestCnt=1`）复核一次；仍是 1000 且期间没有换账号，就清掉登录态和接口缓存，通过 `watch_session_end` 推送原因：已过到期时间为 `Expired`，到期前被拒为 `Revoked`，不知道到期时间为 `Unknown`。启动时 `check_session` 也复核一次。Android 播放进程不订阅，登录态变化由界面进程同步。当前不使用 `refresh_key` 自动续期。
+
 `2000`、`80105` 等数字不应被文档擅自定义为唯一原因。历史记录中同一 `80105` 与凭据所用客户端上下文有关，但不能推广为所有账号的通用结论。也不能因为 `retCode=0` 就忽略外层业务错误。
 
 网络超时主要为 15 秒；微信长轮询、授权后台等待另有时限。写入超时可能表示结果不明确，当前专用写通道不会自动重发；应先读回状态或由用户在官方客户端核对。

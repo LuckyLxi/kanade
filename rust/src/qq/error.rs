@@ -13,6 +13,11 @@ impl ApiError {
     pub fn bad_response(detail: impl Into<String>) -> Self {
         Self::BadResponse { detail: detail.into() }
     }
+
+    /// 接口返回 1000：登录凭证无效。部分调用处把 `Option` 直接格式化成了 `Some(1000)`。
+    pub fn is_auth_rejected(&self) -> bool {
+        matches!(self, Self::ServerError { code, .. } if code == "1000" || code == "Some(1000)")
+    }
 }
 
 impl fmt::Display for ApiError {
@@ -34,8 +39,19 @@ impl fmt::Display for ApiError {
 
 impl std::error::Error for ApiError {}
 
+/// 所有接口错误都在这里转给 Dart，顺带把登录凭证被拒的情况交给后台复核。
 impl From<anyhow::Error> for ApiError {
     fn from(err: anyhow::Error) -> Self {
+        let e = Self::convert(err);
+        if e.is_auth_rejected() {
+            super::client::suspect_session();
+        }
+        e
+    }
+}
+
+impl ApiError {
+    fn convert(err: anyhow::Error) -> Self {
         if let Some(e) = err.downcast_ref::<ApiError>() {
             return e.clone();
         }

@@ -12,6 +12,7 @@ import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'foryou_settings_page.dart';
 import 'glass_dropdown.dart';
+import 'kanade_dialog.dart';
 import 'smooth_scroll.dart';
 import 'theme_reveal.dart';
 import 'toast.dart';
@@ -183,26 +184,26 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<bool> _confirm(
     String text,
     String action, {
+    required IconData icon,
     bool danger = false,
   }) async {
     final l = AppLocalizations.of(context);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        content: Text(text),
+    final ok = await showKanadeDialog<bool>(
+      context,
+      builder: (context) => KanadeDialog(
+        icon: icon,
+        danger: danger,
+        title: text,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l.cancel),
-          ),
-          FilledButton(
-            style: danger
-                ? FilledButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.error,
-                  )
-                : null,
+          KanadeDialogAction(
+            label: action,
+            primary: true,
+            danger: danger,
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(action),
+          ),
+          KanadeDialogAction(
+            label: l.cancel,
+            onPressed: () => Navigator.of(context).pop(false),
           ),
         ],
       ),
@@ -231,27 +232,31 @@ class _SettingsPageState extends State<SettingsPage> {
     final controller = TextEditingController(
       text: _limitMb > 0 ? '$_limitMb' : '',
     );
-    return showDialog<int>(
-      context: context,
+    return showKanadeDialog<int>(
+      context,
       builder: (context) {
         void submit() =>
             Navigator.of(context).pop(int.tryParse(controller.text));
-        return AlertDialog(
-          title: Text(l.audioCacheCustomTitle),
+        return KanadeDialog(
+          icon: Icons.sd_storage_outlined,
+          title: l.audioCacheCustomTitle,
           content: TextField(
             controller: controller,
             autofocus: true,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(suffixText: l.audioCacheCustomUnit),
+            decoration: kanadeFieldDecoration(
+              context,
+              suffix: l.audioCacheCustomUnit,
+            ),
             onSubmitted: (_) => submit(),
           ),
           actions: [
-            TextButton(
+            KanadeDialogAction(label: l.ok, primary: true, onPressed: submit),
+            KanadeDialogAction(
+              label: l.cancel,
               onPressed: () => Navigator.of(context).pop(),
-              child: Text(l.cancel),
             ),
-            FilledButton(onPressed: submit, child: Text(l.ok)),
           ],
         );
       },
@@ -261,7 +266,13 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _clearAudio() async {
     final l = AppLocalizations.of(context);
     final player = context.read<PlayerController>();
-    if (!await _confirm(l.clearAudioCacheConfirm, l.clear)) return;
+    if (!await _confirm(
+      l.clearAudioCacheConfirm,
+      l.clear,
+      icon: Icons.music_off_outlined,
+    )) {
+      return;
+    }
     await player.clearAudioCache();
     if (!mounted) return;
     await _loadSizes();
@@ -270,7 +281,13 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _clearApi() async {
     final l = AppLocalizations.of(context);
-    if (!await _confirm(l.clearApiCacheConfirm, l.clear)) return;
+    if (!await _confirm(
+      l.clearApiCacheConfirm,
+      l.clear,
+      icon: Icons.cleaning_services_outlined,
+    )) {
+      return;
+    }
     await api.clearCache();
     await _loadSizes();
     if (mounted) showToast(context, l.cacheCleared, kind: ToastKind.success);
@@ -278,7 +295,14 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _logout() async {
     final l = AppLocalizations.of(context);
-    if (!await _confirm(l.logoutConfirm, l.logout, danger: true)) return;
+    if (!await _confirm(
+      l.logoutConfirm,
+      l.logout,
+      icon: Icons.logout_rounded,
+      danger: true,
+    )) {
+      return;
+    }
     if (!mounted) return;
     await context.read<AuthController>().logout();
     if (mounted) Navigator.of(context).pop();

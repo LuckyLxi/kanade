@@ -3,6 +3,7 @@
 
 use crate::api::error::ApiError;
 use crate::api::types::*;
+use crate::frb_generated::StreamSink;
 use crate::qq::audio_cache::cache;
 use crate::qq::{client, detail, history, library, login, music, mv, quality, recognize, social, user};
 
@@ -340,6 +341,18 @@ pub async fn login_with_cookie(cookie: String) -> Result<UserInfo, ApiError> {
 #[flutter_rust_bridge::frb(sync)]
 pub fn current_user() -> Option<UserInfo> {
     client::core().session().map(|s| login::user_of(&s))
+}
+
+/// 登录凭证被服务器拒绝、已自动退出登录时推送原因。只在界面进程订阅。
+pub fn watch_session_end(sink: StreamSink<SessionEndReason>) {
+    client::on_session_end(move |reason| {
+        let _ = sink.add(reason);
+    });
+}
+
+/// 向服务器复核当前登录态，失效时通过 `watch_session_end` 推送。启动时调用。
+pub async fn check_session() {
+    client::verify_session().await
 }
 
 pub fn logout() -> Result<(), ApiError> {

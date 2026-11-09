@@ -424,6 +424,17 @@ pub struct UserInfo {
     pub avatar_url: String,
 }
 
+/// 登录态被服务器拒绝、已自动退出的原因。服务器只回 1000，原因按凭证有效期推断。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionEndReason {
+    /// 已过凭证有效期。
+    Expired,
+    /// 有效期内被注销：其他设备登录挤下线、在登录设备管理里删除了本设备、改密码等。
+    Revoked,
+    /// 不知道凭证有效期（Cookie 登录或旧版本保存的登录态）。
+    Unknown,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LoginKind {
     Qq,

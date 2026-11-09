@@ -662,6 +662,39 @@ class AppLocalizationsZh extends AppLocalizations {
   String get logoutConfirm => '确定退出登录？';
 
   @override
+  String get sessionEndedTitle => '登录已失效';
+
+  @override
+  String get sessionExpired => '登录已超过有效期，已自动退出。重新登录后就能继续同步歌单和播放会员歌曲。';
+
+  @override
+  String get sessionRevoked => '登录还没到期就被 QQ 音乐注销了，已自动退出。';
+
+  @override
+  String get sessionRejected => 'QQ 音乐不再接受当前的登录，已自动退出。';
+
+  @override
+  String get sessionCausesTitle => '可能的原因';
+
+  @override
+  String get sessionCauseOtherDevice => '账号在其他设备登录，这里被挤下线';
+
+  @override
+  String get sessionCauseDeviceRemoved => '在「登录设备管理」里删除了这台设备';
+
+  @override
+  String get sessionCausePassword => '修改了账号密码';
+
+  @override
+  String get sessionCauseExpired => '登录超过了有效期';
+
+  @override
+  String get loginAgain => '重新登录';
+
+  @override
+  String get later => '稍后';
+
+  @override
   String get ok => '确定';
 
   @override

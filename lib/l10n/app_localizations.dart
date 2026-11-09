@@ -1262,6 +1262,72 @@ abstract class AppLocalizations {
   /// **'确定退出登录？'**
   String get logoutConfirm;
 
+  /// No description provided for @sessionEndedTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录已失效'**
+  String get sessionEndedTitle;
+
+  /// No description provided for @sessionExpired.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录已超过有效期，已自动退出。重新登录后就能继续同步歌单和播放会员歌曲。'**
+  String get sessionExpired;
+
+  /// No description provided for @sessionRevoked.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录还没到期就被 QQ 音乐注销了，已自动退出。'**
+  String get sessionRevoked;
+
+  /// No description provided for @sessionRejected.
+  ///
+  /// In zh, this message translates to:
+  /// **'QQ 音乐不再接受当前的登录，已自动退出。'**
+  String get sessionRejected;
+
+  /// No description provided for @sessionCausesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'可能的原因'**
+  String get sessionCausesTitle;
+
+  /// No description provided for @sessionCauseOtherDevice.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号在其他设备登录，这里被挤下线'**
+  String get sessionCauseOtherDevice;
+
+  /// No description provided for @sessionCauseDeviceRemoved.
+  ///
+  /// In zh, this message translates to:
+  /// **'在「登录设备管理」里删除了这台设备'**
+  String get sessionCauseDeviceRemoved;
+
+  /// No description provided for @sessionCausePassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'修改了账号密码'**
+  String get sessionCausePassword;
+
+  /// No description provided for @sessionCauseExpired.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录超过了有效期'**
+  String get sessionCauseExpired;
+
+  /// No description provided for @loginAgain.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新登录'**
+  String get loginAgain;
+
+  /// No description provided for @later.
+  ///
+  /// In zh, this message translates to:
+  /// **'稍后'**
+  String get later;
+
   /// No description provided for @ok.
   ///
   /// In zh, this message translates to:

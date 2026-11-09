@@ -24,7 +24,7 @@ Future<void> runAndroidPlayback() async {
   final directory = (await getApplicationSupportDirectory()).path;
   await api.initCore(dataDir: directory);
 
-  final auth = AuthController();
+  final auth = AuthController(watchSession: false);
   final library = LibraryController(auth);
   final locale = LocaleController();
   final player = PlayerController(auth, loadDisplayMetadata: false);

@@ -19,13 +19,12 @@ fn use_desktop_test_login() {
         let comm = &body["comm"];
         (!comm["authst"].as_str()?.is_empty()).then(|| comm.clone())
     }).expect("HAR 中没有登录态");
-    client::core().set_session(Some(client::Session {
-        uin: comm["uin"].as_str().expect("登录态缺少 uin").into(),
-        musickey: comm["authst"].as_str().expect("登录态缺少 authst").into(),
-        login_type: comm["tmeLoginType"].as_i64().expect("登录态缺少 tmeLoginType") as i32,
-        nickname: String::new(),
-        avatar_url: String::new(),
-    })).unwrap();
+    client::core().set_session(Some(client::Session::new(
+        comm["uin"].as_str().expect("登录态缺少 uin").into(),
+        comm["authst"].as_str().expect("登录态缺少 authst").into(),
+        comm["tmeLoginType"].as_i64().expect("登录态缺少 tmeLoginType") as i32,
+        0,
+    ))).unwrap();
 }
 
 /// 只读：新歌手页、自己的资料，以及抓包中已有公开歌单用户的收藏分页。
