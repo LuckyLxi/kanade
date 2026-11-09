@@ -72,7 +72,7 @@ mod windows {
     use std::fs::File;
     use std::io::BufWriter;
     use std::os::windows::ffi::OsStrExt;
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
     use std::ptr::{self, NonNull};
     use std::sync::atomic::AtomicBool;
     use std::sync::OnceLock;
@@ -133,11 +133,13 @@ mod windows {
     }
 
     fn load_runtime() -> Option<Runtime> {
-        let path = PathBuf::from(std::env::var_os("KANADE_DTS_RUNTIME")?);
-        if !path.is_absolute() {
-            return None;
-        }
-        let path = path.canonicalize().ok()?;
+        let exe = std::env::current_exe().ok()?;
+        let path = exe
+            .parent()?
+            .join("dts-runtime")
+            .join("DTSXDecoder.dll")
+            .canonicalize()
+            .ok()?;
         let data = std::fs::read(&path).ok()?;
         if digest(&SHA256, &data).as_ref() != RUNTIME_SHA256 {
             return None;

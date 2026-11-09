@@ -248,7 +248,7 @@ PC 取链接会带 `ctx=0`；未登录的 `song_url` 调用不加这个字段。
 
 Windows x64 使用抓包登录态实测了音质探测、重新取源、本机解码、HTTP Range 和跳转后的非静音输出。关闭音频缓存时，解码产物只供当前音源使用，切歌后回收。
 
-Windows x64 的 DTS:X 由启动时的 `KANADE_DTS_RUNTIME` 指定本机 `DTSXDecoder.dll` 的绝对路径。解码库及其运行时依赖由使用者提供。由于该接口取决于二进制布局，当前只加载 SHA-256 为 `0fb48a12aef354016992e5fc2a34ea7ef4852711a5f48a66bdff07661285c4ca` 的版本。输出为 48 kHz、24 bit、5.1 PCM。
+Windows x64 的 DTS:X 从 `kanade.exe` 旁的 `dts-runtime\DTSXDecoder.dll` 加载。解码库及其运行时依赖由使用者提供：放入 Git 忽略的 `windows/dts-local/` 后构建，会拷贝到产物的 `dts-runtime\`；也可直接放进已构建程序的该目录。由于该接口取决于二进制布局，当前只加载 SHA-256 为 `0fb48a12aef354016992e5fc2a34ea7ef4852711a5f48a66bdff07661285c4ca` 的版本。输出为 48 kHz、24 bit、5.1 PCM。
 
 Android ARM64 的 DTS:X 由构建者提供兼容的 DTS Playback SDK、配置和许可。将 `libDTSPlaybackSDK.so`、`dts_config.yaml` 和 `dts_hpx.lic` 放入 Git 忽略的 `android/app/dts-local/`，或用 `KANADE_DTS_ANDROID_RUNTIME` 指向该目录，再构建 APK。当前验证的 SDK SHA-256 为 `71b9872cca9e031b293eef7ec8a5762cf1069ad8762a9e17f261d20d1bff95d1`。SDK 输出 48 kHz 双声道浮点 PCM。
 

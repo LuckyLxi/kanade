@@ -106,6 +106,13 @@ if(TARGET kanade_nac)
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
 endif()
 
+# Optional user-provided DTS:X decoder and its runtime DLLs (Git ignored).
+set(local_dts_runtime "${CMAKE_CURRENT_SOURCE_DIR}/dts-local/")
+if(CMAKE_GENERATOR_PLATFORM STREQUAL "x64" AND EXISTS "${local_dts_runtime}DTSXDecoder.dll")
+  install(DIRECTORY "${local_dts_runtime}"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}/dts-runtime" COMPONENT Runtime)
+endif()
+
 if(PLUGIN_BUNDLED_LIBRARIES)
   install(FILES "${PLUGIN_BUNDLED_LIBRARIES}"
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
