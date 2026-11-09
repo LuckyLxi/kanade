@@ -204,6 +204,7 @@ class _AndroidSink extends BaseAudioHandler with SeekHandler implements _Sink {
       androidNotificationChannelId: 'com.lxi.kanade.playback',
       androidNotificationChannelName: 'Playback',
       androidNotificationOngoing: true,
+      androidNotificationIcon: 'drawable/ic_notification',
     ),
   );
 
