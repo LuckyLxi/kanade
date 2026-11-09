@@ -69,8 +69,16 @@ public:
 
     bool append(const std::array<int16_t, hop * channels>& samples) {
         output_.write(reinterpret_cast<const char*>(samples.data()), sizeof(samples));
+        written_ += sizeof(samples);
         return static_cast<bool>(output_);
     }
+
+    bool flush() {
+        output_.flush();
+        return static_cast<bool>(output_);
+    }
+
+    uint64_t written() const { return written_; }
 
     bool finish() {
         output_.close();
@@ -84,6 +92,7 @@ private:
     }
 
     std::ofstream output_;
+    uint64_t written_ = 44;
 };
 
 class Synthesizer {
@@ -191,10 +200,11 @@ struct Feedback {
 };
 } // namespace
 
-// 每次解码独立创建模型会话，切歌时可在任意段之间取消。
+// 每次解码独立创建模型会话。每解完一段就把已写入的字节数交给 progress，
+// 播放器可以边解边读；progress 返回 false 时取消（切歌）。
 extern "C" NAC_EXPORT int kanade_nac_decode(
     const uint8_t* payload, size_t segments, int rate, const PathChar* path,
-    bool (*cancelled)(const void*), const void* cancellation
+    bool (*progress)(const void*, uint64_t), const void* user
 ) {
     if (segments == 0 || segments > (max_wave_samples - hop) / (frames * hop)) return 6;
     const auto* model = model_data();
@@ -229,7 +239,6 @@ extern "C" NAC_EXPORT int kanade_nac_decode(
     WaveWriter wav(path, rate, static_cast<uint32_t>(segments * frames * hop + hop));
     Synthesizer synthesizer;
     for (size_t i = 0; i < segments; ++i) {
-        if (cancelled(cancellation)) return 4;
         read_codes(payload + i * segment_bytes, codes.host<int32_t>());
         if (!input->copyFromHostTensor(&codes) || engine->runSession(session) != MNN::NO_ERROR ||
             !spectrum->copyToHostTensor(&frequencies)) return 5;
@@ -237,7 +246,8 @@ extern "C" NAC_EXPORT int kanade_nac_decode(
             if (!state.output->copyToHostTensor(state.host.get()) ||
                 !state.input->copyFromHostTensor(state.host.get())) return 5;
         }
-        if (!synthesizer.append(frequencies.host<float>(), wav)) return 6;
+        if (!synthesizer.append(frequencies.host<float>(), wav) || !wav.flush()) return 6;
+        if (!progress(user, wav.written())) return 4;
     }
     return synthesizer.finish(wav) ? 0 : 6;
 }

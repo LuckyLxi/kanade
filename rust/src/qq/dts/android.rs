@@ -96,25 +96,25 @@ pub(in crate::qq) fn available() -> bool {
     *AVAILABLE.get_or_init(|| Decoder::new().is_ok())
 }
 
-pub(in crate::qq) fn decode(data: &[u8], output: &Path, cancelled: &AtomicBool) -> Result<u64> {
+pub(in crate::qq) fn decode(
+    data: &[u8],
+    output: &Path,
+    cancelled: &AtomicBool,
+    progress: &dyn Fn(u64, u64),
+) -> Result<u64> {
     let mut decoder = Decoder::new()?;
-    let mut wave = hound::WavWriter::create(
-        output,
-        hound::WavSpec {
-            channels: 2,
-            sample_rate: 48_000,
-            bits_per_sample: 32,
-            sample_format: hound::SampleFormat::Float,
-        },
-    )?;
-    super::decode_samples(data, cancelled, |sample| {
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: 48_000,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    super::decode_wav(data, output, spec, cancelled, progress, |sample, wave| {
         let (left, right) = decoder.frame(sample)?;
         for (&left, &right) in left.iter().zip(right) {
-            wave.write_sample(left)?;
-            wave.write_sample(right)?;
+            wave.sample(&left.to_le_bytes())?;
+            wave.sample(&right.to_le_bytes())?;
         }
         Ok(())
-    })?;
-    wave.finalize()?;
-    Ok(std::fs::metadata(output)?.len())
+    })
 }

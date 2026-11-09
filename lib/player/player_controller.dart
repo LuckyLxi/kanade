@@ -425,6 +425,15 @@ class PlayerController extends ChangeNotifier {
     }
   }
 
+  /// 边解边播的音源从上次位置恢复或往后拖时，要等本机解码追上，可能超过
+  /// media_kit 默认的 5 秒网络超时；本机中转在解码失败或切歌时会断开，
+  /// 所以这类音源不限时，其他音源保持 5 秒。
+  Future<void> _setNetworkTimeout({required bool decoded}) async {
+    final native = _player.platform;
+    if (native is! NativePlayer) return;
+    await native.setProperty('network-timeout', decoded ? '0' : '5');
+  }
+
   /// 取音源并交给播放器。取不到任何音质的链接时抛出异常；
   /// 拿到了却播不了的情况由 [_downgrade] 处理。
   Future<void> _open(
@@ -467,6 +476,7 @@ class PlayerController extends ChangeNotifier {
     // 新歌从静音开始，等进度走起来再渐强
     _setGain(_gainAt(start ?? Duration.zero));
     try {
+      await _setNetworkTimeout(decoded: ready != null);
       await _player.open(src.media(start: start), play: play);
     } catch (e) {
       _downgrade(e);

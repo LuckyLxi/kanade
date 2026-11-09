@@ -265,7 +265,7 @@ impl AudioCache {
         Ok(format!("http://127.0.0.1:{port}/a/{id}"))
     }
 
-    /// 完整解码完成后再让播放器打开本地地址。
+    /// 解码出第一段数据后再让播放器打开本地地址，解码失败时调用方可以降档。
     pub async fn wait_for_decoded(&self, url: &str) -> Result<()> {
         let (_, id) = url.rsplit_once("/a/").context("invalid decoded audio URL")?;
         let stream = self.streams.lock().unwrap().get(id).cloned();
@@ -273,7 +273,7 @@ impl AudioCache {
             bail!("decoded audio source was replaced");
         };
         let mut progress = d.progress.clone();
-        let ready = progress.wait_for(|p| p.done || p.failed).await?.done;
+        let ready = progress.wait_for(|p| p.started || p.failed).await?.started;
         if !ready || d.cancelled.load(Ordering::Relaxed) {
             bail!("audio decode did not complete");
         }
@@ -326,7 +326,7 @@ impl AudioCache {
     async fn download(&'static self, d: Arc<Download>, tx: watch::Sender<Progress>) {
         let decode = quality::requires_pcm(d.quality);
         let result = if decode {
-            self.fetch_pcm(d.clone()).await
+            self.fetch_pcm(d.clone(), tx.clone()).await
         } else {
             self.fetch(&d, &tx).await
         };
@@ -364,7 +364,7 @@ impl AudioCache {
         }
     }
 
-    async fn fetch_pcm(&self, d: Arc<Download>) -> Result<u64> {
+    async fn fetch_pcm(&self, d: Arc<Download>, tx: watch::Sender<Progress>) -> Result<u64> {
         const MAX_ENCODED_BYTES: usize = 32 * 1024 * 1024;
         let mut resp = self
             .http
@@ -386,9 +386,17 @@ impl AudioCache {
             if let Some(cipher) = &d.cipher {
                 cipher.decrypt(&mut encoded, 0);
             }
+            // 解码器预先算好 WAV 总大小，边解边让播放器读。
+            let progress = |written, total| {
+                tx.send_modify(|p| {
+                    p.started = true;
+                    p.total = Some(total);
+                    p.downloaded = written;
+                })
+            };
             match d.quality {
-                Quality::Dts => dts::decode(&encoded, &output, &d.cancelled),
-                Quality::Aicodec => nac::decode(&encoded, &output, &d.cancelled),
+                Quality::Dts => dts::decode(&encoded, &output, &d.cancelled, &progress),
+                Quality::Aicodec => nac::decode(&encoded, &output, &d.cancelled, &progress),
                 _ => unreachable!("only decoded qualities use this download"),
             }
         })
@@ -539,7 +547,8 @@ impl AudioCache {
         if head {
             return Ok(());
         }
-        if start > d.progress.borrow().downloaded + AHEAD {
+        // 解码音频没有远端可转发，拖到还没解出的位置时等解码追上。
+        if !quality::requires_pcm(d.quality) && start > d.progress.borrow().downloaded + AHEAD {
             self.forward(d, start, end, &mut w).await
         } else {
             self.send_file(d, start, Some(end + 1), &mut w).await

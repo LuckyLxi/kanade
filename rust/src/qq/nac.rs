@@ -68,7 +68,12 @@ mod unsupported {
         false
     }
 
-    pub(in crate::qq) fn decode(_: &[u8], _: &Path, _: &AtomicBool) -> anyhow::Result<u64> {
+    pub(in crate::qq) fn decode(
+        _: &[u8],
+        _: &Path,
+        _: &AtomicBool,
+        _: &dyn Fn(u64, u64),
+    ) -> anyhow::Result<u64> {
         anyhow::bail!("NAC decoder is unavailable on this platform");
     }
 }
@@ -95,9 +100,14 @@ mod native {
         usize,
         i32,
         *const PathUnit,
-        unsafe extern "C" fn(*const c_void) -> bool,
+        unsafe extern "C" fn(*const c_void, u64) -> bool,
         *const c_void,
     ) -> i32;
+
+    struct Callback<'a> {
+        cancelled: &'a AtomicBool,
+        progress: &'a dyn Fn(u64),
+    }
 
     fn decoder() -> Option<Decode> {
         static DECODER: OnceLock<Option<Decode>> = OnceLock::new();
@@ -178,22 +188,37 @@ mod native {
         decoder().is_some()
     }
 
-    unsafe extern "C" fn is_cancelled(user: *const c_void) -> bool {
-        (*(user.cast::<AtomicBool>())).load(Ordering::Relaxed)
+    unsafe extern "C" fn on_progress(user: *const c_void, written: u64) -> bool {
+        let callback = &*(user.cast::<Callback>());
+        (callback.progress)(written);
+        !callback.cancelled.load(Ordering::Relaxed)
     }
 
-    pub(in crate::qq) fn decode(data: &[u8], path: &Path, cancelled: &AtomicBool) -> Result<u64> {
+    /// 解码成 16 位双声道 WAV。每解完一段调用 `progress(已写入字节, 文件总大小)`。
+    pub(in crate::qq) fn decode(
+        data: &[u8],
+        path: &Path,
+        cancelled: &AtomicBool,
+        progress: &dyn Fn(u64, u64),
+    ) -> Result<u64> {
         let decode = decoder().context("NAC decoder is unavailable")?;
         let (data, rate) = payload(data)?;
+        let segments = data.len() / SEGMENT_SIZE;
+        // 与 nac_decoder.cpp 的 WaveWriter 一致：44 字节头 + 每段 32×256 帧 + 结尾 256 帧，每帧 4 字节。
+        let total = 44 + (segments as u64 * 32 * 256 + 256) * 4;
         let output = native_path(path)?;
+        let callback = Callback {
+            cancelled,
+            progress: &|written| progress(written, total),
+        };
         let status = unsafe {
             decode(
                 data.as_ptr(),
-                data.len() / SEGMENT_SIZE,
+                segments,
                 rate,
                 output.as_ptr(),
-                is_cancelled,
-                (cancelled as *const AtomicBool).cast(),
+                on_progress,
+                (&callback as *const Callback).cast(),
             )
         };
         if status != 0 {

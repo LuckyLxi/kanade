@@ -244,7 +244,7 @@ PC 取链接会带 `ctx=0`；未登录的 `song_url` 调用不加这个字段。
 | DTS:X | `DTM3…mmp4`，`track.vs[30]` | MP4 音轨为 DTS-UHD Profile 2（`dtsx`）。《Mood》的解密文件与 `DT03` 明文文件逐字节相同。重新切分裸流会漏帧，Windows 解码器按 MP4 原始 sample 边界完整解出三首真实样本。 |
 | NAC | `TLM1…mnac`，`track.vs[28]` | 解密后以 `NAC_` 开头。Android ARM64 和 Windows x64 的专用解码器通过 MNN 生成临时 WAV，再交给播放器。 |
 
-两端使用同一份本地模型 `android/app/nac-local/7187332.mnn`，也可用环境变量 `KANADE_NAC_MODEL` 指定路径。执行 `flutter build apk --target-platform android-arm64` 或 `flutter build windows` 时，构建会校验模型的 SHA-256 并嵌入原生库。只有加载到该库并验证授权音源后，现有音质菜单才显示 AI 音质。播放器在 Rust 完成整曲下载和解码后才打开本机地址，避免触发播放器的 5 秒网络超时。切歌时会取消解码并回收临时 WAV。
+两端使用同一份本地模型 `android/app/nac-local/7187332.mnn`，也可用环境变量 `KANADE_NAC_MODEL` 指定路径。执行 `flutter build apk --target-platform android-arm64` 或 `flutter build windows` 时，构建会校验模型的 SHA-256 并嵌入原生库。只有加载到该库并验证授权音源后，现有音质菜单才显示 AI 音质。Rust 下载完整首后边解码边写临时 WAV（文件头预先写好总长度），解出第一段就让播放器打开本机地址。从上次位置恢复或往后拖到还没解出的位置时，本机中转会等解码追上，所以播放这类音源时关闭 mpv 的网络超时（其他音源仍是 media_kit 默认的 5 秒）。切歌时会取消解码并回收临时 WAV。
 
 Windows x64 使用抓包登录态实测了音质探测、重新取源、本机解码、HTTP Range 和跳转后的非静音输出。关闭音频缓存时，解码产物只供当前音源使用，切歌后回收。
 
@@ -254,7 +254,7 @@ Android ARM64 的 DTS:X 由构建者提供兼容的 DTS Playback SDK、配置和
 
 该 SDK 的 ELF 段按 4 KB 对齐，16 KB 页大小的 Android 环境尚未验证。
 
-两端均在解码器初始化成功且当前歌曲有授权音源时显示 DTS:X。播放优先用明文 `DT03`，取不到时尝试 `DTM3`。整曲解码为临时 WAV 后交给播放器，切歌时回收。
+两端均在解码器初始化成功且当前歌曲有授权音源时显示 DTS:X。播放优先用明文 `DT03`，取不到时尝试 `DTM3`。与 NAC 一样边解码边写临时 WAV、解出第一段就交给播放器，切歌时回收。WAV 总长度按 MP4 的 `mdhd` 时长预先计算，解码结果超出部分丢弃、不足部分补静音。
 
 取链接从用户指定音质开始降级。Master / Hires / Atmos 等扩展档位按 `指定档位 → Lossless → High → Standard → Low`；High 为 `High → Standard → Low`；Lossless 为 `Lossless → High → Standard → Low`。额外编码的回退规则以 `quality::playback_chain` 为准。返回 `SongUrl.quality` 是最终取得的音质，调用方不能始终显示请求值。
 

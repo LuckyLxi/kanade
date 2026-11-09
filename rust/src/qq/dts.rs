@@ -24,21 +24,76 @@ pub(super) fn decode(
     _: &[u8],
     _: &std::path::Path,
     _: &std::sync::atomic::AtomicBool,
+    _: &dyn Fn(u64, u64),
 ) -> anyhow::Result<u64> {
     anyhow::bail!("DTS:X decoder is unavailable on this platform")
+}
+
+/// 按 MP4 时长预先写好头的 WAV，播放器可以边解边读。
+/// 解码结果超出时长的部分丢弃，不足的部分补静音，保证文件大小和头一致。
+#[cfg(any(
+    all(windows, target_arch = "x86_64"),
+    all(target_os = "android", target_arch = "aarch64")
+))]
+struct Wav<'a> {
+    file: std::io::BufWriter<std::fs::File>,
+    written: u64,
+    total: u64,
+    progress: &'a dyn Fn(u64, u64),
 }
 
 #[cfg(any(
     all(windows, target_arch = "x86_64"),
     all(target_os = "android", target_arch = "aarch64")
 ))]
-fn decode_samples(
+impl Wav<'_> {
+    fn sample(&mut self, bytes: &[u8]) -> std::io::Result<()> {
+        use std::io::Write;
+
+        if self.written + bytes.len() as u64 > self.total {
+            return Ok(());
+        }
+        self.written += bytes.len() as u64;
+        self.file.write_all(bytes)
+    }
+}
+
+/// 借 hound 生成同格式的空 WAV 头，再填入 `frames` 帧对应的大小。返回头和文件总大小。
+#[cfg(any(
+    test,
+    all(windows, target_arch = "x86_64"),
+    all(target_os = "android", target_arch = "aarch64")
+))]
+fn wav_header(spec: hound::WavSpec, frames: u64) -> anyhow::Result<(Vec<u8>, u64)> {
+    let mut header = Vec::new();
+    hound::WavWriter::new(std::io::Cursor::new(&mut header), spec)?.finalize()?;
+    let data_bytes = frames * u64::from(spec.channels) * u64::from(spec.bits_per_sample) / 8;
+    let total = header.len() as u64 + data_bytes;
+    anyhow::ensure!(
+        header.ends_with(b"data\0\0\0\0") && total <= u64::from(u32::MAX),
+        "unsupported DTS:X WAV size"
+    );
+    let data_offset = header.len() - 4;
+    header[4..8].copy_from_slice(&(total as u32 - 8).to_le_bytes());
+    header[data_offset..].copy_from_slice(&(data_bytes as u32).to_le_bytes());
+    Ok((header, total))
+}
+
+/// 解码成 WAV。每解完一个 MP4 sample 调用 `progress(已写入字节, 文件总大小)`。
+#[cfg(any(
+    all(windows, target_arch = "x86_64"),
+    all(target_os = "android", target_arch = "aarch64")
+))]
+fn decode_wav(
     data: &[u8],
+    output: &std::path::Path,
+    spec: hound::WavSpec,
     cancelled: &std::sync::atomic::AtomicBool,
-    mut decode: impl FnMut(&[u8]) -> anyhow::Result<()>,
-) -> anyhow::Result<()> {
+    progress: &dyn Fn(u64, u64),
+    mut decode: impl FnMut(&[u8], &mut Wav) -> anyhow::Result<()>,
+) -> anyhow::Result<u64> {
     use anyhow::{ensure, Context};
-    use std::io::Cursor;
+    use std::io::{Cursor, Read, Write};
     use std::sync::atomic::Ordering;
 
     let mut mp4 = mp4::Mp4Reader::read_header(Cursor::new(data), data.len() as u64)?;
@@ -48,8 +103,21 @@ fn decode_samples(
         .find(|track| matches!(track.track_type(), Ok(mp4::TrackType::Audio)))
         .context("DTS:X MP4 has no audio track")?;
     let id = track.track_id();
+    let mdhd = &track.trak.mdia.mdhd;
+    ensure!(mdhd.timescale > 0, "DTS:X MP4 has no timescale");
+    let frames = mdhd.duration * u64::from(spec.sample_rate) / u64::from(mdhd.timescale);
     let count = mp4.sample_count(id)?;
     ensure!(count > 0, "DTS:X MP4 has no samples");
+
+    let (header, total) = wav_header(spec, frames)?;
+    let mut wav = Wav {
+        file: std::io::BufWriter::new(std::fs::File::create(output)?),
+        written: header.len() as u64,
+        total,
+        progress,
+    };
+    wav.file.write_all(&header)?;
+
     for index in 1..=count {
         ensure!(!cancelled.load(Ordering::Relaxed), "DTS:X decode cancelled");
         // Keep the MP4 sample boundaries, including continuation frames.
@@ -61,16 +129,19 @@ fn decode_samples(
                 || sample.bytes.starts_with(b"\x71\xc4\x42\xe8"),
             "invalid DTS-UHD sample sync"
         );
-        decode(&sample.bytes)?;
+        decode(&sample.bytes, &mut wav)?;
+        wav.file.flush()?;
+        (wav.progress)(wav.written, total);
     }
-    Ok(())
+    let silence = total - wav.written;
+    std::io::copy(&mut std::io::repeat(0).take(silence), &mut wav.file)?;
+    wav.file.flush()?;
+    Ok(total)
 }
 
 #[cfg(all(windows, target_arch = "x86_64"))]
 mod windows {
     use std::ffi::c_void;
-    use std::fs::File;
-    use std::io::BufWriter;
     use std::os::windows::ffi::OsStrExt;
     use std::path::Path;
     use std::ptr::{self, NonNull};
@@ -203,11 +274,7 @@ mod windows {
             Ok(())
         }
 
-        fn decode_sample(
-            &mut self,
-            data: &[u8],
-            wave: &mut hound::WavWriter<BufWriter<File>>,
-        ) -> Result<()> {
+        fn decode_sample(&mut self, data: &[u8], wave: &mut super::Wav) -> Result<()> {
             let packet = Packet {
                 data: data.as_ptr(),
                 len: data.len().try_into()?,
@@ -260,7 +327,8 @@ mod windows {
             });
             for index in 0..count {
                 for channel in &channels {
-                    wave.write_sample(channel.get(index).copied().unwrap_or(0))?;
+                    let sample = channel.get(index).copied().unwrap_or(0);
+                    wave.sample(&sample.to_le_bytes()[..3])?;
                 }
             }
             Ok(())
@@ -273,22 +341,56 @@ mod windows {
         }
     }
 
-    pub(in crate::qq) fn decode(data: &[u8], output: &Path, cancelled: &AtomicBool) -> Result<u64> {
+    pub(in crate::qq) fn decode(
+        data: &[u8],
+        output: &Path,
+        cancelled: &AtomicBool,
+        progress: &dyn Fn(u64, u64),
+    ) -> Result<u64> {
         let runtime = runtime().context("DTS:X decoder is unavailable")?;
         let mut decoder = Decoder::new(runtime)?;
-        let mut wave = hound::WavWriter::create(
-            output,
-            hound::WavSpec {
-                channels: 6,
-                sample_rate: SAMPLE_RATE,
-                bits_per_sample: 24,
-                sample_format: hound::SampleFormat::Int,
-            },
-        )?;
-        super::decode_samples(data, cancelled, |sample| {
-            decoder.decode_sample(sample, &mut wave)
-        })?;
-        wave.finalize()?;
-        Ok(std::fs::metadata(output)?.len())
+        let spec = hound::WavSpec {
+            channels: 6,
+            sample_rate: SAMPLE_RATE,
+            bits_per_sample: 24,
+            sample_format: hound::SampleFormat::Int,
+        };
+        super::decode_wav(data, output, spec, cancelled, progress, |sample, wave| {
+            decoder.decode_sample(sample, wave)
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::wav_header;
+
+    #[test]
+    fn precomputed_header_matches_a_finished_hound_file() {
+        let specs = [
+            (6, 24, hound::SampleFormat::Int),
+            (2, 32, hound::SampleFormat::Float),
+        ];
+        for (channels, bits_per_sample, sample_format) in specs {
+            let spec = hound::WavSpec {
+                channels,
+                sample_rate: 48_000,
+                bits_per_sample,
+                sample_format,
+            };
+            let frames = 1_000;
+            let mut file = Vec::new();
+            let mut writer = hound::WavWriter::new(std::io::Cursor::new(&mut file), spec).unwrap();
+            for _ in 0..frames * u64::from(channels) {
+                match sample_format {
+                    hound::SampleFormat::Int => writer.write_sample(0_i32).unwrap(),
+                    hound::SampleFormat::Float => writer.write_sample(0_f32).unwrap(),
+                }
+            }
+            writer.finalize().unwrap();
+            let (header, total) = wav_header(spec, frames).unwrap();
+            assert_eq!(total, file.len() as u64);
+            assert_eq!(header, file[..header.len()]);
+        }
     }
 }
