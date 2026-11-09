@@ -64,7 +64,6 @@
   "qualityDolby": "Dolby Atmos",
   "qualityOgg320": "High OGG 320k",
   "qualityAiCodec": "AI audio",
-  "qualityVinyl": "Vinyl",
   "reasonUnsupported": "format not supported by the player",
   "reasonUnverified": "not yet verified for playback",
   "reasonNoPermission": "no access on this account",

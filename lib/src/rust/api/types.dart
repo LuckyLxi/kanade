@@ -668,6 +668,9 @@ enum Quality {
   atmos71,
   dolby,
   dts,
+
+  /// 360 Reality Audio（RA04 .mp4，MPEG-H 3D Audio）
+  ra360,
   ogg640,
   ogg320,
   ogg192,
@@ -675,7 +678,6 @@ enum Quality {
   aac192,
   aac48,
   aicodec,
-  vinyl,
 }
 
 class QualityOption {

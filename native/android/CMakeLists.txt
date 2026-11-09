@@ -8,3 +8,7 @@ endif()
 if(KANADE_DTS_ANDROID_RUNTIME)
     add_subdirectory(../dts dts)
 endif()
+
+if(KANADE_RA360_ANDROID_RUNTIME)
+    add_subdirectory(../ra360 ra360)
+endif()

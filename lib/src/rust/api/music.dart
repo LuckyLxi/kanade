@@ -69,6 +69,10 @@ Future<SongUrl> getSongUrl({
   quality: quality,
 );
 
+/// 这台设备能否播放该音质；DTS:X、360RA、NAC 缺少解码器时为 false。
+bool qualitySupported({required Quality quality}) =>
+    RustLib.instance.api.crateApiMusicQualitySupported(quality: quality);
+
 /// 比 `quality` 低一档的音质；已是最低档时为 None。拿到链接却播不了时用来降级重试。
 Quality? lowerQuality({required Quality quality}) =>
     RustLib.instance.api.crateApiMusicLowerQuality(quality: quality);

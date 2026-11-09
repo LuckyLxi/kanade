@@ -53,6 +53,12 @@ pub async fn get_song_url(mid: String, media_mid: String, quality: Quality) -> R
     Ok(music::song_url(&mid, &media_mid, quality).await?)
 }
 
+/// 这台设备能否播放该音质；DTS:X、360RA、NAC 缺少解码器时为 false。
+#[flutter_rust_bridge::frb(sync)]
+pub fn quality_supported(quality: Quality) -> bool {
+    quality::supported(quality)
+}
+
 /// 比 `quality` 低一档的音质；已是最低档时为 None。拿到链接却播不了时用来降级重试。
 #[flutter_rust_bridge::frb(sync)]
 pub fn lower_quality(quality: Quality) -> Option<Quality> {

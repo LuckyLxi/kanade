@@ -353,6 +353,11 @@ pub async fn song_url(mid: &str, media_mid: &str, quality: Quality) -> Result<So
                 return Ok(source);
             }
         }
+        if q == Quality::Ra360 {
+            if let Ok(source) = super::quality::ra360_source(mid, media_mid).await {
+                return Ok(source);
+            }
+        }
     }
     // 全部请求都失败说明是网络等问题，原样报出；否则就是没有权限
     match last_err {

@@ -72,6 +72,9 @@ if(CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
     add_subdirectory("../native/nac" nac)
     add_dependencies(${BINARY_NAME} kanade_nac)
   endif()
+  # 360 Reality Audio speaker rendering; libmpegh is fetched at a pinned commit.
+  add_subdirectory("../native/ra360" ra360)
+  add_dependencies(${BINARY_NAME} kanade_ra360)
 endif()
 
 
@@ -104,6 +107,14 @@ if(TARGET kanade_nac)
     COMPONENT Runtime)
   install(FILES "${nac_runtime}" "../native/nac/licenses/MNN-LICENSE.txt"
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+endif()
+
+if(TARGET kanade_ra360)
+  get_target_property(mpegh_license kanade_ra360 KANADE_MPEGH_LICENSE)
+  install(TARGETS kanade_ra360 RUNTIME DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+  install(FILES "${mpegh_license}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    RENAME "libmpegh-LICENSE.txt" COMPONENT Runtime)
 endif()
 
 # Optional user-provided DTS:X decoder and its runtime DLLs (Git ignored).

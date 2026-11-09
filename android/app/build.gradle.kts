@@ -18,6 +18,8 @@ val nacModel = providers.environmentVariable("KANADE_NAC_MODEL").orNull?.let { f
     ?: file("nac-local/7187332.mnn").takeIf { it.isFile }
 val dtsRuntime = providers.environmentVariable("KANADE_DTS_ANDROID_RUNTIME").orNull?.let { file(it) }
     ?: file("dts-local").takeIf { it.isDirectory }
+val ra360Runtime = providers.environmentVariable("KANADE_RA360_ANDROID_RUNTIME").orNull?.let { file(it) }
+    ?: file("ra360-local").takeIf { it.isDirectory }
 
 android {
     namespace = "com.lxi.kanade"
@@ -45,7 +47,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        if (nacModel != null || dtsRuntime != null) {
+        if (nacModel != null || dtsRuntime != null || ra360Runtime != null) {
             if (nacModel != null) {
                 require(nacModel.isFile) { "KANADE_NAC_MODEL must point to the NAC model file" }
             }
@@ -56,6 +58,7 @@ android {
                         "-DANDROID_STL=c++_shared",
                         "-DKANADE_NAC_MODEL=${nacModel?.invariantSeparatorsPath.orEmpty()}",
                         "-DKANADE_DTS_ANDROID_RUNTIME=${dtsRuntime?.invariantSeparatorsPath.orEmpty()}",
+                        "-DKANADE_RA360_ANDROID_RUNTIME=${ra360Runtime?.invariantSeparatorsPath.orEmpty()}",
                     )
                 }
             }
@@ -65,7 +68,11 @@ android {
     if (nacModel != null) {
         sourceSets.getByName("main").assets.srcDir("../../native/nac/licenses")
     }
-    if (nacModel != null || dtsRuntime != null) {
+    if (ra360Runtime != null) {
+        // QQ Music's 360RA decoder libraries, loaded at run time by libkanade_ra360.so.
+        sourceSets.getByName("main").jniLibs.srcDir(ra360Runtime.resolve("jni"))
+    }
+    if (nacModel != null || dtsRuntime != null || ra360Runtime != null) {
         externalNativeBuild {
             cmake {
                 path = file("../../native/android/CMakeLists.txt")
@@ -79,6 +86,8 @@ android {
     packaging {
         jniLibs {
             excludes += listOf("lib/armeabi-v7a/**", "lib/x86_64/**", "lib/x86/**")
+            // Prebuilt by QQ Music with symbol tables newer tools reject; ship them as they are.
+            keepDebugSymbols += listOf("**/libqm_native_decoder_360ra.so", "**/libaudio_common.so", "**/libextra_mp4_parser.so")
         }
     }
 

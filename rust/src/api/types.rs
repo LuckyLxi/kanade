@@ -43,6 +43,8 @@ pub enum Quality {
     Atmos71,
     Dolby,
     Dts,
+    /// 360 Reality Audio（RA04 .mp4，MPEG-H 3D Audio）
+    Ra360,
     Ogg640,
     Ogg320,
     Ogg192,
@@ -50,7 +52,6 @@ pub enum Quality {
     Aac192,
     Aac48,
     Aicodec,
-    Vinyl,
 }
 
 /// 音质不可用的原因，文案由 Dart 侧翻译。

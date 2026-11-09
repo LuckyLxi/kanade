@@ -5,12 +5,13 @@ use serde_json::{json, Value};
 use tokio::task::JoinSet;
 
 use super::audio_cache::verify_encrypted_audio;
-use super::client::core;
+use super::client::{core, ANDROID_VERSION};
 use super::dts;
 use super::error::ApiError;
 use super::nac;
 use super::parse::{n, s};
 use super::qmc::Qmc;
+use super::ra360;
 use crate::api::types::{Quality, QualityOption, QualityUnavailableReason as Reason, SongUrl};
 
 struct Format {
@@ -24,18 +25,25 @@ struct Format {
 // size_new 的已知格式映射参考 QQMusicApi，显示哪些档位由歌曲响应决定。
 const FORMATS: &[Format] = &[
     Format {
+        quality: Quality::Dts,
+        prefix: "DT03",
+        ext: "mp4",
+        field: "size_new",
+        index: Some(9),
+    },
+    Format {
+        quality: Quality::Ra360,
+        prefix: "RA04",
+        ext: "mp4",
+        field: "size_360ra",
+        index: Some(3),
+    },
+    Format {
         quality: Quality::Master,
         prefix: "AI00",
         ext: "flac",
         field: "size_new",
         index: Some(0),
-    },
-    Format {
-        quality: Quality::Hires,
-        prefix: "RS01",
-        ext: "flac",
-        field: "size_hires",
-        index: None,
     },
     Format {
         quality: Quality::Atmos,
@@ -45,18 +53,18 @@ const FORMATS: &[Format] = &[
         index: Some(1),
     },
     Format {
-        quality: Quality::Atmos51,
-        prefix: "Q001",
-        ext: "flac",
-        field: "size_new",
-        index: Some(2),
-    },
-    Format {
         quality: Quality::Atmos71,
         prefix: "Q003",
         ext: "ogg",
         field: "size_new",
         index: Some(6),
+    },
+    Format {
+        quality: Quality::Atmos51,
+        prefix: "Q001",
+        ext: "flac",
+        field: "size_new",
+        index: Some(2),
     },
     Format {
         quality: Quality::Dolby,
@@ -66,18 +74,11 @@ const FORMATS: &[Format] = &[
         index: None,
     },
     Format {
-        quality: Quality::Dts,
-        prefix: "DT03",
-        ext: "mp4",
-        field: "size_new",
-        index: Some(9),
-    },
-    Format {
-        quality: Quality::Aicodec,
-        prefix: "TL01",
-        ext: "nac",
-        field: "size_new",
-        index: Some(7),
+        quality: Quality::Hires,
+        prefix: "RS01",
+        ext: "flac",
+        field: "size_hires",
+        index: None,
     },
     Format {
         quality: Quality::Lossless,
@@ -106,6 +107,13 @@ const FORMATS: &[Format] = &[
         ext: "ogg",
         field: "size_new",
         index: Some(3),
+    },
+    Format {
+        quality: Quality::Aicodec,
+        prefix: "TL01",
+        ext: "nac",
+        field: "size_new",
+        index: Some(7),
     },
     Format {
         quality: Quality::Aac192,
@@ -154,19 +162,25 @@ const FORMATS: &[Format] = &[
 fn unsupported_reason(quality: Quality) -> Option<Reason> {
     match quality {
         Quality::Aicodec if !nac::available() => Some(Reason::Unsupported),
-        Quality::Vinyl => Some(Reason::Unsupported),
         Quality::Dts if !dts::available() => Some(Reason::Unverified),
+        Quality::Ra360 if !ra360::available() => Some(Reason::Unsupported),
         _ => None,
     }
 }
 
+/// 这台设备能否播放该音质（DTS:X、360RA、NAC 需要额外的解码器）。
+pub fn supported(quality: Quality) -> bool {
+    unsupported_reason(quality).is_none()
+}
+
 pub(super) fn uses_plain_source(quality: Quality) -> bool {
     // D004 is AC-4. The player can decode the E-AC-3 from D0M1.
-    !matches!(quality, Quality::Dolby | Quality::Aicodec)
+    // RA04 is only granted to the Android client version, see `ra360_source`.
+    !matches!(quality, Quality::Dolby | Quality::Aicodec | Quality::Ra360)
 }
 
 pub(super) fn requires_pcm(quality: Quality) -> bool {
-    matches!(quality, Quality::Dts | Quality::Aicodec)
+    matches!(quality, Quality::Dts | Quality::Aicodec | Quality::Ra360)
 }
 
 fn ensure_playable(quality: Quality) -> Result<()> {
@@ -430,6 +444,68 @@ pub(super) async fn encrypted_source(
     }
 }
 
+/// 360RA 的文件大小和链接只对 Android 客户端版本号开放；PC 和旧版本号的
+/// `size_360ra` 是空数组，取链接返回 104003。
+fn android_comm() -> Value {
+    json!({ "cv": ANDROID_VERSION, "v": ANDROID_VERSION })
+}
+
+async fn ra360_sizes(mid: &str) -> Result<Value> {
+    let c = core();
+    let track = c
+        .cached(&format!("quality-track-android:{mid}"), 600, || {
+            let param =
+                json!({ "ctx": 0, "client": 1, "types": [0], "modify_stamp": [0], "mids": [mid] });
+            c.musicu_with_comm(
+                "music.trackInfo.UniformRuleCtrl",
+                "CgiGetTrackInfo",
+                param,
+                android_comm(),
+            )
+        })
+        .await?;
+    Ok(track["tracks"][0]["file"]["size_360ra"].clone())
+}
+
+pub(super) async fn ra360_source(
+    mid: &str,
+    media_mid: &str,
+) -> std::result::Result<SongUrl, Reason> {
+    let c = core();
+    let filename = file_name(Quality::Ra360, media_mid).map_err(|_| Reason::Unsupported)?;
+    let param = json!({
+        "guid": c.guid, "uin": c.uin(), "loginflag": 1, "platform": "20", "ctx": 0,
+        "songmid": [mid], "songtype": [0], "filename": [&filename],
+    });
+    let data = c
+        .musicu_with_comm("music.vkey.GetVkey", "UrlGetVkey", param, android_comm())
+        .await
+        .map_err(|_| Reason::VerifyFailed)?;
+    let item = grant(&data, &filename).map_err(|_| Reason::VerifyFailed)?;
+    let purl = s(&item["purl"]);
+    if grant_result(item).map_err(|_| Reason::VerifyFailed)? != 0 || purl.is_empty() {
+        return Err(unavailable_reason(item).unwrap_or(Reason::VerifyFailed));
+    }
+    let sip = data["sip"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .find(|url| url.starts_with("https://"))
+        .or_else(|| data["sip"][0].as_str())
+        .ok_or(Reason::NoLink)?;
+    let url = format!("{sip}{purl}");
+    match stream_available(&url).await {
+        Ok(true) => Ok(SongUrl {
+            url,
+            quality: Quality::Ra360,
+            ekey: None,
+        }),
+        Ok(false) => Err(Reason::FileUnavailable),
+        Err(_) => Err(Reason::VerifyFailed),
+    }
+}
+
 async fn quality_track(mid: &str, desktop: bool) -> Result<Value> {
     let c = core();
     c.cached(&format!("quality-track:{mid}"), 600, || async {
@@ -455,7 +531,13 @@ pub async fn song_qualities(mid: &str) -> Result<Vec<QualityOption>> {
     if !file.is_object() {
         bail!(ApiError::bad_response("track response is missing file info"));
     }
-    let mut options = options_from_file(file);
+    let mut options = if ra360::available() {
+        let mut file = file.clone();
+        file["size_360ra"] = ra360_sizes(mid).await.unwrap_or_default();
+        options_from_file(&file)
+    } else {
+        options_from_file(file)
+    };
     let media_mid = s(&file["media_mid"]);
     let media_mid = if media_mid.is_empty() {
         mid
@@ -476,6 +558,7 @@ pub async fn song_qualities(mid: &str) -> Result<Vec<QualityOption>> {
                 available: true,
                 reason: None,
             });
+            options.sort_by_key(|option| FORMATS.iter().position(|f| f.quality == option.quality));
         }
     }
     let files: Vec<_> = options
@@ -574,6 +657,13 @@ pub async fn song_qualities(mid: &str) -> Result<Vec<QualityOption>> {
             options[index].reason = (!options[index].available).then_some(Reason::FileUnavailable);
         }
     }
+    if let Some(option) = options.iter_mut().find(|option| {
+        option.quality == Quality::Ra360 && unsupported_reason(option.quality).is_none()
+    }) {
+        let result = ra360_source(mid, media_mid).await;
+        option.available = result.is_ok();
+        option.reason = result.err();
+    }
     if desktop {
         for option in options.iter_mut().filter(|option| {
             !option.available
@@ -622,7 +712,6 @@ mod tests {
         );
         assert!(encrypted_format(Quality::Hires).is_none());
         assert!(encrypted_format(Quality::Aicodec).is_none());
-        assert!(encrypted_format(Quality::Vinyl).is_none());
         if let Some(format) = encrypted_format(Quality::Dts) {
             assert_eq!(
                 format.file_name(format.file_id("media", &track).unwrap()),
@@ -649,7 +738,7 @@ mod tests {
         }));
         let qualities: Vec<_> = options.iter().map(|option| option.quality).collect();
         assert_eq!(qualities, vec![
-            Quality::Master, Quality::Atmos, Quality::Atmos51, Quality::Atmos71,
+            Quality::Master, Quality::Atmos, Quality::Atmos71, Quality::Atmos51,
             Quality::Lossless, Quality::High, Quality::Standard, Quality::Low,
         ]);
         // 没有 Hi-Res 文件时也不能为了补齐档位而添加它。
@@ -668,17 +757,17 @@ mod tests {
         assert_eq!(
             qualities,
             vec![
+                Quality::Dts,
                 Quality::Master,
                 Quality::Dolby,
-                Quality::Dts,
                 Quality::Aicodec,
                 Quality::Standard
             ]
         );
-        assert!(options[1..4].iter().all(|option| !option.available));
-        assert_eq!(options[1].reason, Some(Reason::NoLink));
+        assert!([0, 2, 3].iter().all(|&index| !options[index].available));
+        assert_eq!(options[2].reason, Some(Reason::NoLink));
         assert_eq!(
-            options[2].reason,
+            options[0].reason,
             Some(if dts::available() { Reason::NoLink } else { Reason::Unverified })
         );
         assert_eq!(options[3].reason, Some(Reason::Unsupported));
@@ -686,6 +775,32 @@ mod tests {
         let hq_only = options_from_file(&json!({ "size_new": [0, 0, 0, 512] }));
         assert_eq!(hq_only.len(), 1);
         assert_eq!(hq_only[0].quality, Quality::High);
+    }
+
+    #[test]
+    fn lists_360ra_from_the_android_file_sizes() {
+        // Mood：Android 版本号返回 RA01–RA04 四个大小，RA04 是最后一个。
+        let options = options_from_file(&json!({
+            "size_360ra": [5953591, 11807232, 18854392, 28217972],
+            "size_new": [0, 0, 0, 0, 0, 0, 0, 0, 0, 256],
+        }));
+        let qualities: Vec<_> = options.iter().map(|option| option.quality).collect();
+        assert_eq!(qualities, vec![Quality::Dts, Quality::Ra360]);
+        assert_eq!(
+            options[1].reason,
+            Some(if ra360::available() {
+                Reason::NoLink
+            } else {
+                Reason::Unsupported
+            })
+        );
+        assert!(options_from_file(&json!({ "size_360ra": [] })).is_empty());
+        assert!(!uses_plain_source(Quality::Ra360));
+        assert!(requires_pcm(Quality::Ra360));
+        assert_eq!(extension(Quality::Ra360), "wav");
+        if ra360::available() {
+            assert_eq!(file_name(Quality::Ra360, "m").unwrap(), "RA04mm.mp4");
+        }
     }
 
     #[test]
@@ -738,7 +853,6 @@ mod tests {
             "AI00testtest.flac"
         );
         assert_eq!(file_name(Quality::Hires, "test").unwrap(), "RS01testtest.flac");
-        assert!(file_name(Quality::Vinyl, "test").is_err());
         assert_eq!(playback_chain(Quality::Dts).is_ok(), dts::available());
         assert!(!uses_plain_source(Quality::Dolby));
         assert_eq!(lower(Quality::Dolby), Some(Quality::Lossless));

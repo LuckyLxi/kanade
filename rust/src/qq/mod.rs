@@ -14,6 +14,7 @@ mod nac;
 pub mod parse;
 mod qmc;
 pub mod quality;
+mod ra360;
 pub mod recognize;
 pub mod sign;
 pub mod social;

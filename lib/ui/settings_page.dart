@@ -27,18 +27,22 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-/// 设置里能选的默认音质（播放器能播的常用档位）。
-const _qualities = [
+/// 设置里能选的默认音质，按官方顺序从免费到 SVIP 排列；缺解码器的档位不显示。
+final _qualities = [
   Quality.low,
   Quality.standard,
+  Quality.aicodec,
   Quality.high,
   Quality.lossless,
   Quality.hires,
-  Quality.master,
-  Quality.atmos,
+  Quality.dolby,
   Quality.atmos51,
   Quality.atmos71,
-];
+  Quality.atmos,
+  Quality.master,
+  Quality.ra360,
+  Quality.dts,
+].where((q) => api.qualitySupported(quality: q)).toList();
 
 /// 切歌淡入淡出的档位（秒），0 表示关闭。
 const _fades = [0, 1, 2, 3, 5];

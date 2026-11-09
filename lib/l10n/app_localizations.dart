@@ -482,12 +482,6 @@ abstract class AppLocalizations {
   /// **'AI 音质'**
   String get qualityAiCodec;
 
-  /// No description provided for @qualityVinyl.
-  ///
-  /// In zh, this message translates to:
-  /// **'黑胶'**
-  String get qualityVinyl;
-
   /// No description provided for @reasonUnsupported.
   ///
   /// In zh, this message translates to:

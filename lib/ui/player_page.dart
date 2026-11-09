@@ -1644,8 +1644,25 @@ class _QualityMenuState extends State<QualityMenu>
   /// 刚点中、还没收起的那一档，白色选中块先滑过去再收。
   Quality? _picked;
 
+  Animation<double>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context)?.animation;
+    if (route == _route) return;
+    _route?.removeStatusListener(_onRouteStatus);
+    _route = route?..addStatusListener(_onRouteStatus);
+  }
+
+  /// 播放页开始收起时菜单跟着缩回按钮，不留在最上层。
+  void _onRouteStatus(AnimationStatus status) {
+    if (status == AnimationStatus.reverse) unawaited(_close());
+  }
+
   @override
   void dispose() {
+    _route?.removeStatusListener(_onRouteStatus);
     _c.dispose();
     super.dispose();
   }
@@ -1787,6 +1804,8 @@ class _QualityMenuState extends State<QualityMenu>
         ),
         CompositedTransformFollower(
           link: _link,
+          // 播放页收起时按钮不再绘制，菜单别跑到左上角去
+          showWhenUnlinked: false,
           // 以按钮底边中点为锚，菜单从按钮所在位置往上长出来
           targetAnchor: Alignment.bottomCenter,
           followerAnchor: Alignment.bottomCenter,

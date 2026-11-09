@@ -244,9 +244,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get qualityAiCodec => 'AI audio';
 
   @override
-  String get qualityVinyl => 'Vinyl';
-
-  @override
   String get reasonUnsupported => 'format not supported by the player';
 
   @override

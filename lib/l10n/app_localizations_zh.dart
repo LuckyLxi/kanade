@@ -226,9 +226,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get qualityAiCodec => 'AI 音质';
 
   @override
-  String get qualityVinyl => '黑胶';
-
-  @override
   String get reasonUnsupported => '播放器暂不支持此格式';
 
   @override

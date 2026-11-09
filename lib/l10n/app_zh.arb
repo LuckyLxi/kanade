@@ -148,7 +148,6 @@
   "qualityDolby": "杜比全景声",
   "qualityOgg320": "高品质 OGG 320k",
   "qualityAiCodec": "AI 音质",
-  "qualityVinyl": "黑胶",
   "reasonUnsupported": "播放器暂不支持此格式",
   "reasonUnverified": "暂未通过播放验证",
   "reasonNoPermission": "当前账号无权限",

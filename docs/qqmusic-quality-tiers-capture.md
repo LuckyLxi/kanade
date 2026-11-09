@@ -96,6 +96,10 @@ Kanade 现有的全景声明文名也都能取到（同一登录态、`UrlGetVke
 官方「臻品全景声」请求的 `Q0M0`+`vs[29]` 有同长的明文 `Q000`+`vs[29]`.flac，是双声道文件。`Q001`+`vs[29]` 返回 404。
 Kanade 的 `Q000`×2（标为「臻品音质」）是另一份双声道文件，官方客户端在两次抓包里都没请求过它。
 
+Mood 的对比（2026-11-10，均重采样到 8 kHz、左右相加后按最佳对齐算相关系数）：`Q000`×2 与普通无损 `F000` 为 0.92，
+`Q001` 和 `Q003` 缩混成立体声后与 `Q000`×2 为 0.89、0.87，与 `F000` 为 0.85、0.94；官方臻品全景声 `Q000`+`vs[29]` 与其余各文件只有 0.61–0.70。
+所以 `Q000`×2 / `Q001` / `Q003` 是一组，接近普通立体声母版（推测是由它升混而来）；5.1 和 7.1.4 不是从官方臻品全景声拆出来的，后者是另一份混音。
+
 其余明文名（第57次取消发送、Mood）：
 
 | 文件名 | 结果 |
@@ -138,7 +142,15 @@ Kanade 的 `Q000`×2（标为「臻品音质」）是另一份双声道文件，
 - 标准档的请求没抓到。臻品音质是否只是音效，是从「没有文件请求、不能下载」推断的，没有直接证据。
 - 360RA 是独立文件，不是音效：android-360ra `raw/017` 的链接（抓包当天仍有效）首段为 `ftyp mp42/isom`、`moov/trak`，
   音轨编码 `mhm1`（MPEG-H 3D Audio），总长 28217972，未加密。用 Windows 登录态经 `UrlGetVkey` 请求同名文件（`media_mid` 拼一次或两次）
-  都返回 `104003`，与 Windows 版没有该档一致。media_kit / libmpv 能否解码 `mhm1` 未验证。
+  都返回 `104003`，与 Windows 版没有该档一致。本机 FFmpeg 没有 MPEG-H 解码器，media_kit / libmpv 大概率也解不了 `mhm1`，未验证。
+- 360RA 链接能用 JSON 拿到，不需要 JCE：用 Kanade 自己的微信扫码登录（超级会员），`musicu.fcg` 的 `music.vkey.GetVkey.UrlGetVkey`，
+  comm 为 `ct=11` 且 `cv`/`v` = `14090008` 时，`RA04` + `media_mid`（拼一次或两次）+ `.mp4` 都返回链接，文件与 Android 抓包同长（28217972）、
+  `ftyp mp42`、含 `mhm1`。同一登录用 Kanade 现在 `comm()` 的 `cv=13020508` 返回 `104003`，加不加 `chid` 都一样，所以关键是 `cv`。
+  `GetSession` 的 uid/sid 和设备字段不影响结果。`music.vkey.GetEVkey.CgiGetEVkey` 对 `RA04` 返回 `104005`。
+  `RA01`–`RA03` 只在旧 `cv` 下试过（都是 `104003`），没在 `14090008` 下复测。
+- Kanade 已接入 360RA：`CgiGetTrackInfo` 用同一 `cv` 时 `file.size_360ra` 有 4 个大小，第 4 个对应 `RA04`；Mood 的链接只给了 http 的 `sip`。
+  `mhm1` 的各 sample 首尾相接就是 MHAS 流。Windows 用 libmpegh（`LC_LEVEL_4`）按默认播放设备渲染成立体声或 5.1；
+  Android 用官方 `libqm_native_decoder_360ra.so` 渲染成耳机双耳立体声（`native/ra360/`）。缓存的 WAV 保留解码当时的声道布局。
 
 ## 抓包注意
 

@@ -15,7 +15,7 @@ use tokio::runtime::Handle;
 use tokio::sync::watch;
 
 use super::client::{core, UA};
-use super::{dts, nac};
+use super::{dts, nac, ra360};
 use super::qmc::Qmc;
 use super::quality::{self, EncryptedAudio};
 use crate::api::types::Quality;
@@ -365,7 +365,8 @@ impl AudioCache {
     }
 
     async fn fetch_pcm(&self, d: Arc<Download>, tx: watch::Sender<Progress>) -> Result<u64> {
-        const MAX_ENCODED_BYTES: usize = 32 * 1024 * 1024;
+        // 360RA 码率远高于其他需要解码的音质。
+        let max_encoded_bytes: usize = if d.quality == Quality::Ra360 { 128 } else { 32 } * 1024 * 1024;
         let mut resp = self
             .http
             .get(&d.url)
@@ -375,7 +376,7 @@ impl AudioCache {
             .error_for_status()?;
         let mut encoded = Vec::new();
         while let Some(chunk) = resp.chunk().await? {
-            if d.cancelled.load(Ordering::Relaxed) || encoded.len() + chunk.len() > MAX_ENCODED_BYTES
+            if d.cancelled.load(Ordering::Relaxed) || encoded.len() + chunk.len() > max_encoded_bytes
             {
                 bail!("audio download cancelled or too large");
             }
@@ -397,6 +398,7 @@ impl AudioCache {
             match d.quality {
                 Quality::Dts => dts::decode(&encoded, &output, &d.cancelled, &progress),
                 Quality::Aicodec => nac::decode(&encoded, &output, &d.cancelled, &progress),
+                Quality::Ra360 => ra360::decode(&encoded, &output, &d.cancelled, &progress),
                 _ => unreachable!("only decoded qualities use this download"),
             }
         })

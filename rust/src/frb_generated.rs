@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1009237917;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1984916686;
 
 // Section: executor
 
@@ -2062,6 +2062,37 @@ fn wire__crate__api__music__poll_login_qr_impl(
         },
     )
 }
+fn wire__crate__api__music__quality_supported_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "quality_supported",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_quality = <crate::api::types::Quality>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok =
+                    Result::<_, ()>::Ok(crate::api::music::quality_supported(api_quality))?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
 fn wire__crate__api__music__recognize_song_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -3515,14 +3546,14 @@ impl SseDecode for crate::api::types::Quality {
             8 => crate::api::types::Quality::Atmos71,
             9 => crate::api::types::Quality::Dolby,
             10 => crate::api::types::Quality::Dts,
-            11 => crate::api::types::Quality::Ogg640,
-            12 => crate::api::types::Quality::Ogg320,
-            13 => crate::api::types::Quality::Ogg192,
-            14 => crate::api::types::Quality::Ogg96,
-            15 => crate::api::types::Quality::Aac192,
-            16 => crate::api::types::Quality::Aac48,
-            17 => crate::api::types::Quality::Aicodec,
-            18 => crate::api::types::Quality::Vinyl,
+            11 => crate::api::types::Quality::Ra360,
+            12 => crate::api::types::Quality::Ogg640,
+            13 => crate::api::types::Quality::Ogg320,
+            14 => crate::api::types::Quality::Ogg192,
+            15 => crate::api::types::Quality::Ogg96,
+            16 => crate::api::types::Quality::Aac192,
+            17 => crate::api::types::Quality::Aac48,
+            18 => crate::api::types::Quality::Aicodec,
             _ => unreachable!("Invalid variant for Quality: {}", inner),
         };
     }
@@ -4176,30 +4207,30 @@ fn pde_ffi_dispatcher_primary_impl(
         53 => wire__crate__api__music__login_with_cookie_impl(port, ptr, rust_vec_len, data_len),
         54 => wire__crate__api__music__logout_impl(port, ptr, rust_vec_len, data_len),
         56 => wire__crate__api__music__poll_login_qr_impl(port, ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__music__recognize_song_impl(port, ptr, rust_vec_len, data_len),
-        58 => wire__crate__api__music__refresh_recommend_section_impl(
+        58 => wire__crate__api__music__recognize_song_impl(port, ptr, rust_vec_len, data_len),
+        59 => wire__crate__api__music__refresh_recommend_section_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        60 => wire__crate__api__music__remove_song_from_playlist_impl(
+        61 => wire__crate__api__music__remove_song_from_playlist_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        61 => wire__crate__api__music__rename_playlist_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__music__report_play_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__api__music__save_foryou_config_impl(port, ptr, rust_vec_len, data_len),
-        64 => wire__crate__api__music__search_impl(port, ptr, rust_vec_len, data_len),
-        67 => wire__crate__api__music__set_singer_followed_impl(port, ptr, rust_vec_len, data_len),
-        68 => wire__crate__api__music__set_song_liked_impl(port, ptr, rust_vec_len, data_len),
-        69 => wire__crate__api__music__set_user_followed_impl(port, ptr, rust_vec_len, data_len),
-        71 => {
+        62 => wire__crate__api__music__rename_playlist_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__api__music__report_play_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__music__save_foryou_config_impl(port, ptr, rust_vec_len, data_len),
+        65 => wire__crate__api__music__search_impl(port, ptr, rust_vec_len, data_len),
+        68 => wire__crate__api__music__set_singer_followed_impl(port, ptr, rust_vec_len, data_len),
+        69 => wire__crate__api__music__set_song_liked_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__api__music__set_user_followed_impl(port, ptr, rust_vec_len, data_len),
+        72 => {
             wire__crate__api__types__user_asset_page_default_impl(port, ptr, rust_vec_len, data_len)
         }
-        72 => {
+        73 => {
             wire__crate__api__music__wait_for_decoded_audio_impl(port, ptr, rust_vec_len, data_len)
         }
         _ => unreachable!(),
@@ -4220,10 +4251,11 @@ fn pde_ffi_dispatcher_sync_impl(
         14 => wire__crate__api__music__get_cached_audio_impl(ptr, rust_vec_len, data_len),
         26 => wire__crate__api__music__get_pref_impl(ptr, rust_vec_len, data_len),
         55 => wire__crate__api__music__lower_quality_impl(ptr, rust_vec_len, data_len),
-        59 => wire__crate__api__music__remove_cached_audio_impl(ptr, rust_vec_len, data_len),
-        65 => wire__crate__api__music__set_audio_cache_limit_mb_impl(ptr, rust_vec_len, data_len),
-        66 => wire__crate__api__music__set_pref_impl(ptr, rust_vec_len, data_len),
-        70 => wire__crate__api__music__stream_audio_impl(ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__music__quality_supported_impl(ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__music__remove_cached_audio_impl(ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__music__set_audio_cache_limit_mb_impl(ptr, rust_vec_len, data_len),
+        67 => wire__crate__api__music__set_pref_impl(ptr, rust_vec_len, data_len),
+        71 => wire__crate__api__music__stream_audio_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -4758,14 +4790,14 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::Quality {
             Self::Atmos71 => 8.into_dart(),
             Self::Dolby => 9.into_dart(),
             Self::Dts => 10.into_dart(),
-            Self::Ogg640 => 11.into_dart(),
-            Self::Ogg320 => 12.into_dart(),
-            Self::Ogg192 => 13.into_dart(),
-            Self::Ogg96 => 14.into_dart(),
-            Self::Aac192 => 15.into_dart(),
-            Self::Aac48 => 16.into_dart(),
-            Self::Aicodec => 17.into_dart(),
-            Self::Vinyl => 18.into_dart(),
+            Self::Ra360 => 11.into_dart(),
+            Self::Ogg640 => 12.into_dart(),
+            Self::Ogg320 => 13.into_dart(),
+            Self::Ogg192 => 14.into_dart(),
+            Self::Ogg96 => 15.into_dart(),
+            Self::Aac192 => 16.into_dart(),
+            Self::Aac48 => 17.into_dart(),
+            Self::Aicodec => 18.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -6182,14 +6214,14 @@ impl SseEncode for crate::api::types::Quality {
                 crate::api::types::Quality::Atmos71 => 8,
                 crate::api::types::Quality::Dolby => 9,
                 crate::api::types::Quality::Dts => 10,
-                crate::api::types::Quality::Ogg640 => 11,
-                crate::api::types::Quality::Ogg320 => 12,
-                crate::api::types::Quality::Ogg192 => 13,
-                crate::api::types::Quality::Ogg96 => 14,
-                crate::api::types::Quality::Aac192 => 15,
-                crate::api::types::Quality::Aac48 => 16,
-                crate::api::types::Quality::Aicodec => 17,
-                crate::api::types::Quality::Vinyl => 18,
+                crate::api::types::Quality::Ra360 => 11,
+                crate::api::types::Quality::Ogg640 => 12,
+                crate::api::types::Quality::Ogg320 => 13,
+                crate::api::types::Quality::Ogg192 => 14,
+                crate::api::types::Quality::Ogg96 => 15,
+                crate::api::types::Quality::Aac192 => 16,
+                crate::api::types::Quality::Aac48 => 17,
+                crate::api::types::Quality::Aicodec => 18,
                 _ => {
                     unimplemented!("");
                 }

@@ -35,7 +35,7 @@ pub(super) fn decode(
     all(windows, target_arch = "x86_64"),
     all(target_os = "android", target_arch = "aarch64")
 ))]
-struct Wav<'a> {
+pub(super) struct Wav<'a> {
     file: std::io::BufWriter<std::fs::File>,
     written: u64,
     total: u64,
@@ -47,7 +47,7 @@ struct Wav<'a> {
     all(target_os = "android", target_arch = "aarch64")
 ))]
 impl Wav<'_> {
-    fn sample(&mut self, bytes: &[u8]) -> std::io::Result<()> {
+    pub(super) fn sample(&mut self, bytes: &[u8]) -> std::io::Result<()> {
         use std::io::Write;
 
         if self.written + bytes.len() as u64 > self.total {
@@ -55,6 +55,15 @@ impl Wav<'_> {
         }
         self.written += bytes.len() as u64;
         self.file.write_all(bytes)
+    }
+
+    /// 写到文件后才报告进度，播放器只读已经落盘的部分。
+    pub(super) fn flush(&mut self) -> std::io::Result<()> {
+        use std::io::Write;
+
+        self.file.flush()?;
+        (self.progress)(self.written, self.total);
+        Ok(())
     }
 }
 
@@ -71,12 +80,60 @@ fn wav_header(spec: hound::WavSpec, frames: u64) -> anyhow::Result<(Vec<u8>, u64
     let total = header.len() as u64 + data_bytes;
     anyhow::ensure!(
         header.ends_with(b"data\0\0\0\0") && total <= u64::from(u32::MAX),
-        "unsupported DTS:X WAV size"
+        "unsupported decoded WAV size"
     );
     let data_offset = header.len() - 4;
     header[4..8].copy_from_slice(&(total as u32 - 8).to_le_bytes());
     header[data_offset..].copy_from_slice(&(data_bytes as u32).to_le_bytes());
     Ok((header, total))
+}
+
+#[cfg(any(
+    all(windows, target_arch = "x86_64"),
+    all(target_os = "android", target_arch = "aarch64")
+))]
+pub(super) type Mp4<'a> = mp4::Mp4Reader<std::io::Cursor<&'a [u8]>>;
+
+/// 按 MP4 音轨时长写好 WAV 头，`decode` 拿到读取器和音轨 ID 后写入 PCM。返回文件总大小。
+#[cfg(any(
+    all(windows, target_arch = "x86_64"),
+    all(target_os = "android", target_arch = "aarch64")
+))]
+pub(super) fn write_wav(
+    data: &[u8],
+    output: &std::path::Path,
+    spec: hound::WavSpec,
+    progress: &dyn Fn(u64, u64),
+    decode: impl FnOnce(&mut Mp4, u32, &mut Wav) -> anyhow::Result<()>,
+) -> anyhow::Result<u64> {
+    use anyhow::{ensure, Context};
+    use std::io::{Cursor, Read, Write};
+
+    let mut mp4 = mp4::Mp4Reader::read_header(Cursor::new(data), data.len() as u64)?;
+    let track = mp4
+        .tracks()
+        .values()
+        .find(|track| matches!(track.track_type(), Ok(mp4::TrackType::Audio)))
+        .context("MP4 has no audio track")?;
+    let id = track.track_id();
+    let mdhd = &track.trak.mdia.mdhd;
+    ensure!(mdhd.timescale > 0, "MP4 has no timescale");
+    let frames = mdhd.duration * u64::from(spec.sample_rate) / u64::from(mdhd.timescale);
+    ensure!(mp4.sample_count(id)? > 0, "MP4 has no samples");
+
+    let (header, total) = wav_header(spec, frames)?;
+    let mut wav = Wav {
+        file: std::io::BufWriter::new(std::fs::File::create(output)?),
+        written: header.len() as u64,
+        total,
+        progress,
+    };
+    wav.file.write_all(&header)?;
+    decode(&mut mp4, id, &mut wav)?;
+    let silence = total - wav.written;
+    std::io::copy(&mut std::io::repeat(0).take(silence), &mut wav.file)?;
+    wav.file.flush()?;
+    Ok(total)
 }
 
 /// 解码成 WAV。每解完一个 MP4 sample 调用 `progress(已写入字节, 文件总大小)`。
@@ -93,50 +150,25 @@ fn decode_wav(
     mut decode: impl FnMut(&[u8], &mut Wav) -> anyhow::Result<()>,
 ) -> anyhow::Result<u64> {
     use anyhow::{ensure, Context};
-    use std::io::{Cursor, Read, Write};
     use std::sync::atomic::Ordering;
 
-    let mut mp4 = mp4::Mp4Reader::read_header(Cursor::new(data), data.len() as u64)?;
-    let track = mp4
-        .tracks()
-        .values()
-        .find(|track| matches!(track.track_type(), Ok(mp4::TrackType::Audio)))
-        .context("DTS:X MP4 has no audio track")?;
-    let id = track.track_id();
-    let mdhd = &track.trak.mdia.mdhd;
-    ensure!(mdhd.timescale > 0, "DTS:X MP4 has no timescale");
-    let frames = mdhd.duration * u64::from(spec.sample_rate) / u64::from(mdhd.timescale);
-    let count = mp4.sample_count(id)?;
-    ensure!(count > 0, "DTS:X MP4 has no samples");
-
-    let (header, total) = wav_header(spec, frames)?;
-    let mut wav = Wav {
-        file: std::io::BufWriter::new(std::fs::File::create(output)?),
-        written: header.len() as u64,
-        total,
-        progress,
-    };
-    wav.file.write_all(&header)?;
-
-    for index in 1..=count {
-        ensure!(!cancelled.load(Ordering::Relaxed), "DTS:X decode cancelled");
-        // Keep the MP4 sample boundaries, including continuation frames.
-        let sample = mp4
-            .read_sample(id, index)?
-            .context("missing DTS:X MP4 sample")?;
-        ensure!(
-            sample.bytes.starts_with(b"\x40\x41\x1b\xf2")
-                || sample.bytes.starts_with(b"\x71\xc4\x42\xe8"),
-            "invalid DTS-UHD sample sync"
-        );
-        decode(&sample.bytes, &mut wav)?;
-        wav.file.flush()?;
-        (wav.progress)(wav.written, total);
-    }
-    let silence = total - wav.written;
-    std::io::copy(&mut std::io::repeat(0).take(silence), &mut wav.file)?;
-    wav.file.flush()?;
-    Ok(total)
+    write_wav(data, output, spec, progress, |mp4, id, wav| {
+        for index in 1..=mp4.sample_count(id)? {
+            ensure!(!cancelled.load(Ordering::Relaxed), "DTS:X decode cancelled");
+            // Keep the MP4 sample boundaries, including continuation frames.
+            let sample = mp4
+                .read_sample(id, index)?
+                .context("missing DTS:X MP4 sample")?;
+            ensure!(
+                sample.bytes.starts_with(b"\x40\x41\x1b\xf2")
+                    || sample.bytes.starts_with(b"\x71\xc4\x42\xe8"),
+                "invalid DTS-UHD sample sync"
+            );
+            decode(&sample.bytes, wav)?;
+            wav.flush()?;
+        }
+        Ok(())
+    })
 }
 
 #[cfg(all(windows, target_arch = "x86_64"))]

@@ -141,7 +141,7 @@ async fn desktop_dynamic_qualities() {
     let options = rust_lib_kanade::qq::quality::song_qualities(&mid).await.unwrap();
     assert!(options.len() > 4, "未返回扩展音质");
     assert!(options.iter().any(|option| option.quality == Quality::Master));
-    assert!(options.iter().filter(|option| matches!(option.quality, Quality::Aicodec | Quality::Vinyl | Quality::Dts | Quality::Dolby)).all(|option| !option.available));
+    assert!(options.iter().filter(|option| matches!(option.quality, Quality::Aicodec | Quality::Dts | Quality::Dolby)).all(|option| !option.available));
     let selected = options.iter().find(|option| option.available && matches!(option.quality, Quality::Master | Quality::Hires | Quality::Atmos | Quality::Atmos51 | Quality::Atmos71)).expect("当前样本没有可播放的扩展音质");
     let track = client::core().desktop_musicu("music.trackInfo.UniformRuleCtrl", "CgiGetTrackInfo", serde_json::json!({
         "ctx": 0, "client": 1, "types": [0], "modify_stamp": [0], "mids": [mid],
