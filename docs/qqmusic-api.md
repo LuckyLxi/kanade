@@ -775,6 +775,7 @@ HAR 凭据辅助函数依赖该文件内存在可解析的 `comm.uin/authst/tmeL
 | [歌单管理抓包](qqmusic-playlist-management-capture.md) | 改名与删除的官方请求样本 |
 | [最近播放抓包](qqmusic-recent-plays-capture.md) | 云端记录读取、播放上报 |
 | [Android 最近播放分类抓包](qqmusic-recent-plays-android-capture.md) | 专辑、歌单、电台、有声、视频各 `type`，增量同步与计数接口 |
+| [Android 排行榜抓包](qqmusic-toplist-android-capture.md) | 目录分组、往期、分页、排名变化 `rankType`、歌曲标签，及与 PC 模块的对照 |
 | [Android 播放页歌曲信息页抓包](qqmusic-player-detail-android-capture.md) | 右滑信息页的合并请求、栏目顺序、标签、相关歌单换一批、精选视频 |
 | [推荐页抓包](qqmusic-recommendations-capture.md) / [推荐封面抓包](qqmusic-recommendation-covers-capture.md) | 推荐结构、取歌与图片来源 |
 
