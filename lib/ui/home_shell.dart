@@ -52,11 +52,31 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
         (Icons.person_outline, Icons.person, l.tabMine),
       ];
 
-  Widget _tabNavigator(int i, Widget root) => Navigator(
-    key: _keys[i],
-    observers: [_depths[i]],
-    onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => root),
-  );
+  // 键盘每动一帧都会改 viewInsets：没显示的标签页、被二级页面盖住的首页不跟着逐帧重建，
+  // 只留给正在看的页面（比如歌单页的搜索框）
+  Widget _tabNavigator(int i, Widget root) {
+    // Navigator 放在 Builder 外面建好：它一重建就让里面每个页面整页重建
+    final navigator = Navigator(
+      key: _keys[i],
+      observers: [_depths[i]],
+      onGenerateRoute: (_) => MaterialPageRoute(
+        builder: (_) => Builder(
+          builder: (context) => MediaQuery.removeViewInsets(
+            context: context,
+            removeBottom: !(ModalRoute.of(context)?.isCurrent ?? true),
+            child: root,
+          ),
+        ),
+      ),
+    );
+    return Builder(
+      builder: (context) => MediaQuery.removeViewInsets(
+        context: context,
+        removeBottom: i != _tab,
+        child: navigator,
+      ),
+    );
+  }
 
   void _select(int i) {
     if (i == _tab) {
@@ -363,15 +383,18 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
 
   /// 玻璃条浮在内容上方，内容本身铺满全屏；把被遮住的高度加进 padding，
   /// 列表滚到底时最后一项才不会藏在玻璃条下面。
-  Widget _insetBottom(BuildContext context, double inset, Widget child) {
-    final mq = MediaQuery.of(context);
-    return MediaQuery(
-      data: mq.copyWith(
-        padding: mq.padding.copyWith(bottom: mq.padding.bottom + inset),
-      ),
-      child: child,
-    );
-  }
+  /// 放在 Builder 里读 MediaQuery，键盘动的时候只有这一层重建，外壳不跟着重建。
+  Widget _insetBottom(double inset, Widget child) => Builder(
+    builder: (context) {
+      final mq = MediaQuery.of(context);
+      return MediaQuery(
+        data: mq.copyWith(
+          padding: mq.padding.copyWith(bottom: mq.padding.bottom + inset),
+        ),
+        child: child,
+      );
+    },
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -396,11 +419,11 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
     if (wide) {
       // 左侧实心侧栏 + 底部整宽玻璃播放栏，侧栏底部让出播放栏的位置
       const gap = 12.0;
-      final mq = MediaQuery.of(context);
+      final padding = MediaQuery.paddingOf(context);
       // 桌面播放栏常驻，还没放过歌时显示空状态
       const barSpace = DesktopPlayerBar.height + gap * 2;
       // 播放栏和窗口一样宽，提示在整个窗口居中，正好对着中间的播放键
-      _reportChrome(EdgeInsets.only(bottom: mq.padding.bottom + barSpace));
+      _reportChrome(EdgeInsets.only(bottom: padding.bottom + barSpace));
       content = Material(
         color: scheme.surface,
         child: KanadeGlass.backdropScope(
@@ -430,9 +453,9 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
                         Padding(
                           padding: EdgeInsets.fromLTRB(
                             gap,
-                            mq.padding.top + 8,
+                            padding.top + 8,
                             0,
-                            mq.padding.bottom + barSpace,
+                            padding.bottom + barSpace,
                           ),
                           child: SizedBox(
                             width: DesktopSidebar.width,
@@ -444,7 +467,7 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
                             ),
                           ),
                         ),
-                        Expanded(child: _insetBottom(context, barSpace, body)),
+                        Expanded(child: _insetBottom(barSpace, body)),
                       ],
                     ),
                   ),
@@ -453,7 +476,7 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
               Positioned(
                 left: gap,
                 right: gap,
-                bottom: gap + mq.padding.bottom,
+                bottom: gap + padding.bottom,
                 child: const DesktopPlayerBar(),
               ),
             ],
@@ -487,41 +510,45 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
         decoration: TextDecoration.none,
         shadows: shadows,
       );
-      final tabBar = MediaQuery(
-        data: MediaQuery.of(context)
-            .copyWith(platformBrightness: Theme.of(context).brightness),
-        child: GlassTabBar.bottom(
-          selectedIndex: _tab,
-          onTabSelected: _select,
-          tabs: [
-            for (final d in destinations)
-              GlassTab(
-                icon: Icon(d.$1, shadows: shadows),
-                activeIcon: Icon(d.$2, shadows: shadows),
-                label: d.$3,
-                semanticLabel: d.$3,
-              ),
-          ],
-          quality: KanadeGlass.navigationQuality,
-          settings: KanadeGlass.navigationSettings(context),
-          sharedLayer: _blendGlass,
-          indicatorSettings: KanadeGlass.indicatorSettings,
-          // 指示器是一颗透明透镜，选中态靠抗色图标区分
-          indicatorColor: foreground.withValues(alpha: 0.1),
-          selectedIconColor: scheme.primary,
-          selectedLabelColor: scheme.primary,
-          unselectedIconColor: foreground,
-          unselectedLabelColor: foreground,
-          selectedLabelStyle: labelStyle,
-          unselectedLabelStyle: labelStyle,
-          adaptiveBrightness: false,
-          magnification: 1.2,
-          horizontalPadding: 12,
-          verticalPadding: navPad,
-          barHeight: KanadeGlass.navigationControlHeight,
-          tabWidth: (navWidth - 24) / destinations.length,
-          barBorderRadius: GlassDefaults.capsuleRadius,
-          indicatorBorderRadius: GlassDefaults.capsuleRadius,
+      final tabs = GlassTabBar.bottom(
+        selectedIndex: _tab,
+        onTabSelected: _select,
+        tabs: [
+          for (final d in destinations)
+            GlassTab(
+              icon: Icon(d.$1, shadows: shadows),
+              activeIcon: Icon(d.$2, shadows: shadows),
+              label: d.$3,
+              semanticLabel: d.$3,
+            ),
+        ],
+        quality: KanadeGlass.navigationQuality,
+        settings: KanadeGlass.navigationSettings(context),
+        sharedLayer: _blendGlass,
+        indicatorSettings: KanadeGlass.indicatorSettings,
+        // 指示器是一颗透明透镜，选中态靠抗色图标区分
+        indicatorColor: foreground.withValues(alpha: 0.1),
+        selectedIconColor: scheme.primary,
+        selectedLabelColor: scheme.primary,
+        unselectedIconColor: foreground,
+        unselectedLabelColor: foreground,
+        selectedLabelStyle: labelStyle,
+        unselectedLabelStyle: labelStyle,
+        adaptiveBrightness: false,
+        magnification: 1.2,
+        horizontalPadding: 12,
+        verticalPadding: navPad,
+        barHeight: KanadeGlass.navigationControlHeight,
+        tabWidth: (navWidth - 24) / destinations.length,
+        barBorderRadius: GlassDefaults.capsuleRadius,
+        indicatorBorderRadius: GlassDefaults.capsuleRadius,
+      );
+      final brightness = Theme.of(context).brightness;
+      // 同 _insetBottom：在 Builder 里读 MediaQuery，外壳不跟着键盘重建
+      final tabBar = Builder(
+        builder: (context) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(platformBrightness: brightness),
+          child: tabs,
         ),
       );
       // 二级页面里导航栏和播放条融成一块，落到底部变成胶囊
@@ -761,7 +788,7 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
                     color: scheme.surface,
                     child: NotificationListener<ScrollNotification>(
                       onNotification: _onScroll,
-                      child: _insetBottom(context, inset, body),
+                      child: _insetBottom(inset, body),
                     ),
                   ),
                 ),
