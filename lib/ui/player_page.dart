@@ -419,6 +419,7 @@ class _PlayerPageState extends State<PlayerPage>
                                   placeholderUrl: song.coverUrl,
                                   playing: p.playing,
                                   expanded: t < 0.5,
+                                  t: t,
                                 ),
                               ),
                               Positioned.fromRect(
@@ -525,6 +526,7 @@ class _AlbumArt extends StatelessWidget {
     required this.placeholderUrl,
     required this.playing,
     required this.expanded,
+    this.t = 0,
   });
 
   final String url;
@@ -532,15 +534,21 @@ class _AlbumArt extends StatelessWidget {
   final bool playing;
   final bool expanded;
 
+  /// 翻页进度：0 是主页面的大封面，1 是缩在左上角的小封面。
+  final double t;
+
   @override
   Widget build(BuildContext context) {
     final lifted = expanded && playing;
     final radius = expanded ? 14.0 : 8.0;
     final morph = PlayerMorph.maybeOf(context);
-    final art = AnimatedScale(
-      scale: expanded && !playing ? 0.8 : 1,
+    // 暂停缩小的幅度跟着翻页进度连续收掉，滑动途中不会突然弹一下
+    final art = TweenAnimationBuilder<double>(
+      tween: Tween(end: playing ? 0 : 1),
       duration: const Duration(milliseconds: 650),
       curve: playing ? Curves.easeOutBack : Curves.easeOutCubic,
+      builder: (_, paused, child) =>
+          Transform.scale(scale: 1 - 0.2 * paused * (1 - t), child: child),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 650),
         curve: Curves.easeOutCubic,
