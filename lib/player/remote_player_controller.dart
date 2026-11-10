@@ -5,9 +5,14 @@ class _RemotePlayerController extends PlayerController {
     super.auth,
     this._library,
     this._locale,
-    String directory,
-  ) : super._remote() {
-    _connection = AndroidPlaybackConnection(directory, _applyUpdate);
+    String directory, {
+    AndroidPlaybackConnection Function(String, void Function(PlaybackMessage))?
+    connectionFactory,
+  }) : super._() {
+    _connection = (connectionFactory ?? AndroidPlaybackConnection.new)(
+      directory,
+      _applyUpdate,
+    );
     _lifecycle = AppLifecycleListener(
       onResume: _connect,
       onPause: () => _connection.setWatching(false),
@@ -44,7 +49,6 @@ class _RemotePlayerController extends PlayerController {
   }
 
   void _syncAuth() {
-    _onAuthChanged();
     _lastLike = null;
     _ignore(_connection.call('auth'));
   }
@@ -93,15 +97,11 @@ class _RemotePlayerController extends PlayerController {
     };
     sleepAfterSong = message['sleepAfterSong'] as bool;
     error = decodePlayerError(message['error']);
+    if (before != current?.mid) _refreshDisplayMetadata();
     if (current case final song?) {
       if (message['liked'] case final bool liked) {
         _lastLike = (song.mid, liked);
         _library.updateLiked(song, liked);
-      }
-      if (before != song.mid) {
-        lyric = null;
-        unawaited(refreshQualities());
-        _loadLyric(song, ++_token);
       }
     }
     notifyListeners();

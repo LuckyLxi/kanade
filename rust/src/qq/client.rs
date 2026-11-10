@@ -61,8 +61,15 @@ pub fn on_session_end(hook: impl Fn(SessionEndReason) + Send + Sync + 'static) {
     *SESSION_END.write().unwrap() = Some(Box::new(hook));
 }
 
+#[cfg(test)]
+thread_local! {
+    pub(crate) static SESSION_CHECKS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// 已登录的请求收到 1000 时调用，在后台复核一次，避免个别接口的 1000 误伤登录态。
 pub fn suspect_session() {
+    #[cfg(test)]
+    SESSION_CHECKS.with(|count| count.set(count.get() + 1));
     if SESSION_END.read().unwrap().is_none() {
         return;
     }
@@ -86,7 +93,7 @@ pub async fn verify_session() {
         )
         .await;
     VERIFYING.store(false, Ordering::SeqCst);
-    // 这里不能走 ApiError::from，否则又会触发复核
+    // 直接检查错误链；会话副作用仅由 API 边界触发。
     let rejected = result.err().is_some_and(|e| e.chain().any(|c| c.downcast_ref::<ApiError>().is_some_and(ApiError::is_auth_rejected)));
     // 复核期间退出或换了账号就不动
     if !rejected || c.session().is_none_or(|s| s.musickey != session.musickey) {

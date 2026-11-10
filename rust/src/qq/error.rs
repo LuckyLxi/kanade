@@ -39,14 +39,10 @@ impl fmt::Display for ApiError {
 
 impl std::error::Error for ApiError {}
 
-/// 所有接口错误都在这里转给 Dart，顺带把登录凭证被拒的情况交给后台复核。
+/// 纯错误转换；登录凭证复核由 API 边界显式触发。
 impl From<anyhow::Error> for ApiError {
     fn from(err: anyhow::Error) -> Self {
-        let e = Self::convert(err);
-        if e.is_auth_rejected() {
-            super::client::suspect_session();
-        }
-        e
+        Self::convert(err)
     }
 }
 
@@ -75,6 +71,21 @@ mod tests {
     use anyhow::{anyhow, bail, Context, Result};
 
     use super::*;
+
+    #[test]
+    fn conversion_does_not_check_session() {
+        let before = crate::qq::client::SESSION_CHECKS.with(|count| count.get());
+        let error = anyhow::Error::new(ApiError::ServerError {
+            api: "test".into(),
+            code: "1000".into(),
+        })
+        .context("request context");
+        assert!(ApiError::from(error).is_auth_rejected());
+        assert_eq!(
+            crate::qq::client::SESSION_CHECKS.with(|count| count.get()),
+            before
+        );
+    }
 
     #[test]
     fn keeps_error_codes_through_anyhow() {
