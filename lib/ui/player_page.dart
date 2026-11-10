@@ -15,6 +15,7 @@ import '../library/library_controller.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/types.dart';
 import 'comments_page.dart';
+import 'play_pause_button.dart';
 import 'player_background.dart';
 import 'player_detail.dart';
 import 'player_lyrics.dart';
@@ -1171,7 +1172,7 @@ class _Transport extends StatelessWidget {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              _PlayPauseIcon(playing: p.playing),
+              PlayPauseIcon(playing: p.playing, size: 60, color: Colors.white),
               if (p.loading || p.buffering)
                 const SizedBox.square(
                   dimension: 74,
@@ -1609,48 +1610,6 @@ class _VolumeFill extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _PlayPauseIcon extends StatefulWidget {
-  const _PlayPauseIcon({required this.playing});
-
-  final bool playing;
-
-  @override
-  State<_PlayPauseIcon> createState() => _PlayPauseIconState();
-}
-
-class _PlayPauseIconState extends State<_PlayPauseIcon>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 320),
-    value: widget.playing ? 1 : 0,
-  );
-
-  @override
-  void didUpdateWidget(_PlayPauseIcon old) {
-    super.didUpdateWidget(old);
-    if (old.playing != widget.playing) {
-      widget.playing ? _c.forward() : _c.reverse();
-    }
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedIcon(
-      icon: AnimatedIcons.play_pause,
-      progress: CurvedAnimation(parent: _c, curve: Curves.easeInOutCubic),
-      size: 60,
-      color: Colors.white,
     );
   }
 }

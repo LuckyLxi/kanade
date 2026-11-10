@@ -10,6 +10,7 @@ import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'glass.dart';
+import 'play_pause_button.dart';
 import 'player_background.dart';
 import 'player_route.dart';
 import 'playlist_actions.dart';
@@ -39,7 +40,9 @@ class DesktopSidebar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
     final user = context.select<AuthController, UserInfo?>((a) => a.user);
-    final playlistsVersion = context.select<LibraryController, int>((c) => c.playlistsVersion);
+    final playlistsVersion = context.select<LibraryController, int>(
+      (c) => c.playlistsVersion,
+    );
     return Material(
       color: scheme.surfaceContainer,
       borderRadius: BorderRadius.circular(20),
@@ -82,19 +85,29 @@ class DesktopSidebar extends StatelessWidget {
             ),
             if (user != null) ...[
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 4,
+                ),
                 child: Divider(height: 1, color: scheme.outlineVariant),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
                 child: Text(
                   l.myPlaylists,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               Expanded(
                 // 换账号、歌单被改动后重新拉取
-                child: _SidebarPlaylists(key: ValueKey((user.uin, playlistsVersion)), onOpen: onOpenPlaylist),
+                child: _SidebarPlaylists(
+                  key: ValueKey((user.uin, playlistsVersion)),
+                  onOpen: onOpenPlaylist,
+                ),
               ),
             ],
           ],
@@ -105,7 +118,12 @@ class DesktopSidebar extends StatelessWidget {
 }
 
 class _NavItem extends StatelessWidget {
-  const _NavItem({required this.icon, required this.label, required this.selected, required this.onTap});
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String label;
@@ -121,7 +139,9 @@ class _NavItem extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     // 选中态：白底黑字；底色由侧栏画，这里只跟着它渐变文字颜色
     return TweenAnimationBuilder<Color?>(
-      tween: ColorTween(end: selected ? scheme.onSecondaryContainer : scheme.onSurface),
+      tween: ColorTween(
+        end: selected ? scheme.onSecondaryContainer : scheme.onSurface,
+      ),
       duration: motion,
       curve: Curves.easeOutCubic,
       builder: (context, fg, _) => Padding(
@@ -146,7 +166,9 @@ class _NavItem extends StatelessWidget {
                       label,
                       style: TextStyle(
                         fontSize: 14,
-                        fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w600,
                         color: fg,
                       ),
                     ),
@@ -183,7 +205,8 @@ class _SidebarPlaylistsState extends State<_SidebarPlaylists> {
   /// 右键：自建歌单（“我喜欢”除外）可以改名、删除。
   Future<void> _showActions(PlaylistBrief p) async {
     final own = await context.read<LibraryController>().ownPlaylist(p.id);
-    if (mounted && canEditPlaylist(own)) await showPlaylistActions(context, own!);
+    if (mounted && canEditPlaylist(own))
+      await showPlaylistActions(context, own!);
   }
 
   @override
@@ -216,12 +239,18 @@ class _SidebarPlaylistsState extends State<_SidebarPlaylists> {
                             p.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           if (p.songCount > 0)
                             Text(
                               l.songCount(p.songCount),
-                              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: scheme.onSurfaceVariant,
+                              ),
                             ),
                         ],
                       ),
@@ -266,14 +295,17 @@ class DesktopPlayerBar extends StatefulWidget {
   State<DesktopPlayerBar> createState() => _DesktopPlayerBarState();
 }
 
-class _DesktopPlayerBarState extends State<DesktopPlayerBar> with TickerProviderStateMixin {
+class _DesktopPlayerBarState extends State<DesktopPlayerBar>
+    with TickerProviderStateMixin {
   late final _anchor = widget.barAnchor ?? DesktopPlayerBar.anchor;
   late final _drag = PlayerBarDrag(_anchor, this);
   late final _visibility = Listenable.merge([_anchor.hidden, _anchor.growing]);
 
   @override
   Widget build(BuildContext context) {
-    final hasSong = context.select<PlayerController, bool>((p) => p.current != null);
+    final hasSong = context.select<PlayerController, bool>(
+      (p) => p.current != null,
+    );
     final bar = GestureDetector(
       key: _anchor.barKey,
       // 栏里的空白处也要接住点击，不能漏到下面的列表上
@@ -282,7 +314,9 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> with TickerProvider
       onTap: hasSong ? () => PlayerRoute.open(context, anchor: _anchor) : null,
       // 按住往上拖打开播放页
       onVerticalDragUpdate: hasSong ? (d) => _drag.update(context, d) : null,
-      onVerticalDragEnd: hasSong ? (d) => _drag.end(context, d.velocity.pixelsPerSecond.dy) : null,
+      onVerticalDragEnd: hasSong
+          ? (d) => _drag.end(context, d.velocity.pixelsPerSecond.dy)
+          : null,
       onVerticalDragCancel: hasSong ? () => _drag.end(context, 0) : null,
       child: SizedBox(
         height: DesktopPlayerBar.height,
@@ -293,14 +327,21 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> with TickerProvider
             useOwnLayer: true,
             settings: KanadeGlass.navigationSettings(context),
             quality: KanadeGlass.navigationQuality,
-            shape: LiquidRoundedRectangle(borderRadius: PlayerMorph.radiusAt(DesktopPlayerBar.height, shapeT)),
+            shape: LiquidRoundedRectangle(
+              borderRadius: PlayerMorph.radiusAt(
+                DesktopPlayerBar.height,
+                shapeT,
+              ),
+            ),
             clipBehavior: Clip.antiAlias,
             child: Opacity(
               opacity: growing ? 0 : 1,
               child: PlayerBarGrowth.pin(
                 Material(
                   type: MaterialType.transparency,
-                  child: hasSong ? _DesktopBarContent(anchor: _anchor, showCover: true) : const _DesktopBarIdle(),
+                  child: hasSong
+                      ? _DesktopBarContent(anchor: _anchor, showCover: true)
+                      : const _DesktopBarIdle(),
                 ),
               ),
             ),
@@ -312,7 +353,10 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> with TickerProvider
     return ListenableBuilder(
       listenable: _visibility,
       child: bar,
-      builder: (_, bar) => Opacity(opacity: _anchor.hidden.value && _anchor.growing.value == null ? 0 : 1, child: bar),
+      builder: (_, bar) => Opacity(
+        opacity: _anchor.hidden.value && _anchor.growing.value == null ? 0 : 1,
+        child: bar,
+      ),
     );
   }
 }
@@ -332,9 +376,12 @@ class _DesktopBarContent extends StatelessWidget {
     prefetchPlayerArt(context, song);
     final scheme = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    final liked = context.select<LibraryController, bool>((c) => c.isLiked(song));
+    final liked = context.select<LibraryController, bool>(
+      (c) => c.isLiked(song),
+    );
     final muted = scheme.onSurfaceVariant;
-    void openPlayer({bool queue = false}) => PlayerRoute.open(context, anchor: anchor, showQueue: queue);
+    void openPlayer({bool queue = false}) =>
+        PlayerRoute.open(context, anchor: anchor, showQueue: queue);
 
     return Padding(
       // 两端是半圆，内容往里收一点
@@ -362,13 +409,21 @@ class _DesktopBarContent extends StatelessWidget {
                         song.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       Text(
-                        p.error == null ? singerNames(song) : playerErrorText(l, p.error!),
+                        p.error == null
+                            ? singerNames(song)
+                            : playerErrorText(l, p.error!),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12, color: p.error != null ? scheme.error : muted),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: p.error != null ? scheme.error : muted,
+                        ),
                       ),
                     ],
                   ),
@@ -377,7 +432,9 @@ class _DesktopBarContent extends StatelessWidget {
                   tooltip: liked ? l.unlike : l.like,
                   onPressed: () => toggleLike(context, song),
                   icon: Icon(
-                    liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    liked
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
                     color: liked ? scheme.primary : muted,
                   ),
                 ),
@@ -405,34 +462,34 @@ class _DesktopBarContent extends StatelessWidget {
                           PlayMode.shuffle => Icons.shuffle_rounded,
                         },
                         size: 20,
-                        color: p.mode == PlayMode.sequence ? muted : scheme.onSurface,
+                        color: p.mode == PlayMode.sequence
+                            ? muted
+                            : scheme.onSurface,
                       ),
                     ),
                     IconButton(
                       onPressed: p.previous,
-                      icon: Icon(Icons.skip_previous_rounded, color: scheme.onSurface, size: 26),
+                      icon: Icon(
+                        Icons.skip_previous_rounded,
+                        color: scheme.onSurface,
+                        size: 26,
+                      ),
                     ),
                     const SizedBox(width: 4),
-                    SizedBox.square(
+                    PlayPauseButton(
                       dimension: 44,
-                      child: p.loading || p.buffering
-                          ? Padding(
-                              padding: const EdgeInsets.all(11),
-                              child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary),
-                            )
-                          : IconButton.filled(
-                              padding: EdgeInsets.zero,
-                              onPressed: p.toggle,
-                              icon: Icon(
-                                p.playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                                color: scheme.onPrimary,
-                              ),
-                            ),
+                      playing: p.playing,
+                      loading: p.loading || p.buffering,
+                      onPressed: p.toggle,
                     ),
                     const SizedBox(width: 4),
                     IconButton(
                       onPressed: p.next,
-                      icon: Icon(Icons.skip_next_rounded, color: scheme.onSurface, size: 26),
+                      icon: Icon(
+                        Icons.skip_next_rounded,
+                        color: scheme.onSurface,
+                        size: 26,
+                      ),
                     ),
                     // 占位，让播放键落在正中
                     const SizedBox(width: 48),
@@ -461,7 +518,13 @@ class _DesktopBarContent extends StatelessWidget {
                   icon: Icon(Icons.queue_music_rounded, size: 20, color: muted),
                 ),
                 const SizedBox(width: 4),
-                Icon(p.volume == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded, size: 20, color: muted),
+                Icon(
+                  p.volume == 0
+                      ? Icons.volume_off_rounded
+                      : Icons.volume_up_rounded,
+                  size: 20,
+                  color: muted,
+                ),
                 SizedBox(
                   width: 110,
                   child: _ThinSlider(
@@ -503,7 +566,11 @@ class _DesktopBarIdle extends StatelessWidget {
                     AppLocalizations.of(context).nothingPlaying,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: muted),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: muted,
+                    ),
                   ),
                 ),
               ],
@@ -513,7 +580,10 @@ class _DesktopBarIdle extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const IconButton(onPressed: null, icon: Icon(Icons.skip_previous_rounded, size: 26)),
+                const IconButton(
+                  onPressed: null,
+                  icon: Icon(Icons.skip_previous_rounded, size: 26),
+                ),
                 const SizedBox(width: 4),
                 SizedBox.square(
                   dimension: 44,
@@ -524,7 +594,10 @@ class _DesktopBarIdle extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 4),
-                const IconButton(onPressed: null, icon: Icon(Icons.skip_next_rounded, size: 26)),
+                const IconButton(
+                  onPressed: null,
+                  icon: Icon(Icons.skip_next_rounded, size: 26),
+                ),
               ],
             ),
           ),
@@ -550,7 +623,9 @@ class _ProgressRowState extends State<_ProgressRow> {
   Widget build(BuildContext context) {
     final p = context.read<PlayerController>();
     final total = context.select<PlayerController, Duration>((p) => p.duration);
-    final chorusMs = context.select<PlayerController, int?>((p) => p.chorus?.startMs);
+    final chorusMs = context.select<PlayerController, int?>(
+      (p) => p.chorus?.startMs,
+    );
     final scheme = Theme.of(context).colorScheme;
     final timeStyle = TextStyle(
       fontSize: 11,
@@ -561,7 +636,9 @@ class _ProgressRowState extends State<_ProgressRow> {
       valueListenable: p.position,
       builder: (context, pos, _) {
         final ms = total.inMilliseconds;
-        final value = _drag ?? (ms == 0 ? 0.0 : (pos.inMilliseconds / ms).clamp(0.0, 1.0));
+        final value =
+            _drag ??
+            (ms == 0 ? 0.0 : (pos.inMilliseconds / ms).clamp(0.0, 1.0));
         return Row(
           children: [
             SizedBox(
@@ -584,7 +661,10 @@ class _ProgressRowState extends State<_ProgressRow> {
                 },
               ),
             ),
-            SizedBox(width: 40, child: Text(formatDuration(total), style: timeStyle)),
+            SizedBox(
+              width: 40,
+              child: Text(formatDuration(total), style: timeStyle),
+            ),
           ],
         );
       },
@@ -593,7 +673,14 @@ class _ProgressRowState extends State<_ProgressRow> {
 }
 
 class _ThinSlider extends StatelessWidget {
-  const _ThinSlider({required this.value, required this.color, required this.onChanged, this.onChangeEnd, this.label, this.mark});
+  const _ThinSlider({
+    required this.value,
+    required this.color,
+    required this.onChanged,
+    this.onChangeEnd,
+    this.label,
+    this.mark,
+  });
 
   final double value;
   final Color color;
@@ -610,17 +697,22 @@ class _ThinSlider extends StatelessWidget {
       data: SliderThemeData(
         trackHeight: 4,
         activeTrackColor: color,
-        inactiveTrackColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.16),
+        inactiveTrackColor: Theme.of(context).colorScheme.onSurface
+            .withValues(alpha: 0.16),
         thumbColor: color,
         overlayShape: SliderComponentShape.noOverlay,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-        trackShape: mark == null ? const RoundedRectSliderTrackShape() : _MarkedTrackShape(mark!),
+        trackShape: mark == null
+            ? const RoundedRectSliderTrackShape()
+            : _MarkedTrackShape(mark!),
       ),
       child: Slider(
         value: value,
         onChanged: onChanged,
         onChangeEnd: onChangeEnd,
-        semanticFormatterCallback: label == null ? null : (v) => '$label ${(v * 100).round()}',
+        semanticFormatterCallback: label == null
+            ? null
+            : (v) => '$label ${(v * 100).round()}',
         padding: const EdgeInsets.symmetric(horizontal: 8),
       ),
     );
@@ -647,22 +739,41 @@ class _MarkedTrackShape extends RoundedRectSliderTrackShape {
     bool isEnabled = false,
     double additionalActiveTrackHeight = 2,
   }) {
-    super.paint(context, offset,
-        parentBox: parentBox,
-        sliderTheme: sliderTheme,
-        enableAnimation: enableAnimation,
-        textDirection: textDirection,
-        thumbCenter: thumbCenter,
-        secondaryOffset: secondaryOffset,
-        isDiscrete: isDiscrete,
-        isEnabled: isEnabled,
-        additionalActiveTrackHeight: additionalActiveTrackHeight);
-    final rect = getPreferredRect(parentBox: parentBox, offset: offset, sliderTheme: sliderTheme, isEnabled: isEnabled, isDiscrete: isDiscrete);
+    super.paint(
+      context,
+      offset,
+      parentBox: parentBox,
+      sliderTheme: sliderTheme,
+      enableAnimation: enableAnimation,
+      textDirection: textDirection,
+      thumbCenter: thumbCenter,
+      secondaryOffset: secondaryOffset,
+      isDiscrete: isDiscrete,
+      isEnabled: isEnabled,
+      additionalActiveTrackHeight: additionalActiveTrackHeight,
+    );
+    final rect = getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
     final x = rect.left + rect.width * mark;
     final h = rect.height;
     context.canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(x, rect.center.dy), width: h * 1.8, height: h), Radius.circular(h / 2)),
-      Paint()..color = x <= thumbCenter.dx ? Colors.black.withValues(alpha: 0.25) : sliderTheme.inactiveTrackColor!.withValues(alpha: 0.45),
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(x, rect.center.dy),
+          width: h * 1.8,
+          height: h,
+        ),
+        Radius.circular(h / 2),
+      ),
+      Paint()
+        ..color = x <= thumbCenter.dx
+            ? Colors.black.withValues(alpha: 0.25)
+            : sliderTheme.inactiveTrackColor!.withValues(alpha: 0.45),
     );
   }
 }
