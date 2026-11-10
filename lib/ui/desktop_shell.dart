@@ -550,6 +550,7 @@ class _ProgressRowState extends State<_ProgressRow> {
   Widget build(BuildContext context) {
     final p = context.read<PlayerController>();
     final total = context.select<PlayerController, Duration>((p) => p.duration);
+    final chorusMs = context.select<PlayerController, int?>((p) => p.chorus?.startMs);
     final scheme = Theme.of(context).colorScheme;
     final timeStyle = TextStyle(
       fontSize: 11,
@@ -575,6 +576,7 @@ class _ProgressRowState extends State<_ProgressRow> {
               child: _ThinSlider(
                 value: value,
                 color: scheme.primary,
+                mark: chorusMs != null && chorusMs < ms ? chorusMs / ms : null,
                 onChanged: (v) => setState(() => _drag = v),
                 onChangeEnd: (v) {
                   p.seek(Duration(milliseconds: (v * ms).round()));
@@ -591,13 +593,16 @@ class _ProgressRowState extends State<_ProgressRow> {
 }
 
 class _ThinSlider extends StatelessWidget {
-  const _ThinSlider({required this.value, required this.color, required this.onChanged, this.onChangeEnd, this.label});
+  const _ThinSlider({required this.value, required this.color, required this.onChanged, this.onChangeEnd, this.label, this.mark});
 
   final double value;
   final Color color;
   final ValueChanged<double> onChanged;
   final ValueChanged<double>? onChangeEnd;
   final String? label;
+
+  /// 轨道里标一个小点的位置（0–1），进度条用来标高潮开始处。
+  final double? mark;
 
   @override
   Widget build(BuildContext context) {
@@ -609,7 +614,7 @@ class _ThinSlider extends StatelessWidget {
         thumbColor: color,
         overlayShape: SliderComponentShape.noOverlay,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-        trackShape: const RoundedRectSliderTrackShape(),
+        trackShape: mark == null ? const RoundedRectSliderTrackShape() : _MarkedTrackShape(mark!),
       ),
       child: Slider(
         value: value,
@@ -618,6 +623,46 @@ class _ThinSlider extends StatelessWidget {
         semanticFormatterCallback: label == null ? null : (v) => '$label ${(v * 100).round()}',
         padding: const EdgeInsets.symmetric(horizontal: 8),
       ),
+    );
+  }
+}
+
+/// 在轨道里画一个和轨道等高、约两倍宽的小胶囊，比底色亮一档；已播放处用深色。
+class _MarkedTrackShape extends RoundedRectSliderTrackShape {
+  const _MarkedTrackShape(this.mark);
+
+  final double mark;
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required TextDirection textDirection,
+    required Offset thumbCenter,
+    Offset? secondaryOffset,
+    bool isDiscrete = false,
+    bool isEnabled = false,
+    double additionalActiveTrackHeight = 2,
+  }) {
+    super.paint(context, offset,
+        parentBox: parentBox,
+        sliderTheme: sliderTheme,
+        enableAnimation: enableAnimation,
+        textDirection: textDirection,
+        thumbCenter: thumbCenter,
+        secondaryOffset: secondaryOffset,
+        isDiscrete: isDiscrete,
+        isEnabled: isEnabled,
+        additionalActiveTrackHeight: additionalActiveTrackHeight);
+    final rect = getPreferredRect(parentBox: parentBox, offset: offset, sliderTheme: sliderTheme, isEnabled: isEnabled, isDiscrete: isDiscrete);
+    final x = rect.left + rect.width * mark;
+    final h = rect.height;
+    context.canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(x, rect.center.dy), width: h * 1.8, height: h), Radius.circular(h / 2)),
+      Paint()..color = x <= thumbCenter.dx ? Colors.black.withValues(alpha: 0.25) : sliderTheme.inactiveTrackColor!.withValues(alpha: 0.45),
     );
   }
 }

@@ -964,10 +964,14 @@ class _ThinSlider extends StatelessWidget {
     required this.onStart,
     required this.onChanged,
     required this.onEnd,
+    this.chorusStart,
   });
 
   final double value;
   final bool active;
+
+  /// 高潮开始处在进度条上的比例，在进度条里画一个小点。
+  final double? chorusStart;
   final ValueChanged<double> onStart;
   final ValueChanged<double> onChanged;
   final VoidCallback onEnd;
@@ -1004,15 +1008,23 @@ class _ThinSlider extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.22),
                     borderRadius: BorderRadius.circular(height),
                   ),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: FractionallySizedBox(
-                      widthFactor: value.clamp(0.0, 1.0),
-                      heightFactor: 1,
-                      child: ColoredBox(
-                        color: active
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.75),
+                  child: CustomPaint(
+                    foregroundPainter: chorusStart == null
+                        ? null
+                        : _ChorusDot(
+                            chorusStart!,
+                            played: value >= chorusStart!,
+                          ),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: FractionallySizedBox(
+                        widthFactor: value.clamp(0.0, 1.0),
+                        heightFactor: 1,
+                        child: ColoredBox(
+                          color: active
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.75),
+                        ),
                       ),
                     ),
                   ),
@@ -1024,6 +1036,38 @@ class _ThinSlider extends StatelessWidget {
       },
     );
   }
+}
+
+/// 画在进度条轨道里的高潮起点：和轨道等高、约两倍宽的小胶囊，
+/// 比底色亮一档；已播放处落在白色进度上，改用深色。跟着轨道一起变粗。
+class _ChorusDot extends CustomPainter {
+  const _ChorusDot(this.start, {required this.played});
+
+  final double start;
+  final bool played;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final h = size.height;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(size.width * start, h / 2),
+          width: h * 1.8,
+          height: h,
+        ),
+        Radius.circular(h / 2),
+      ),
+      Paint()
+        ..color = played
+            ? Colors.black.withValues(alpha: 0.2)
+            : Colors.white.withValues(alpha: 0.4),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ChorusDot old) =>
+      old.start != start || old.played != played;
 }
 
 class _ProgressBar extends StatefulWidget {
@@ -1051,11 +1095,15 @@ class _ProgressBarState extends State<_ProgressBar> {
       builder: (_, pos, _) {
         final v = _drag ?? (total == 0 ? 0.0 : pos.inMilliseconds / total);
         final shown = Duration(milliseconds: (v * total).round());
+        final c = p.chorus;
         return Column(
           children: [
             _ThinSlider(
               value: v,
               active: _drag != null,
+              chorusStart: c == null || c.startMs >= total
+                  ? null
+                  : c.startMs / total,
               onStart: (x) => setState(() => _drag = x),
               onChanged: (x) => setState(() => _drag = x),
               onEnd: () {

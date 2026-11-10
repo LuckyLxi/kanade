@@ -258,6 +258,9 @@ class PlayerController extends ChangeNotifier {
   bool qualitiesLoading = false;
   Object? qualitiesError;
   Lyric? lyric;
+
+  /// 当前歌曲的高潮片段，进度条上标出。
+  ChorusRange? chorus;
   PlayerError? error;
 
   /// 每次切歌递增，用来丢弃过期的异步结果。
@@ -376,6 +379,7 @@ class PlayerController extends ChangeNotifier {
     loading = true;
     error = null;
     lyric = null;
+    chorus = null;
     actualQuality = null;
     position.value = Duration.zero;
     duration = Duration(seconds: queue[i].durationSecs);
@@ -387,6 +391,7 @@ class PlayerController extends ChangeNotifier {
     if (loadDisplayMetadata) {
       unawaited(refreshQualities());
       _loadLyric(song, token);
+      _loadChorus(song, token);
     }
     try {
       // 自动跳过播不了的歌时，它本来就没声音，不用淡出
@@ -529,6 +534,15 @@ class PlayerController extends ChangeNotifier {
       final l = await api.getLyric(mid: song.mid, id: song.id);
       if (token != _token) return;
       lyric = l;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> _loadChorus(Song song, int token) async {
+    try {
+      final c = await api.getSongChorus(id: song.id);
+      if (token != _token) return;
+      chorus = c;
       notifyListeners();
     } catch (_) {}
   }
@@ -776,6 +790,7 @@ class PlayerController extends ChangeNotifier {
     if (loadDisplayMetadata) {
       unawaited(refreshQualities());
       _loadLyric(queue[index], _token);
+      _loadChorus(queue[index], _token);
     }
   }
 

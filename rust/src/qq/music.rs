@@ -406,6 +406,18 @@ pub async fn lyric(mid: &str, id: i64) -> Result<Lyric> {
     Ok(lyric::build(&s(&data["lyric"]), &s(&data["trans"])))
 }
 
+/// 歌曲信息里的 `file.try_begin` / `try_end` 就是官方客户端标出的高潮片段，没有时是 0。
+pub async fn chorus(id: i64) -> Result<Option<ChorusRange>> {
+    let c = core();
+    let file = c.cached(&format!("chorus:{id}"), 7 * 86400, || async { Ok(tracks_by_id(&[id]).await?[0]["file"].clone()) }).await?;
+    Ok(chorus_range(&file))
+}
+
+fn chorus_range(file: &Value) -> Option<ChorusRange> {
+    let (start_ms, end_ms) = (n(&file["try_begin"]) as u32, n(&file["try_end"]) as u32);
+    (end_ms > start_ms).then_some(ChorusRange { start_ms, end_ms })
+}
+
 pub async fn toplists() -> Result<Vec<TopListGroup>> {
     let c = core();
     let data = c
@@ -847,6 +859,14 @@ pub async fn user_playlists() -> Result<Vec<PlaylistBrief>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn chorus_range_comes_from_try_fields() {
+        let r = chorus_range(&json!({"try_begin": 72998, "try_end": 104743})).unwrap();
+        assert_eq!((r.start_ms, r.end_ms), (72998, 104743));
+        assert!(chorus_range(&json!({"try_begin": 0, "try_end": 0})).is_none());
+        assert!(chorus_range(&json!({})).is_none());
+    }
 
     #[test]
     fn lists_only_foryou_items_kanade_can_show() {

@@ -120,6 +120,13 @@ pub struct Lyric {
     pub plain: String,
 }
 
+/// 高潮片段，毫秒。见 docs/qqmusic-chorus-capture.md。
+#[derive(Debug, Clone)]
+pub struct ChorusRange {
+    pub start_ms: u32,
+    pub end_ms: u32,
+}
+
 #[derive(Debug, Clone)]
 pub struct PlaylistBrief {
     pub id: String,

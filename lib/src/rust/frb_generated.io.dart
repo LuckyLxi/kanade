@@ -50,6 +50,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CachedAudio dco_decode_box_autoadd_cached_audio(dynamic raw);
 
   @protected
+  ChorusRange dco_decode_box_autoadd_chorus_range(dynamic raw);
+
+  @protected
   PlaylistBrief dco_decode_box_autoadd_playlist_brief(dynamic raw);
 
   @protected
@@ -68,6 +71,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CachedAudio dco_decode_cached_audio(dynamic raw);
+
+  @protected
+  ChorusRange dco_decode_chorus_range(dynamic raw);
 
   @protected
   Comment dco_decode_comment(dynamic raw);
@@ -206,6 +212,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CachedAudio? dco_decode_opt_box_autoadd_cached_audio(dynamic raw);
+
+  @protected
+  ChorusRange? dco_decode_opt_box_autoadd_chorus_range(dynamic raw);
 
   @protected
   PlaylistBrief? dco_decode_opt_box_autoadd_playlist_brief(dynamic raw);
@@ -376,6 +385,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CachedAudio sse_decode_box_autoadd_cached_audio(SseDeserializer deserializer);
 
   @protected
+  ChorusRange sse_decode_box_autoadd_chorus_range(SseDeserializer deserializer);
+
+  @protected
   PlaylistBrief sse_decode_box_autoadd_playlist_brief(
     SseDeserializer deserializer,
   );
@@ -396,6 +408,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CachedAudio sse_decode_cached_audio(SseDeserializer deserializer);
+
+  @protected
+  ChorusRange sse_decode_chorus_range(SseDeserializer deserializer);
 
   @protected
   Comment sse_decode_comment(SseDeserializer deserializer);
@@ -544,6 +559,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CachedAudio? sse_decode_opt_box_autoadd_cached_audio(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ChorusRange? sse_decode_opt_box_autoadd_chorus_range(
     SseDeserializer deserializer,
   );
 
@@ -729,6 +749,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_chorus_range(
+    ChorusRange self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_playlist_brief(
     PlaylistBrief self,
     SseSerializer serializer,
@@ -754,6 +780,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_cached_audio(CachedAudio self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_chorus_range(ChorusRange self, SseSerializer serializer);
 
   @protected
   void sse_encode_comment(Comment self, SseSerializer serializer);
@@ -947,6 +976,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_cached_audio(
     CachedAudio? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_chorus_range(
+    ChorusRange? self,
     SseSerializer serializer,
   );
 

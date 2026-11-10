@@ -133,6 +133,10 @@ pub async fn get_lyric(mid: String, id: i64) -> Result<Lyric, ApiError> {
     Ok(music::lyric(&mid, id).await?)
 }
 
+pub async fn get_song_chorus(id: i64) -> Result<Option<ChorusRange>, ApiError> {
+    Ok(music::chorus(id).await?)
+}
+
 /// 听歌识曲：`pcm` 是从开始录到现在的全部录音（8 kHz、16 位小端、单声道），
 /// 同一次识别的多次调用传同一个 `session_id`。还没认出来时返回 None，继续录音再试。
 pub async fn recognize_song(session_id: i64, pcm: Vec<u8>) -> Result<Option<Song>, ApiError> {
