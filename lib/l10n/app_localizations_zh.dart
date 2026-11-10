@@ -606,10 +606,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get defaultQualityHint => '选的音质没有或播不了时会自动降低';
 
   @override
-  String get songFade => '切歌淡入淡出';
+  String get songFade => '播放过渡';
 
   @override
-  String get songFadeHint => '上一首渐渐变小，下一首渐渐变大';
+  String get songFadeHint => '切歌、暂停和继续播放时音量渐变';
 
   @override
   String get songFadeOff => '关闭';

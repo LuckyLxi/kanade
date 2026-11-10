@@ -1157,13 +1157,13 @@ abstract class AppLocalizations {
   /// No description provided for @songFade.
   ///
   /// In zh, this message translates to:
-  /// **'切歌淡入淡出'**
+  /// **'播放过渡'**
   String get songFade;
 
   /// No description provided for @songFadeHint.
   ///
   /// In zh, this message translates to:
-  /// **'上一首渐渐变小，下一首渐渐变大'**
+  /// **'切歌、暂停和继续播放时音量渐变'**
   String get songFadeHint;
 
   /// No description provided for @songFadeOff.

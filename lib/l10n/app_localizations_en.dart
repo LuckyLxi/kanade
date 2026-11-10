@@ -631,10 +631,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'Falls back to a lower quality when unavailable or unplayable';
 
   @override
-  String get songFade => 'Fade between songs';
+  String get songFade => 'Playback transition';
 
   @override
-  String get songFadeHint => 'Fades out the current song and fades in the next';
+  String get songFadeHint =>
+      'Fades volume when switching songs, pausing and resuming';
 
   @override
   String get songFadeOff => 'Off';

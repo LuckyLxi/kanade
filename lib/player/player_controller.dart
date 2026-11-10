@@ -166,7 +166,8 @@ class PlayerController extends ChangeNotifier {
   static const _volumeKey = 'volume';
   static const _fadeKey = 'song_fade_seconds';
 
-  /// 切歌淡入淡出的时长，0 表示关闭。一首放完时在最后这么久里渐弱，新歌开头这么久里渐强。
+  /// 播放过渡的时长，0 表示关闭。一首放完时在最后这么久里渐弱，新歌开头这么久里渐强；
+  /// 暂停和继续播放时也渐变，最多 1 秒。
   Duration fade = Duration(
     seconds: int.tryParse(api.getPref(key: _fadeKey) ?? '') ?? 0,
   );
@@ -194,7 +195,39 @@ class PlayerController extends ChangeNotifier {
   void _setGain(double g) {
     if (g == _gain) return;
     _gain = g;
-    unawaited(_player.setVolume(volume * g));
+    _applyVolume();
+  }
+
+  /// 暂停、继续时的渐变系数（0–1），和按进度算的 [_gain] 分开乘，互不打乱。
+  double _pauseGain = 1;
+
+  /// 每次开始新的暂停/继续渐变就加一，旧的渐变看到不一样就停下。
+  int _pauseRamp = 0;
+
+  void _applyVolume() =>
+      unawaited(_player.setVolume(volume * _gain * _pauseGain));
+
+  /// 把 [_pauseGain] 渐变到 [to]，时长跟着播放过渡设置、最多 1 秒，关闭时立刻到位。
+  /// 中途被新的渐变打断时返回 false。
+  Future<bool> _rampPause(double to) async {
+    final ramp = ++_pauseRamp;
+    final from = _pauseGain;
+    final total =
+        (fade < _manualFadeOut ? fade : _manualFadeOut) * (to - from).abs();
+    final clock = Stopwatch()..start();
+    while (clock.elapsed < total) {
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+      if (ramp != _pauseRamp) return false;
+      final t = (clock.elapsedMicroseconds / total.inMicroseconds).clamp(
+        0.0,
+        1.0,
+      );
+      _pauseGain = from + (to - from) * t;
+      _applyVolume();
+    }
+    _pauseGain = to;
+    _applyVolume();
+    return true;
   }
 
   /// 手动切歌前把正在放的歌淡出。连着点几首时共用同一次淡出。
@@ -219,7 +252,7 @@ class PlayerController extends ChangeNotifier {
     }();
   }
 
-  /// 设置里改切歌淡入淡出时长，从当前进度起生效。
+  /// 设置里改播放过渡时长，从当前进度起生效。
   void setFade(Duration d) {
     fade = d;
     api.setPref(key: _fadeKey, value: '${d.inSeconds}');
@@ -483,8 +516,12 @@ class PlayerController extends ChangeNotifier {
       if (stale()) return;
     }
     _attempt = attempt;
+    // 暂停淡到一半就换歌：不再接着淡，新歌照常按进度渐强
+    _pauseRamp++;
+    _pauseGain = 1;
     // 新歌从静音开始，等进度走起来再渐强
-    _setGain(_gainAt(start ?? Duration.zero));
+    _gain = _gainAt(start ?? Duration.zero);
+    _applyVolume();
     try {
       await _setNetworkTimeout(decoded: ready != null);
       _opening = play;
@@ -623,9 +660,31 @@ class PlayerController extends ChangeNotifier {
 
   Future<void> toggle() => playing ? pause() : play();
 
-  Future<void> play() => _restored ? playAt(index) : _player.play();
+  Future<void> play() async {
+    if (_restored) return playAt(index);
+    if (!_player.state.playing) {
+      // 从静音开始放，再慢慢升回原来的音量
+      _pauseRamp++;
+      _pauseGain = 0;
+      _applyVolume();
+      await _player.play();
+    } else if (!playing) {
+      // 暂停还在淡出时又按了播放：从现在的音量直接升回去
+      playing = true;
+      notifyListeners();
+    }
+    await _rampPause(1);
+  }
 
   Future<void> pause() async {
+    if (playing) {
+      // 按钮先变成暂停，声音淡下去再真正停；中途又按了播放就不停了
+      playing = false;
+      notifyListeners();
+      if (!await _rampPause(0)) return;
+    } else {
+      _pauseRamp++;
+    }
     await _player.pause();
     // 快放完时按暂停，播放器报的暂停会被当成放完而忽略，这里补上
     _syncPlaying();
@@ -673,7 +732,7 @@ class PlayerController extends ChangeNotifier {
     _volumeSave?.cancel();
     _volumeSave = Timer(const Duration(milliseconds: 400), _saveVolume);
     notifyListeners();
-    return _player.setVolume(volume * _gain);
+    return _player.setVolume(volume * _gain * _pauseGain);
   }
 
   void _saveVolume() {
