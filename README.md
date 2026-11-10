@@ -15,8 +15,6 @@
   <img src="docs/screenshots/lyrics.jpg" width="22%">
 </p>
 
-[接口参考](docs/qqmusic-api.md)。
-
 ### 运行
 
 需要先安装 [Flutter](https://flutter.dev) 和 [Rust](https://rustup.rs)
