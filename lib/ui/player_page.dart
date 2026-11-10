@@ -1020,10 +1020,14 @@ class _ThinSlider extends StatelessWidget {
                       child: FractionallySizedBox(
                         widthFactor: value.clamp(0.0, 1.0),
                         heightFactor: 1,
-                        child: ColoredBox(
-                          color: active
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.75),
+                        // 进度往前走的那头也是圆的
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: active
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: 0.75),
+                            borderRadius: BorderRadius.circular(height),
+                          ),
                         ),
                       ),
                     ),
