@@ -272,6 +272,8 @@ class _PlayerPageState extends State<PlayerPage>
 
     final page = Scaffold(
       backgroundColor: Colors.black,
+      // 播放页没有输入框；弹窗里弹键盘时页面不跟着压扁、逐帧重新排版
+      resizeToAvoidBottomInset: false,
       body: Stack(
         fit: StackFit.expand,
         children: [
