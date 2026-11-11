@@ -9,6 +9,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../auth/auth_controller.dart';
+import '../data/song_json.dart';
 import '../library/library_controller.dart';
 import '../settings/locale_controller.dart';
 import '../src/rust/api/music.dart' as api;
@@ -147,7 +148,7 @@ abstract class PlayerController extends ChangeNotifier {
   Future<void> playList(List<Song> songs, int start);
   Future<void> playRadio(RadioSource source, {List<Song>? first});
   PlayNextResult playNext(Song song);
-  Future<void> playAt(int i, {int skipped = 0, int pinnedNext = 0});
+  Future<void> playAt(int i);
   Future<void> next();
   Future<void> previous();
   Future<void> play();

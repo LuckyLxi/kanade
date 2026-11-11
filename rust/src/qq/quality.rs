@@ -4,9 +4,9 @@ use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 use tokio::task::JoinSet;
 
-use super::audio_cache::verify_encrypted_audio;
 use super::client::{core, ANDROID_VERSION};
 use super::dts;
+use super::encrypted_audio::{verify_encrypted_audio, EncryptedAudio};
 use super::error::ApiError;
 use super::nac;
 use super::parse::{n, s};
@@ -235,14 +235,20 @@ pub fn cache_key(quality: Quality) -> String {
 }
 
 pub fn from_cache_key(key: &str) -> Option<Quality> {
-    FORMATS.iter().map(|f| f.quality).find(|q| cache_key(*q) == key)
+    FORMATS
+        .iter()
+        .map(|f| f.quality)
+        .find(|q| cache_key(*q) == key)
 }
 
 pub fn extension(quality: Quality) -> &'static str {
     if requires_pcm(quality) {
         return "wav";
     }
-    FORMATS.iter().find(|f| f.quality == quality).map_or("bin", |f| f.ext)
+    FORMATS
+        .iter()
+        .find(|f| f.quality == quality)
+        .map_or("bin", |f| f.ext)
 }
 
 fn options_from_file(file: &Value) -> Vec<QualityOption> {
@@ -278,16 +284,20 @@ fn options_from_file(file: &Value) -> Vec<QualityOption> {
 fn grant<'a>(data: &'a Value, filename: &str) -> Result<&'a Value> {
     data["midurlinfo"]
         .as_array()
-        .context(ApiError::bad_response("quality response is missing midurlinfo"))?
+        .context(ApiError::bad_response(
+            "quality response is missing midurlinfo",
+        ))?
         .iter()
         .find(|item| item["filename"].as_str() == Some(filename))
-        .context(ApiError::bad_response("quality response is missing the requested file"))
+        .context(ApiError::bad_response(
+            "quality response is missing the requested file",
+        ))
 }
 
 fn grant_result(item: &Value) -> Result<i64> {
-    item["result"]
-        .as_i64()
-        .context(ApiError::bad_response("quality response is missing grant result"))
+    item["result"].as_i64().context(ApiError::bad_response(
+        "quality response is missing grant result",
+    ))
 }
 
 fn unavailable_reason(item: &Value) -> Result<Reason> {
@@ -300,34 +310,6 @@ fn unavailable_reason(item: &Value) -> Result<Reason> {
 
 pub async fn stream_available(url: &str) -> Result<bool> {
     Ok(core().http.head(url).send().await?.status().is_success())
-}
-
-#[derive(Clone, Copy)]
-pub(super) enum EncryptedAudio {
-    Flac,
-    Ogg,
-    Nac,
-    Mp4,
-}
-
-impl EncryptedAudio {
-    pub(super) fn matches_header(self, header: &[u8; 8]) -> bool {
-        match self {
-            Self::Flac => header.starts_with(b"fLaC"),
-            Self::Ogg => header.starts_with(b"OggS"),
-            Self::Nac => header.starts_with(b"NAC_"),
-            Self::Mp4 => &header[4..] == b"ftyp",
-        }
-    }
-
-    pub(super) fn mime(self) -> &'static str {
-        match self {
-            Self::Flac => "audio/flac",
-            Self::Ogg => "audio/ogg",
-            Self::Nac => "audio/wav",
-            Self::Mp4 => "audio/mp4",
-        }
-    }
 }
 
 pub(super) struct EncryptedFormat {
@@ -529,7 +511,9 @@ pub async fn song_qualities(mid: &str) -> Result<Vec<QualityOption>> {
     let track = &tracks["tracks"][0];
     let file = &track["file"];
     if !file.is_object() {
-        bail!(ApiError::bad_response("track response is missing file info"));
+        bail!(ApiError::bad_response(
+            "track response is missing file info"
+        ));
     }
     let mut options = if ra360::available() {
         let mut file = file.clone();
@@ -622,7 +606,9 @@ pub async fn song_qualities(mid: &str) -> Result<Vec<QualityOption>> {
                     .filter_map(Value::as_str)
                     .find(|url| url.starts_with("https://"))
                     .or_else(|| data["sip"][0].as_str())
-                    .context(ApiError::bad_response("quality response has no CDN address"))?;
+                    .context(ApiError::bad_response(
+                        "quality response has no CDN address",
+                    ))?;
                 urls[*index] = Some(format!("{sip}{purl}"));
             } else {
                 options[*index].reason = Some(unavailable_reason(item)?);
@@ -630,7 +616,9 @@ pub async fn song_qualities(mid: &str) -> Result<Vec<QualityOption>> {
         }
     }
     if !responded {
-        return Err(last_error.unwrap_or_else(|| ApiError::bad_response("quality request failed").into()));
+        return Err(
+            last_error.unwrap_or_else(|| ApiError::bad_response("quality request failed").into())
+        );
     }
     if last_error.is_some() {
         for (index, _) in &files {
@@ -737,10 +725,19 @@ mod tests {
             "size_48aac": 192,
         }));
         let qualities: Vec<_> = options.iter().map(|option| option.quality).collect();
-        assert_eq!(qualities, vec![
-            Quality::Master, Quality::Atmos, Quality::Atmos71, Quality::Atmos51,
-            Quality::Lossless, Quality::High, Quality::Standard, Quality::Low,
-        ]);
+        assert_eq!(
+            qualities,
+            vec![
+                Quality::Master,
+                Quality::Atmos,
+                Quality::Atmos71,
+                Quality::Atmos51,
+                Quality::Lossless,
+                Quality::High,
+                Quality::Standard,
+                Quality::Low,
+            ]
+        );
         // 没有 Hi-Res 文件时也不能为了补齐档位而添加它。
         assert!(!qualities.contains(&Quality::Hires));
     }
@@ -768,7 +765,11 @@ mod tests {
         assert_eq!(options[2].reason, Some(Reason::NoLink));
         assert_eq!(
             options[0].reason,
-            Some(if dts::available() { Reason::NoLink } else { Reason::Unverified })
+            Some(if dts::available() {
+                Reason::NoLink
+            } else {
+                Reason::Unverified
+            })
         );
         assert_eq!(options[3].reason, Some(Reason::Unsupported));
         assert!(options_from_file(&json!({})).is_empty());
@@ -852,7 +853,10 @@ mod tests {
             file_name(Quality::Master, "test").unwrap(),
             "AI00testtest.flac"
         );
-        assert_eq!(file_name(Quality::Hires, "test").unwrap(), "RS01testtest.flac");
+        assert_eq!(
+            file_name(Quality::Hires, "test").unwrap(),
+            "RS01testtest.flac"
+        );
         assert_eq!(playback_chain(Quality::Dts).is_ok(), dts::available());
         assert!(!uses_plain_source(Quality::Dolby));
         assert_eq!(lower(Quality::Dolby), Some(Quality::Lossless));

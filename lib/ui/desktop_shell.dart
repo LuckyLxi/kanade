@@ -205,8 +205,9 @@ class _SidebarPlaylistsState extends State<_SidebarPlaylists> {
   /// 右键：自建歌单（“我喜欢”除外）可以改名、删除。
   Future<void> _showActions(PlaylistBrief p) async {
     final own = await context.read<LibraryController>().ownPlaylist(p.id);
-    if (mounted && canEditPlaylist(own))
+    if (mounted && canEditPlaylist(own)) {
       await showPlaylistActions(context, own!);
+    }
   }
 
   @override

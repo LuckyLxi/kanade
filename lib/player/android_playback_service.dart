@@ -6,6 +6,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../auth/auth_controller.dart';
+import '../data/song_json.dart';
 import '../library/library_controller.dart';
 import '../settings/locale_controller.dart';
 import '../src/rust/api/music.dart' as api;
@@ -15,7 +16,6 @@ import 'android_playback_connection.dart';
 import 'media_session.dart';
 import 'playback_messages.dart';
 import 'player_controller.dart';
-import 'player_session_store.dart';
 
 Future<void> runAndroidPlayback() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -93,8 +93,7 @@ class _PlaybackServer {
   PlaybackMessage _snapshot({required bool includeQueue}) {
     final song = player.current;
     return {
-      if (includeQueue)
-        'queue': player.queue.map(PlayerSessionStore.songToJson).toList(),
+      if (includeQueue) 'queue': player.queue.map(songToJson).toList(),
       'index': player.index,
       'playing': player.playing,
       'loading': player.loading,
@@ -153,7 +152,7 @@ class _PlaybackServer {
 
   static List<Song> _songs(Object? value) => (value as List<Object?>)
       .cast<Map<String, dynamic>>()
-      .map(PlayerSessionStore.songFromJson)
+      .map(songFromJson)
       .toList();
 
   Future<Object?> _command(String method, Object? argument) async {
@@ -172,9 +171,7 @@ class _PlaybackServer {
           first: args[3] == null ? null : _songs(args[3]),
         );
       case 'playNext':
-        player.playNext(
-          PlayerSessionStore.songFromJson(argument as Map<String, dynamic>),
-        );
+        player.playNext(songFromJson(argument as Map<String, dynamic>));
       case 'playAt':
         await player.playAt(argument as int);
       case 'next':
@@ -212,7 +209,7 @@ class _PlaybackServer {
       case 'like':
         final args = argument as List<Object?>;
         library.updateLiked(
-          PlayerSessionStore.songFromJson(args[0] as Map<String, dynamic>),
+          songFromJson(args[0] as Map<String, dynamic>),
           args[1] as bool,
         );
       case 'cacheInfo':

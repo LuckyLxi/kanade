@@ -62,9 +62,7 @@ class _RemotePlayerController extends PlayerController {
     final key = (song.mid, liked);
     if (_lastLike == key) return;
     _lastLike = key;
-    _ignore(
-      _connection.call('like', [PlayerSessionStore.songToJson(song), liked]),
-    );
+    _ignore(_connection.call('like', [songToJson(song), liked]));
   }
 
   void _applyUpdate(PlaybackMessage message) {
@@ -75,10 +73,7 @@ class _RemotePlayerController extends PlayerController {
     }
     final before = current?.mid;
     if (message['queue'] case final List<Object?> items) {
-      queue = items
-          .cast<Map<String, dynamic>>()
-          .map(PlayerSessionStore.songFromJson)
-          .toList();
+      queue = items.cast<Map<String, dynamic>>().map(songFromJson).toList();
     }
     index = message['index'] as int;
     playing = message['playing'] as bool;
@@ -112,7 +107,7 @@ class _RemotePlayerController extends PlayerController {
   }
 
   static List<Map<String, Object?>> _songs(List<Song> songs) =>
-      songs.map(PlayerSessionStore.songToJson).toList();
+      songs.map(songToJson).toList();
 
   @override
   Future<void> playList(List<Song> songs, int start) =>
@@ -127,13 +122,12 @@ class _RemotePlayerController extends PlayerController {
   @override
   PlayNextResult playNext(Song song) {
     if (current?.mid == song.mid) return PlayNextResult.current;
-    _ignore(_send('playNext', PlayerSessionStore.songToJson(song)));
+    _ignore(_send('playNext', songToJson(song)));
     return current == null ? PlayNextResult.started : PlayNextResult.queued;
   }
 
   @override
-  Future<void> playAt(int i, {int skipped = 0, int pinnedNext = 0}) =>
-      _send('playAt', i);
+  Future<void> playAt(int i) => _send('playAt', i);
 
   @override
   Future<void> next() => _send('next');

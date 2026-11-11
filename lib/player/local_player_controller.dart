@@ -284,7 +284,9 @@ class _LocalPlayerController extends PlayerController {
   }
 
   @override
-  Future<void> playAt(int i, {int skipped = 0, int pinnedNext = 0}) async {
+  Future<void> playAt(int i) => _playAt(i);
+
+  Future<void> _playAt(int i, {int skipped = 0, int pinnedNext = 0}) async {
     if (i < 0 || i >= queue.length) return;
     // 手动点了别的歌，之前插的“下一首”就不再算数
     _pinnedNext = pinnedNext;
@@ -332,7 +334,7 @@ class _LocalPlayerController extends PlayerController {
     if (queue.length <= 1 || _skipped >= queue.length - 1) return false;
     loading = false;
     notifyListeners();
-    await playAt((index + 1) % queue.length, skipped: _skipped + 1);
+    await _playAt((index + 1) % queue.length, skipped: _skipped + 1);
     return true;
   }
 
@@ -475,7 +477,7 @@ class _LocalPlayerController extends PlayerController {
     if (mode == PlayMode.shuffle &&
         _pinnedNext > 0 &&
         index + 1 < queue.length) {
-      await playAt(index + 1, pinnedNext: _pinnedNext - 1);
+      await _playAt(index + 1, pinnedNext: _pinnedNext - 1);
     } else if (mode == PlayMode.shuffle && queue.length > 1) {
       var n = index;
       while (n == index) {

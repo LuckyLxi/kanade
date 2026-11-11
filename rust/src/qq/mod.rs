@@ -2,6 +2,7 @@ pub mod audio_cache;
 pub mod client;
 pub mod detail;
 mod dts;
+mod encrypted_audio;
 pub mod error;
 pub mod history;
 pub mod library;
