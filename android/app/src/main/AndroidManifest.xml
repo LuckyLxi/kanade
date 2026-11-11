@@ -56,7 +56,6 @@
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
-        <service android:name=".PlaybackUiService" android:exported="false" />
         <service android:name=".RecognizeService"
             android:foregroundServiceType="microphone"
             android:exported="false" />
