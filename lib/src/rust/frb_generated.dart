@@ -71,7 +71,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 1894862833;
+  int get rustContentHash => 125191913;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -119,17 +119,11 @@ abstract class RustLibApi extends BaseApi {
     required Quality quality,
   });
 
-  Future<CommentPage> crateApiMusicGetCommentReplies({
-    required String rootId,
-    required int page,
-    required String lastSeqNo,
-  });
-
-  Future<CommentPage> crateApiMusicGetComments({
+  Future<CommentFeed> crateApiMusicGetCommentFeed({
     required CommentTarget target,
     required PlatformInt64 id,
-    required int page,
-    required String lastSeqNo,
+    required CommentSort sort,
+    required String cursor,
   });
 
   Future<FeedColumnPage> crateApiMusicGetFeedColumn({
@@ -174,6 +168,11 @@ abstract class RustLibApi extends BaseApi {
   Future<RelatedPlaylists> crateApiMusicGetRelatedPlaylists({
     required PlatformInt64 songId,
     required List<String> exclude,
+  });
+
+  Future<CommentFeed> crateApiMusicGetReplyFeed({
+    required String rootId,
+    required String cursor,
   });
 
   Future<List<SearchSuggestion>> crateApiMusicGetSearchSuggestions({
@@ -755,18 +754,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<CommentPage> crateApiMusicGetCommentReplies({
-    required String rootId,
-    required int page,
-    required String lastSeqNo,
+  Future<CommentFeed> crateApiMusicGetCommentFeed({
+    required CommentTarget target,
+    required PlatformInt64 id,
+    required CommentSort sort,
+    required String cursor,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(rootId, serializer);
-          sse_encode_u_32(page, serializer);
-          sse_encode_String(lastSeqNo, serializer);
+          sse_encode_comment_target(target, serializer);
+          sse_encode_i_64(id, serializer);
+          sse_encode_comment_sort(sort, serializer);
+          sse_encode_String(cursor, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -775,59 +776,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_comment_page,
+          decodeSuccessData: sse_decode_comment_feed,
           decodeErrorData: sse_decode_api_error,
         ),
-        constMeta: kCrateApiMusicGetCommentRepliesConstMeta,
-        argValues: [rootId, page, lastSeqNo],
+        constMeta: kCrateApiMusicGetCommentFeedConstMeta,
+        argValues: [target, id, sort, cursor],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiMusicGetCommentRepliesConstMeta =>
+  TaskConstMeta get kCrateApiMusicGetCommentFeedConstMeta =>
       const TaskConstMeta(
-        debugName: "get_comment_replies",
-        argNames: ["rootId", "page", "lastSeqNo"],
+        debugName: "get_comment_feed",
+        argNames: ["target", "id", "sort", "cursor"],
       );
-
-  @override
-  Future<CommentPage> crateApiMusicGetComments({
-    required CommentTarget target,
-    required PlatformInt64 id,
-    required int page,
-    required String lastSeqNo,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_comment_target(target, serializer);
-          sse_encode_i_64(id, serializer);
-          sse_encode_u_32(page, serializer);
-          sse_encode_String(lastSeqNo, serializer);
-          pdeCallFfi(
-            generalizedFrbRustBinding,
-            serializer,
-            funcId: 17,
-            port: port_,
-          );
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_comment_page,
-          decodeErrorData: sse_decode_api_error,
-        ),
-        constMeta: kCrateApiMusicGetCommentsConstMeta,
-        argValues: [target, id, page, lastSeqNo],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiMusicGetCommentsConstMeta => const TaskConstMeta(
-    debugName: "get_comments",
-    argNames: ["target", "id", "page", "lastSeqNo"],
-  );
 
   @override
   Future<FeedColumnPage> crateApiMusicGetFeedColumn({
@@ -843,7 +806,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 17,
             port: port_,
           );
         },
@@ -872,7 +835,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 18,
             port: port_,
           );
         },
@@ -899,7 +862,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 19,
             port: port_,
           );
         },
@@ -926,7 +889,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 21,
+            funcId: 20,
             port: port_,
           );
         },
@@ -953,7 +916,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 22,
+            funcId: 21,
             port: port_,
           );
         },
@@ -985,7 +948,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 23,
+            funcId: 22,
             port: port_,
           );
         },
@@ -1013,7 +976,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 24,
+            funcId: 23,
             port: port_,
           );
         },
@@ -1040,7 +1003,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 25,
+            funcId: 24,
             port: port_,
           );
         },
@@ -1068,7 +1031,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 26,
+            funcId: 25,
             port: port_,
           );
         },
@@ -1093,7 +1056,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(key, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 27)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 26)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_opt_String,
@@ -1123,7 +1086,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 28,
+            funcId: 27,
             port: port_,
           );
         },
@@ -1153,7 +1116,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 29,
+            funcId: 28,
             port: port_,
           );
         },
@@ -1180,7 +1143,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 30,
+            funcId: 29,
             port: port_,
           );
         },
@@ -1207,7 +1170,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 31,
+            funcId: 30,
             port: port_,
           );
         },
@@ -1234,7 +1197,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 32,
+            funcId: 31,
             port: port_,
           );
         },
@@ -1266,7 +1229,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 33,
+            funcId: 32,
             port: port_,
           );
         },
@@ -1286,6 +1249,40 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         debugName: "get_related_playlists",
         argNames: ["songId", "exclude"],
       );
+
+  @override
+  Future<CommentFeed> crateApiMusicGetReplyFeed({
+    required String rootId,
+    required String cursor,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(rootId, serializer);
+          sse_encode_String(cursor, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 33,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_comment_feed,
+          decodeErrorData: sse_decode_api_error,
+        ),
+        constMeta: kCrateApiMusicGetReplyFeedConstMeta,
+        argValues: [rootId, cursor],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMusicGetReplyFeedConstMeta => const TaskConstMeta(
+    debugName: "get_reply_feed",
+    argNames: ["rootId", "cursor"],
+  );
 
   @override
   Future<List<SearchSuggestion>> crateApiMusicGetSearchSuggestions({
@@ -2804,8 +2801,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Comment dco_decode_comment(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 9)
-      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    if (arr.length != 12)
+      throw Exception('unexpected arr length: expect 12 but see ${arr.length}');
     return Comment(
       id: dco_decode_String(arr[0]),
       seqNo: dco_decode_String(arr[1]),
@@ -2816,21 +2813,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       praiseCount: dco_decode_u_32(arr[6]),
       replyCount: dco_decode_u_32(arr[7]),
       replyTo: dco_decode_String(arr[8]),
+      picUrl: dco_decode_String(arr[9]),
+      picWidth: dco_decode_u_32(arr[10]),
+      picHeight: dco_decode_u_32(arr[11]),
     );
   }
 
   @protected
-  CommentPage dco_decode_comment_page(dynamic raw) {
+  CommentFeed dco_decode_comment_feed(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
     if (arr.length != 4)
       throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
-    return CommentPage(
-      hot: dco_decode_list_comment(arr[0]),
-      latest: dco_decode_list_comment(arr[1]),
-      total: dco_decode_u_32(arr[2]),
-      hasMore: dco_decode_bool(arr[3]),
+    return CommentFeed(
+      comments: dco_decode_list_comment(arr[0]),
+      total: dco_decode_u_32(arr[1]),
+      hasMore: dco_decode_bool(arr[2]),
+      cursor: dco_decode_String(arr[3]),
     );
+  }
+
+  @protected
+  CommentSort dco_decode_comment_sort(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return CommentSort.values[raw as int];
   }
 
   @protected
@@ -3937,6 +3943,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_praiseCount = sse_decode_u_32(deserializer);
     var var_replyCount = sse_decode_u_32(deserializer);
     var var_replyTo = sse_decode_String(deserializer);
+    var var_picUrl = sse_decode_String(deserializer);
+    var var_picWidth = sse_decode_u_32(deserializer);
+    var var_picHeight = sse_decode_u_32(deserializer);
     return Comment(
       id: var_id,
       seqNo: var_seqNo,
@@ -3947,22 +3956,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       praiseCount: var_praiseCount,
       replyCount: var_replyCount,
       replyTo: var_replyTo,
+      picUrl: var_picUrl,
+      picWidth: var_picWidth,
+      picHeight: var_picHeight,
     );
   }
 
   @protected
-  CommentPage sse_decode_comment_page(SseDeserializer deserializer) {
+  CommentFeed sse_decode_comment_feed(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_hot = sse_decode_list_comment(deserializer);
-    var var_latest = sse_decode_list_comment(deserializer);
+    var var_comments = sse_decode_list_comment(deserializer);
     var var_total = sse_decode_u_32(deserializer);
     var var_hasMore = sse_decode_bool(deserializer);
-    return CommentPage(
-      hot: var_hot,
-      latest: var_latest,
+    var var_cursor = sse_decode_String(deserializer);
+    return CommentFeed(
+      comments: var_comments,
       total: var_total,
       hasMore: var_hasMore,
+      cursor: var_cursor,
     );
+  }
+
+  @protected
+  CommentSort sse_decode_comment_sort(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return CommentSort.values[inner];
   }
 
   @protected
@@ -5295,15 +5314,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_u_32(self.praiseCount, serializer);
     sse_encode_u_32(self.replyCount, serializer);
     sse_encode_String(self.replyTo, serializer);
+    sse_encode_String(self.picUrl, serializer);
+    sse_encode_u_32(self.picWidth, serializer);
+    sse_encode_u_32(self.picHeight, serializer);
   }
 
   @protected
-  void sse_encode_comment_page(CommentPage self, SseSerializer serializer) {
+  void sse_encode_comment_feed(CommentFeed self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_list_comment(self.hot, serializer);
-    sse_encode_list_comment(self.latest, serializer);
+    sse_encode_list_comment(self.comments, serializer);
     sse_encode_u_32(self.total, serializer);
     sse_encode_bool(self.hasMore, serializer);
+    sse_encode_String(self.cursor, serializer);
+  }
+
+  @protected
+  void sse_encode_comment_sort(CommentSort self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
   }
 
   @protected

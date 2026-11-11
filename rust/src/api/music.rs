@@ -334,24 +334,21 @@ pub async fn get_user_assets(
         .map_err(api_error)?)
 }
 
-/// 评论第 `page` 页（从 0 开始），`last_seq_no` 是上一页最后一条的 `seq_no`，第一页传空。
-pub async fn get_comments(
+/// 推荐 / 最热 / 最新评论。`cursor` 第一页传空字符串，之后传上一页返回的 `cursor`。
+pub async fn get_comment_feed(
     target: CommentTarget,
     id: i64,
-    page: u32,
-    last_seq_no: String,
-) -> Result<CommentPage, ApiError> {
-    Ok(detail::comments_page(target, id, page, &last_seq_no)
+    sort: CommentSort,
+    cursor: String,
+) -> Result<CommentFeed, ApiError> {
+    Ok(detail::comment_feed(target, id, sort, &cursor)
         .await
         .map_err(api_error)?)
 }
 
-pub async fn get_comment_replies(
-    root_id: String,
-    page: u32,
-    last_seq_no: String,
-) -> Result<CommentPage, ApiError> {
-    Ok(detail::comment_replies(&root_id, page, &last_seq_no)
+/// 某条评论下的回复，翻页方式同 `get_comment_feed`。
+pub async fn get_reply_feed(root_id: String, cursor: String) -> Result<CommentFeed, ApiError> {
+    Ok(detail::reply_feed(&root_id, &cursor)
         .await
         .map_err(api_error)?)
 }

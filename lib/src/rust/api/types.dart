@@ -9,7 +9,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'types.freezed.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 class AlbumBrief {
   final String mid;
@@ -156,6 +156,13 @@ class Comment {
   /// 回复列表里被回复的人，没有就是空字符串。
   final String replyTo;
 
+  /// 评论里的图片，没有就是空字符串。
+  final String picUrl;
+
+  /// 图片的像素尺寸，没有图片或没给尺寸时是 0。
+  final int picWidth;
+  final int picHeight;
+
   const Comment({
     required this.id,
     required this.seqNo,
@@ -166,6 +173,9 @@ class Comment {
     required this.praiseCount,
     required this.replyCount,
     required this.replyTo,
+    required this.picUrl,
+    required this.picWidth,
+    required this.picHeight,
   });
 
   @override
@@ -178,7 +188,10 @@ class Comment {
       timeSecs.hashCode ^
       praiseCount.hashCode ^
       replyCount.hashCode ^
-      replyTo.hashCode;
+      replyTo.hashCode ^
+      picUrl.hashCode ^
+      picWidth.hashCode ^
+      picHeight.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -193,36 +206,51 @@ class Comment {
           timeSecs == other.timeSecs &&
           praiseCount == other.praiseCount &&
           replyCount == other.replyCount &&
-          replyTo == other.replyTo;
+          replyTo == other.replyTo &&
+          picUrl == other.picUrl &&
+          picWidth == other.picWidth &&
+          picHeight == other.picHeight;
 }
 
-class CommentPage {
-  /// 只有第一页有。
-  final List<Comment> hot;
-  final List<Comment> latest;
+/// 一页评论或回复。
+class CommentFeed {
+  final List<Comment> comments;
+
+  /// 评论总数；回复列表里是这条评论的回复数。
   final int total;
   final bool hasMore;
 
-  const CommentPage({
-    required this.hot,
-    required this.latest,
+  /// 取下一页时原样传回，第一页传空字符串。
+  final String cursor;
+
+  const CommentFeed({
+    required this.comments,
     required this.total,
     required this.hasMore,
+    required this.cursor,
   });
 
   @override
   int get hashCode =>
-      hot.hashCode ^ latest.hashCode ^ total.hashCode ^ hasMore.hashCode;
+      comments.hashCode ^ total.hashCode ^ hasMore.hashCode ^ cursor.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is CommentPage &&
+      other is CommentFeed &&
           runtimeType == other.runtimeType &&
-          hot == other.hot &&
-          latest == other.latest &&
+          comments == other.comments &&
           total == other.total &&
-          hasMore == other.hasMore;
+          hasMore == other.hasMore &&
+          cursor == other.cursor;
+}
+
+/// 评论列表的排序，对应 Android 评论页的推荐 / 最热 / 最新。
+enum CommentSort {
+  /// 需要登录才能翻页，未登录只有第一页。
+  recommend,
+  hot,
+  latest,
 }
 
 /// 评论挂在哪类对象下面。

@@ -579,15 +579,31 @@ pub struct Comment {
     pub reply_count: u32,
     /// 回复列表里被回复的人，没有就是空字符串。
     pub reply_to: String,
+    /// 评论里的图片，没有就是空字符串。
+    pub pic_url: String,
+    /// 图片的像素尺寸，没有图片或没给尺寸时是 0。
+    pub pic_width: u32,
+    pub pic_height: u32,
 }
 
+/// 评论列表的排序，对应 Android 评论页的推荐 / 最热 / 最新。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommentSort {
+    /// 需要登录才能翻页，未登录只有第一页。
+    Recommend,
+    Hot,
+    Latest,
+}
+
+/// 一页评论或回复。
 #[derive(Debug, Clone)]
-pub struct CommentPage {
-    /// 只有第一页有。
-    pub hot: Vec<Comment>,
-    pub latest: Vec<Comment>,
+pub struct CommentFeed {
+    pub comments: Vec<Comment>,
+    /// 评论总数；回复列表里是这条评论的回复数。
     pub total: u32,
     pub has_more: bool,
+    /// 取下一页时原样传回，第一页传空字符串。
+    pub cursor: String,
 }
 
 /// 当前账号自己创建的歌单，加歌和红心用。

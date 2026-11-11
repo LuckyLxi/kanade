@@ -79,7 +79,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Comment dco_decode_comment(dynamic raw);
 
   @protected
-  CommentPage dco_decode_comment_page(dynamic raw);
+  CommentFeed dco_decode_comment_feed(dynamic raw);
+
+  @protected
+  CommentSort dco_decode_comment_sort(dynamic raw);
 
   @protected
   CommentTarget dco_decode_comment_target(dynamic raw);
@@ -416,7 +419,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Comment sse_decode_comment(SseDeserializer deserializer);
 
   @protected
-  CommentPage sse_decode_comment_page(SseDeserializer deserializer);
+  CommentFeed sse_decode_comment_feed(SseDeserializer deserializer);
+
+  @protected
+  CommentSort sse_decode_comment_sort(SseDeserializer deserializer);
 
   @protected
   CommentTarget sse_decode_comment_target(SseDeserializer deserializer);
@@ -788,7 +794,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_comment(Comment self, SseSerializer serializer);
 
   @protected
-  void sse_encode_comment_page(CommentPage self, SseSerializer serializer);
+  void sse_encode_comment_feed(CommentFeed self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_comment_sort(CommentSort self, SseSerializer serializer);
 
   @protected
   void sse_encode_comment_target(CommentTarget self, SseSerializer serializer);

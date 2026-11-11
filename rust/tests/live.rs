@@ -480,6 +480,26 @@ async fn mobile_write_transport_with_readonly_call() {
     assert!(data.get("banner").is_some(), "Android 写请求封装没有返回预期的只读数据");
 }
 
+/// 只读：登录后推荐评论能一直翻到第一页给出的 id 用完，中间不重复。
+#[tokio::test]
+#[ignore]
+async fn desktop_recommended_comments_paging() {
+    use rust_lib_kanade::{api::types::{CommentSort, CommentTarget}, qq::detail};
+    use_desktop_test_login();
+    let mut seen = std::collections::HashSet::new();
+    let (mut cursor, mut pages) = (String::new(), 0);
+    loop {
+        let feed = detail::comment_feed(CommentTarget::Song, 121345659, CommentSort::Recommend, &cursor).await.unwrap();
+        assert!(!feed.comments.is_empty() && feed.total > 0, "推荐第 {pages} 页为空");
+        assert!(feed.comments.iter().all(|c| seen.insert(c.id.clone())), "推荐第 {pages} 页与前面重复");
+        pages += 1;
+        if !feed.has_more { break }
+        cursor = feed.cursor;
+    }
+    println!("recommended pages={pages} comments={}", seen.len());
+    assert!(pages > 3, "登录后推荐应当能翻页");
+}
+
 /// 仅在用户同意后显式运行：只测试报告中的一首未收藏歌曲，随后恢复原状态。
 #[tokio::test]
 #[ignore]

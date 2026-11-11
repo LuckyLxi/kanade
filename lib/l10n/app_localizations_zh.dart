@@ -504,25 +504,40 @@ class AppLocalizationsZh extends AppLocalizations {
   String get comments => '评论';
 
   @override
-  String get hotComments => '热门评论';
-
-  @override
-  String get latestComments => '最新评论';
-
-  @override
-  String commentTotal(int count) {
-    return '共 $count 条评论';
-  }
+  String get commentsRecommended => '推荐';
 
   @override
   String get noComments => '还没有评论';
 
   @override
+  String commentCount(String count) {
+    return '$count 条评论';
+  }
+
+  @override
+  String get timeJustNow => '刚刚';
+
+  @override
+  String timeMinutesAgo(int count) {
+    return '$count 分钟前';
+  }
+
+  @override
+  String timeHoursAgo(int count) {
+    return '$count 小时前';
+  }
+
+  @override
+  String timeDaysAgo(int count) {
+    return '$count 天前';
+  }
+
+  @override
   String get replies => '回复';
 
   @override
-  String viewReplies(int count) {
-    return '查看 $count 条回复';
+  String replyCount(int count) {
+    return '$count 条回复';
   }
 
   @override

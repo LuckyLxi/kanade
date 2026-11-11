@@ -974,23 +974,11 @@ abstract class AppLocalizations {
   /// **'评论'**
   String get comments;
 
-  /// No description provided for @hotComments.
+  /// No description provided for @commentsRecommended.
   ///
   /// In zh, this message translates to:
-  /// **'热门评论'**
-  String get hotComments;
-
-  /// No description provided for @latestComments.
-  ///
-  /// In zh, this message translates to:
-  /// **'最新评论'**
-  String get latestComments;
-
-  /// No description provided for @commentTotal.
-  ///
-  /// In zh, this message translates to:
-  /// **'共 {count} 条评论'**
-  String commentTotal(int count);
+  /// **'推荐'**
+  String get commentsRecommended;
 
   /// No description provided for @noComments.
   ///
@@ -998,17 +986,47 @@ abstract class AppLocalizations {
   /// **'还没有评论'**
   String get noComments;
 
+  /// No description provided for @commentCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 条评论'**
+  String commentCount(String count);
+
+  /// No description provided for @timeJustNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'刚刚'**
+  String get timeJustNow;
+
+  /// No description provided for @timeMinutesAgo.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 分钟前'**
+  String timeMinutesAgo(int count);
+
+  /// No description provided for @timeHoursAgo.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 小时前'**
+  String timeHoursAgo(int count);
+
+  /// No description provided for @timeDaysAgo.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 天前'**
+  String timeDaysAgo(int count);
+
   /// No description provided for @replies.
   ///
   /// In zh, this message translates to:
   /// **'回复'**
   String get replies;
 
-  /// No description provided for @viewReplies.
+  /// No description provided for @replyCount.
   ///
   /// In zh, this message translates to:
-  /// **'查看 {count} 条回复'**
-  String viewReplies(int count);
+  /// **'{count} 条回复'**
+  String replyCount(int count);
 
   /// No description provided for @replyTo.
   ///

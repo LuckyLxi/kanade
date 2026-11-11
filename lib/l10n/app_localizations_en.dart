@@ -527,25 +527,46 @@ class AppLocalizationsEn extends AppLocalizations {
   String get comments => 'Comments';
 
   @override
-  String get hotComments => 'Top comments';
-
-  @override
-  String get latestComments => 'Latest comments';
-
-  @override
-  String commentTotal(int count) {
-    return '$count comments';
-  }
+  String get commentsRecommended => 'Recommended';
 
   @override
   String get noComments => 'No comments yet';
 
   @override
+  String commentCount(String count) {
+    return '$count comments';
+  }
+
+  @override
+  String get timeJustNow => 'Just now';
+
+  @override
+  String timeMinutesAgo(int count) {
+    return '$count min ago';
+  }
+
+  @override
+  String timeHoursAgo(int count) {
+    return '$count h ago';
+  }
+
+  @override
+  String timeDaysAgo(int count) {
+    return '$count d ago';
+  }
+
+  @override
   String get replies => 'Replies';
 
   @override
-  String viewReplies(int count) {
-    return 'View $count replies';
+  String replyCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count replies',
+      one: '1 reply',
+    );
+    return '$_temp0';
   }
 
   @override

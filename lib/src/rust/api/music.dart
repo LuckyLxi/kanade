@@ -10,6 +10,8 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 import 'types.dart';
 
+// These functions are ignored because they are not marked as `pub`: `api_error`
+
 /// 设置数据目录（SQLite 缓存和登录态存放处）。启动时调用一次。
 Future<void> initCore({required String dataDir}) =>
     RustLib.instance.api.crateApiMusicInitCore(dataDir: dataDir);
@@ -297,27 +299,26 @@ Future<UserAssetPage> getUserAssets({
   pageSize: pageSize,
 );
 
-/// 评论第 `page` 页（从 0 开始），`last_seq_no` 是上一页最后一条的 `seq_no`，第一页传空。
-Future<CommentPage> getComments({
+/// 推荐 / 最热 / 最新评论。`cursor` 第一页传空字符串，之后传上一页返回的 `cursor`。
+Future<CommentFeed> getCommentFeed({
   required CommentTarget target,
   required PlatformInt64 id,
-  required int page,
-  required String lastSeqNo,
-}) => RustLib.instance.api.crateApiMusicGetComments(
+  required CommentSort sort,
+  required String cursor,
+}) => RustLib.instance.api.crateApiMusicGetCommentFeed(
   target: target,
   id: id,
-  page: page,
-  lastSeqNo: lastSeqNo,
+  sort: sort,
+  cursor: cursor,
 );
 
-Future<CommentPage> getCommentReplies({
+/// 某条评论下的回复，翻页方式同 `get_comment_feed`。
+Future<CommentFeed> getReplyFeed({
   required String rootId,
-  required int page,
-  required String lastSeqNo,
-}) => RustLib.instance.api.crateApiMusicGetCommentReplies(
+  required String cursor,
+}) => RustLib.instance.api.crateApiMusicGetReplyFeed(
   rootId: rootId,
-  page: page,
-  lastSeqNo: lastSeqNo,
+  cursor: cursor,
 );
 
 /// 自己创建的歌单（需要登录），加入歌单时选择用。

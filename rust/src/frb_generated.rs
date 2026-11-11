@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1894862833;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 125191913;
 
 // Section: executor
 
@@ -552,7 +552,7 @@ fn wire__crate__api__music__get_cached_audio_impl(
         },
     )
 }
-fn wire__crate__api__music__get_comment_replies_impl(
+fn wire__crate__api__music__get_comment_feed_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -560,50 +560,7 @@ fn wire__crate__api__music__get_comment_replies_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "get_comment_replies",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_root_id = <String>::sse_decode(&mut deserializer);
-            let api_page = <u32>::sse_decode(&mut deserializer);
-            let api_last_seq_no = <String>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| async move {
-                transform_result_sse::<_, crate::api::error::ApiError>(
-                    (move || async move {
-                        let output_ok = crate::api::music::get_comment_replies(
-                            api_root_id,
-                            api_page,
-                            api_last_seq_no,
-                        )
-                        .await?;
-                        Ok(output_ok)
-                    })()
-                    .await,
-                )
-            }
-        },
-    )
-}
-fn wire__crate__api__music__get_comments_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "get_comments",
+            debug_name: "get_comment_feed",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -619,17 +576,14 @@ fn wire__crate__api__music__get_comments_impl(
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_target = <crate::api::types::CommentTarget>::sse_decode(&mut deserializer);
             let api_id = <i64>::sse_decode(&mut deserializer);
-            let api_page = <u32>::sse_decode(&mut deserializer);
-            let api_last_seq_no = <String>::sse_decode(&mut deserializer);
+            let api_sort = <crate::api::types::CommentSort>::sse_decode(&mut deserializer);
+            let api_cursor = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
                 transform_result_sse::<_, crate::api::error::ApiError>(
                     (move || async move {
-                        let output_ok = crate::api::music::get_comments(
-                            api_target,
-                            api_id,
-                            api_page,
-                            api_last_seq_no,
+                        let output_ok = crate::api::music::get_comment_feed(
+                            api_target, api_id, api_sort, api_cursor,
                         )
                         .await?;
                         Ok(output_ok)
@@ -1202,6 +1156,44 @@ fn wire__crate__api__music__get_related_playlists_impl(
                         let output_ok =
                             crate::api::music::get_related_playlists(api_song_id, api_exclude)
                                 .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__music__get_reply_feed_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_reply_feed",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_root_id = <String>::sse_decode(&mut deserializer);
+            let api_cursor = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::api::error::ApiError>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::music::get_reply_feed(api_root_id, api_cursor).await?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -2957,6 +2949,9 @@ impl SseDecode for crate::api::types::Comment {
         let mut var_praiseCount = <u32>::sse_decode(deserializer);
         let mut var_replyCount = <u32>::sse_decode(deserializer);
         let mut var_replyTo = <String>::sse_decode(deserializer);
+        let mut var_picUrl = <String>::sse_decode(deserializer);
+        let mut var_picWidth = <u32>::sse_decode(deserializer);
+        let mut var_picHeight = <u32>::sse_decode(deserializer);
         return crate::api::types::Comment {
             id: var_id,
             seq_no: var_seqNo,
@@ -2967,22 +2962,38 @@ impl SseDecode for crate::api::types::Comment {
             praise_count: var_praiseCount,
             reply_count: var_replyCount,
             reply_to: var_replyTo,
+            pic_url: var_picUrl,
+            pic_width: var_picWidth,
+            pic_height: var_picHeight,
         };
     }
 }
 
-impl SseDecode for crate::api::types::CommentPage {
+impl SseDecode for crate::api::types::CommentFeed {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_hot = <Vec<crate::api::types::Comment>>::sse_decode(deserializer);
-        let mut var_latest = <Vec<crate::api::types::Comment>>::sse_decode(deserializer);
+        let mut var_comments = <Vec<crate::api::types::Comment>>::sse_decode(deserializer);
         let mut var_total = <u32>::sse_decode(deserializer);
         let mut var_hasMore = <bool>::sse_decode(deserializer);
-        return crate::api::types::CommentPage {
-            hot: var_hot,
-            latest: var_latest,
+        let mut var_cursor = <String>::sse_decode(deserializer);
+        return crate::api::types::CommentFeed {
+            comments: var_comments,
             total: var_total,
             has_more: var_hasMore,
+            cursor: var_cursor,
+        };
+    }
+}
+
+impl SseDecode for crate::api::types::CommentSort {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::api::types::CommentSort::Recommend,
+            1 => crate::api::types::CommentSort::Hot,
+            2 => crate::api::types::CommentSort::Latest,
+            _ => unreachable!("Invalid variant for CommentSort: {}", inner),
         };
     }
 }
@@ -4323,27 +4334,27 @@ fn pde_ffi_dispatcher_primary_impl(
         10 => wire__crate__api__music__get_album_detail_impl(port, ptr, rust_vec_len, data_len),
         12 => wire__crate__api__music__get_api_cache_size_impl(port, ptr, rust_vec_len, data_len),
         14 => wire__crate__api__music__get_audio_cache_size_impl(port, ptr, rust_vec_len, data_len),
-        16 => wire__crate__api__music__get_comment_replies_impl(port, ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__music__get_comments_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__music__get_feed_column_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__music__get_foryou_config_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__music__get_guess_you_like_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__music__get_hot_search_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__music__get_liked_song_ids_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__music__get_lyric_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__music__get_mv_detail_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__music__get_my_playlists_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__music__get_playlist_detail_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__music__get_radar_songs_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__music__get_radio_songs_impl(port, ptr, rust_vec_len, data_len),
-        30 => {
+        16 => wire__crate__api__music__get_comment_feed_impl(port, ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__music__get_feed_column_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__music__get_foryou_config_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__music__get_guess_you_like_impl(port, ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__music__get_hot_search_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__music__get_liked_song_ids_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__music__get_lyric_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__music__get_mv_detail_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__music__get_my_playlists_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__music__get_playlist_detail_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__music__get_radar_songs_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__music__get_radio_songs_impl(port, ptr, rust_vec_len, data_len),
+        29 => {
             wire__crate__api__music__get_recent_collections_impl(port, ptr, rust_vec_len, data_len)
         }
-        31 => wire__crate__api__music__get_recent_plays_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__music__get_recommend_feed_impl(port, ptr, rust_vec_len, data_len),
-        33 => {
+        30 => wire__crate__api__music__get_recent_plays_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__music__get_recommend_feed_impl(port, ptr, rust_vec_len, data_len),
+        32 => {
             wire__crate__api__music__get_related_playlists_impl(port, ptr, rust_vec_len, data_len)
         }
+        33 => wire__crate__api__music__get_reply_feed_impl(port, ptr, rust_vec_len, data_len),
         34 => {
             wire__crate__api__music__get_search_suggestions_impl(port, ptr, rust_vec_len, data_len)
         }
@@ -4420,7 +4431,7 @@ fn pde_ffi_dispatcher_sync_impl(
         11 => wire__crate__api__music__get_any_cached_audio_impl(ptr, rust_vec_len, data_len),
         13 => wire__crate__api__music__get_audio_cache_limit_mb_impl(ptr, rust_vec_len, data_len),
         15 => wire__crate__api__music__get_cached_audio_impl(ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__music__get_pref_impl(ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__music__get_pref_impl(ptr, rust_vec_len, data_len),
         57 => wire__crate__api__music__lower_quality_impl(ptr, rust_vec_len, data_len),
         59 => wire__crate__api__music__quality_supported_impl(ptr, rust_vec_len, data_len),
         62 => wire__crate__api__music__remove_cached_audio_impl(ptr, rust_vec_len, data_len),
@@ -4580,6 +4591,9 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::Comment {
             self.praise_count.into_into_dart().into_dart(),
             self.reply_count.into_into_dart().into_dart(),
             self.reply_to.into_into_dart().into_dart(),
+            self.pic_url.into_into_dart().into_dart(),
+            self.pic_width.into_into_dart().into_dart(),
+            self.pic_height.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4591,25 +4605,47 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::Comment> for crate::ap
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::api::types::CommentPage {
+impl flutter_rust_bridge::IntoDart for crate::api::types::CommentFeed {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.hot.into_into_dart().into_dart(),
-            self.latest.into_into_dart().into_dart(),
+            self.comments.into_into_dart().into_dart(),
             self.total.into_into_dart().into_dart(),
             self.has_more.into_into_dart().into_dart(),
+            self.cursor.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::api::types::CommentPage
+    for crate::api::types::CommentFeed
 {
 }
-impl flutter_rust_bridge::IntoIntoDart<crate::api::types::CommentPage>
-    for crate::api::types::CommentPage
+impl flutter_rust_bridge::IntoIntoDart<crate::api::types::CommentFeed>
+    for crate::api::types::CommentFeed
 {
-    fn into_into_dart(self) -> crate::api::types::CommentPage {
+    fn into_into_dart(self) -> crate::api::types::CommentFeed {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::types::CommentSort {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Recommend => 0.into_dart(),
+            Self::Hot => 1.into_dart(),
+            Self::Latest => 2.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::types::CommentSort
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::types::CommentSort>
+    for crate::api::types::CommentSort
+{
+    fn into_into_dart(self) -> crate::api::types::CommentSort {
         self
     }
 }
@@ -5873,16 +5909,36 @@ impl SseEncode for crate::api::types::Comment {
         <u32>::sse_encode(self.praise_count, serializer);
         <u32>::sse_encode(self.reply_count, serializer);
         <String>::sse_encode(self.reply_to, serializer);
+        <String>::sse_encode(self.pic_url, serializer);
+        <u32>::sse_encode(self.pic_width, serializer);
+        <u32>::sse_encode(self.pic_height, serializer);
     }
 }
 
-impl SseEncode for crate::api::types::CommentPage {
+impl SseEncode for crate::api::types::CommentFeed {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <Vec<crate::api::types::Comment>>::sse_encode(self.hot, serializer);
-        <Vec<crate::api::types::Comment>>::sse_encode(self.latest, serializer);
+        <Vec<crate::api::types::Comment>>::sse_encode(self.comments, serializer);
         <u32>::sse_encode(self.total, serializer);
         <bool>::sse_encode(self.has_more, serializer);
+        <String>::sse_encode(self.cursor, serializer);
+    }
+}
+
+impl SseEncode for crate::api::types::CommentSort {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::api::types::CommentSort::Recommend => 0,
+                crate::api::types::CommentSort::Hot => 1,
+                crate::api::types::CommentSort::Latest => 2,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
     }
 }
 

@@ -532,48 +532,28 @@ QQ 音乐不支持用户自己写简介，PC 主页简介位置显示的就是 `
 
 模块：`music.globalComment.CommentRead`，使用内嵌页通道，不在本地强制检查登录态。当前只提供读取，不提供发布、删除、点赞评论。
 
-### 最新评论，首批附热门评论
+### 推荐 / 最热 / 最新（Android 参数）
 
-完整方法：`music.globalComment.CommentRead.GetNewCommentList`。
+`comment_feed(target,id,sort,cursor)` 和 `reply_feed(root_id,cursor)` 按 [Android 评论页抓包](qqmusic-comments-android-capture.md)的参数请求，
+仍走内嵌页通道（2026-11-11 重放确认结果与 Android 一致），每页 15 条，回复第一页 6 条、之后 5 条。
+`BizType=1` 为歌曲，`2` 为专辑；`BizId` 是相应数字 ID 的字符串。
 
-```json
-{
-  "BizType": 1,
-  "BizId": "42",
-  "LastCommentSeqNo": "",
-  "PageSize": 25,
-  "PageNum": 0,
-  "FromCommentId": "",
-  "WithHot": 1,
-  "PicEnable": 1,
-  "LastTotal": 0,
-  "LastTotalVer": "0"
-}
-```
+| `sort` | 方法 | 下一页带上 |
+| --- | --- | --- |
+| `Recommend` | `GetRecCommentList` | `RecOffset`、`PageNum`、上一页最后一条的 `SeqNo/HotScore/RecScore`、`CommentIds` |
+| `Hot` | `GetHotCommentList`，`HotType=6` | `PageNum`、上一页最后一条的 `HotScore/CmId/SeqNo` |
+| `Latest` | `GetNewCommentList`，不传 `WithHot` | `PageNum`、上一页最后一条的 `CmId/SeqNo` |
 
-`BizType=1` 为歌曲，`2` 为专辑；`BizId` 是相应数字 ID 的字符串。`PageNum` 从 `0` 开始，后续页传上一页最后一条 `Comment.seq_no` 到 `LastCommentSeqNo`，并把 `WithHot` 设为 `0`。
+三者都带 `LastTotal`、`LastTotalVer`（上一页的 `TotalVer`）和 `LastRspVer`（第一页的 `RspVer`，后续页的响应里它是空的）。
+这些值由 Rust 打包成 `CommentFeed.cursor` 字符串，界面取下一页时原样传回，第一页传空字符串。
 
-最新列表取 `CommentList.Comments[]`，第一页热门列表取 `CommentList2.Comments[]`；总数和是否有下一页读取 `CommentList.Total/HasMore`。当前未单独调用抓包中存在的 `GetHotCommentList`。
+推荐列表的翻页不是按偏移取：第一页响应的 `CommentList.CommentIds` 是后续全部评论的 id（样本 285 个），
+第 N 页把其中第 `(N-1)*15` 起的 15 个放进请求的 `CommentIds`，服务器返回这 15 条的正文；传别的 id 就返回别的评论。
+未登录时第一页没有 `CommentIds`，推荐只有 15 条，所以 `has_more` 以 id 是否用完为准，不看 `HasMore`。
 
-### 评论回复
-
-完整方法：`music.globalComment.CommentRead.GetReplyCommentList`。
-
-```json
-{
-  "RootCmId": "<ROOT_COMMENT_ID>",
-  "LastCommentSeqNo": "",
-  "PageSize": 10,
-  "LastRankScore": "",
-  "RankType": 1,
-  "PicEnable": 1,
-  "PageNum": 0
-}
-```
-
-后续页 `LastRankScore="0"`，`PageNum` 递增，并传上一页最后一条 `seq_no`。回复也取 `CommentList.Comments[]`。由于样本中回复 `HasMore` 可能不准确，项目额外采用“当前页非空且 `(page+1)*10 < Total`”判断可继续加载。
-
+总数取顶层 `TotalCmNum`。回复的 `HasMore` 一直是 1，`has_more` 按“已取条数 < 第一页的 `Total`”判断。
 字段映射：`CmId → id`、`SeqNo → seq_no`、`Nick → nick`、`Avatar → avatar_url`、`Content → content`、`PubTime → time_secs`、`PraiseNum → praise_count`、`ReplyCnt → reply_count`；被回复用户取 `RepliedComments[0].Nick`。正文会去除完整的 `[em]…[/em]` 表情代码。
+带图评论读 `Pic → pic_url`、`PicSize`（`"宽x高"`）`→ pic_width/pic_height`；`Pic` 原地址不带 Cookie、不加参数可以直接下载。
 
 抓包笔记曾记录评论 `SubCode=0`；当前 `detail.rs` 没有额外检查 `SubCode`，只使用通用网关封装的业务码检查。不得据此宣称已严格校验评论所有内层结果码。
 
@@ -658,7 +638,7 @@ QQ / 微信会话交换前，当前实现会先清空旧会话；Cookie 登录�
 | 相似歌曲 | `get_similar_songs(song_id)` | `Vec<Song>` |
 | 其他用户 | `get_user_profile(euin)` / `get_user_public_playlists(euin,creator,page,page_size)` | `UserProfile` / `UserPlaylistPage` |
 | 用户收藏 | `get_user_assets(euin,kind,page,page_size)` | `UserAssetPage`；kind 为 `Song/Playlist/Album/Video` |
-| 评论 | `get_comments(target,id,page,last_seq_no)` / `get_comment_replies(root_id,page,last_seq_no)` | `CommentPage` |
+| 评论 | `get_comment_feed(target,id,sort,cursor)` / `get_reply_feed(root_id,cursor)` | `CommentFeed` |
 | 登录 | `create_login_qr(kind)` / `create_qq_app_login()` / `poll_login_qr(kind,qrsig)` / `login_with_cookie(cookie)` | `QrCode` / `QrCode` / `QrStatus` / `UserInfo` |
 | 本地用户状态 | `current_user()` / `logout()` | `Option<UserInfo>` / 成功为空 |
 
@@ -678,7 +658,7 @@ QQ / 微信会话交换前，当前实现会先清空旧会话；Cookie 登录�
 | `UserProfile` | `euin/name/avatar_url/fans_count/follow_count/playlist_count/followed/is_self/playlists_hidden` |
 | `UserAssetPage` | `songs/playlists/albums/videos/has_more/hidden` |
 | `RecommendFeed` | `sections/radar_seed/radar_cover`，区块含 `title/songs/playlists` |
-| `CommentPage` | `hot/latest/total/has_more` |
+| `CommentFeed` | `comments/total/has_more/cursor` |
 | `Lyric` | `lines[{time_ms,text,trans}]/plain` |
 | `QrCode` | `image/qrsig/url`；qrsig 在 QQ、微信、App 授权中分别是 qrsig、UUID、qrcodeID |
 | `QrStatus` | `Waiting/Scanned/Expired/Refused/Success{user}` |
@@ -782,6 +762,7 @@ HAR 凭据辅助函数依赖该文件内存在可解析的 `comm.uin/authst/tmeL
 | [最近播放抓包](qqmusic-recent-plays-capture.md) | 云端记录读取、播放上报 |
 | [Android 最近播放分类抓包](qqmusic-recent-plays-android-capture.md) | 专辑、歌单、电台、有声、视频各 `type`，增量同步与计数接口 |
 | [Android 排行榜抓包](qqmusic-toplist-android-capture.md) | 目录分组、往期、分页、排名变化 `rankType`、歌曲标签，及与 PC 模块的对照 |
+| [Android 评论页抓包](qqmusic-comments-android-capture.md) | 推荐 / 最热 / 最新 / 语音 / 时刻 / 表白各 tab、翻页游标、回复分页，及与 PC 内嵌页的差异 |
 | [Android 播放页歌曲信息页抓包](qqmusic-player-detail-android-capture.md) | 右滑信息页的合并请求、栏目顺序、标签、相关歌单换一批、精选视频 |
 | [推荐页抓包](qqmusic-recommendations-capture.md) / [推荐封面抓包](qqmusic-recommendation-covers-capture.md) | 推荐结构、取歌与图片来源 |
 
