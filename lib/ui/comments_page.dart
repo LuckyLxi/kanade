@@ -514,7 +514,7 @@ class CommentTile extends StatelessWidget {
   }
 }
 
-/// 评论正文：超过 6 行先收起，下面给一个“展开 / 收起”。
+/// 评论正文：超过 6 行先收起，右下角给一个“展开 / 收起”。
 class _CommentText extends StatefulWidget {
   const _CommentText(this.span);
 
@@ -546,23 +546,32 @@ class _CommentTextState extends State<_CommentText> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text.rich(
-              widget.span,
-              maxLines: _expanded ? null : _lines,
-              overflow: _expanded ? null : TextOverflow.ellipsis,
+            // 展开、收起时高度慢慢变，不一下跳过去
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: Text.rich(
+                widget.span,
+                maxLines: _expanded ? null : _lines,
+                overflow: _expanded ? null : TextOverflow.ellipsis,
+              ),
             ),
             if (long)
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => setState(() => _expanded = !_expanded),
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 4, bottom: 2, right: 16),
-                  child: Text(
-                    _expanded ? l.showLess : l.showMore,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: scheme.onSurface,
+              Align(
+                alignment: Alignment.centerRight,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _expanded = !_expanded),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 2, left: 16),
+                    child: Text(
+                      _expanded ? l.showLess : l.showMore,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.onSurface,
+                      ),
                     ),
                   ),
                 ),
@@ -575,41 +584,38 @@ class _CommentTextState extends State<_CommentText> {
 }
 
 void _showReplies(BuildContext context, Comment root) {
-  showKanadeSheet<void>(
+  showExpandableSheet<void>(
     context: context,
     heightFactor: 0.75,
-    padding: EdgeInsets.zero,
-    builder: (context) {
+    builder: (context, controller) {
       final l = AppLocalizations.of(context);
       final scheme = Theme.of(context).colorScheme;
       final (_, band) = sheetColors(scheme);
-      return SmoothScroll(
-        builder: (context, controller) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 2),
-              child: Text(
-                l.replyCount(root.replyCount),
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: scheme.onSurface,
-                ),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 2),
+            child: Text(
+              l.replyCount(root.replyCount),
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: scheme.onSurface,
               ),
             ),
-            CommentTile(root, showReplies: false),
-            Divider(height: 8, thickness: 8, color: band),
-            Expanded(
-              child: _CommentList(
-                controller: controller,
-                reply: true,
-                load: (cursor) =>
-                    api.getReplyFeed(rootId: root.id, cursor: cursor),
-              ),
+          ),
+          CommentTile(root, showReplies: false),
+          Divider(height: 8, thickness: 8, color: band),
+          Expanded(
+            child: _CommentList(
+              controller: controller,
+              reply: true,
+              load: (cursor) =>
+                  api.getReplyFeed(rootId: root.id, cursor: cursor),
             ),
-          ],
-        ),
+          ),
+        ],
       );
     },
   );
