@@ -414,3 +414,28 @@ String? getPref({required String key}) =>
 
 void setPref({required String key, required String value}) =>
     RustLib.instance.api.crateApiMusicSetPref(key: key, value: value);
+
+/// 读最新版本的清单；`preview` 时包含预览版，`mirror` 时只走镜像。
+Future<UpdateInfo> getLatestUpdate({
+  required bool preview,
+  required bool mirror,
+}) => RustLib.instance.api.crateApiMusicGetLatestUpdate(
+  preview: preview,
+  mirror: mirror,
+);
+
+/// 把 `tag` 发布里的 `asset` 下载到 `dest`，下完核对校验码。以结束事件收尾。
+Stream<UpdateEvent> downloadUpdate({
+  required String tag,
+  required UpdateAsset asset,
+  required String dest,
+  required bool mirror,
+}) => RustLib.instance.api.crateApiMusicDownloadUpdate(
+  tag: tag,
+  asset: asset,
+  dest: dest,
+  mirror: mirror,
+);
+
+void cancelUpdateDownload() =>
+    RustLib.instance.api.crateApiMusicCancelUpdateDownload();

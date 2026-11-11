@@ -1,5 +1,7 @@
 //! 暴露给 Dart 的数据结构。
 
+use crate::api::error::ApiError;
+
 #[derive(Debug, Clone)]
 pub struct Singer {
     pub mid: String,
@@ -615,4 +617,39 @@ pub struct MyPlaylist {
     pub name: String,
     pub cover_url: String,
     pub song_count: u32,
+}
+
+/// 发布页上的一个安装文件。
+#[derive(Debug, Clone)]
+pub struct UpdateAsset {
+    pub name: String,
+    pub size: i64,
+    /// 小写十六进制。
+    pub sha256: String,
+}
+
+/// 发布流程生成的版本清单。
+#[derive(Debug, Clone)]
+pub struct UpdateInfo {
+    /// 发布用的 tag，如 `v1.3.0-beta.1`。
+    pub tag: String,
+    pub prerelease: bool,
+    /// 发布日期，`YYYY-MM-DD`。
+    pub date: String,
+    /// Markdown 格式的更新说明。
+    pub notes: String,
+    pub assets: Vec<UpdateAsset>,
+}
+
+/// 下载更新时推给 Dart 的进度；每次下载以 `Done`、`Corrupted`、`Failed` 或 `Cancelled` 结束。
+#[derive(Debug, Clone)]
+pub enum UpdateEvent {
+    /// 连上了下载源（`GitHub` 或镜像域名）。
+    Connected { source: String },
+    Progress { received: i64, total: i64 },
+    Done,
+    /// 下完的文件和清单里的校验码对不上，已删除。
+    Corrupted,
+    Failed { error: ApiError },
+    Cancelled,
 }

@@ -39,6 +39,7 @@ class KanadeDialog extends StatelessWidget {
     this.message,
     this.content,
     this.actions = const [],
+    this.animateSize = false,
   });
 
   final IconData? icon;
@@ -51,6 +52,9 @@ class KanadeDialog extends StatelessWidget {
 
   /// 一般用 [KanadeDialogAction]，主按钮放第一个。
   final List<Widget> actions;
+
+  /// 内容会换成别的（比如更新弹窗从说明切到下载进度）时，高度平滑过渡。
+  final bool animateSize;
 
   @override
   Widget build(BuildContext context) {
@@ -101,6 +105,33 @@ class KanadeDialog extends StatelessWidget {
         ),
       ],
     ];
+    Widget body = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ...head,
+        if (content != null) ...[
+          if (head.isNotEmpty) const SizedBox(height: 20),
+          content!,
+        ],
+        if (actions.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          for (final (i, action) in actions.indexed) ...[
+            if (i > 0) const SizedBox(height: 4),
+            action,
+          ],
+        ] else
+          const SizedBox(height: 12),
+      ],
+    );
+    if (animateSize) {
+      body = AnimatedSize(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: body,
+      );
+    }
     return Center(
       child: AnimatedPadding(
         // 有输入框时键盘弹起，弹窗往上让
@@ -119,25 +150,7 @@ class KanadeDialog extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(24, 28, 24, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ...head,
-                    if (content != null) ...[
-                      if (head.isNotEmpty) const SizedBox(height: 20),
-                      content!,
-                    ],
-                    if (actions.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      for (final (i, action) in actions.indexed) ...[
-                        if (i > 0) const SizedBox(height: 4),
-                        action,
-                      ],
-                    ] else
-                      const SizedBox(height: 12),
-                  ],
-                ),
+                child: body,
               ),
             ),
           ),

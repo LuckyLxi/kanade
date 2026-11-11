@@ -967,4 +967,112 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get sleepTimerOff => '关闭定时';
+
+  @override
+  String get close => '关闭';
+
+  @override
+  String get settingsAbout => '关于';
+
+  @override
+  String get checkUpdate => '检查更新';
+
+  @override
+  String currentVersion(String version) {
+    return '当前版本 $version';
+  }
+
+  @override
+  String get updateChecking => '正在检查…';
+
+  @override
+  String get upToDate => '已是最新';
+
+  @override
+  String get updateCheckFailed => '检查更新失败，稍后再试';
+
+  @override
+  String get updatePreview => '接收预览版更新';
+
+  @override
+  String get updatePreviewHint => '测试版也会提醒，可能不稳定';
+
+  @override
+  String get updateMirror => '通过镜像下载更新';
+
+  @override
+  String get updateMirrorHint => '打开后不连接 GitHub，全部走镜像';
+
+  @override
+  String updateAvailable(String version) {
+    return '发现新版本 $version';
+  }
+
+  @override
+  String get updatePreviewBadge => '预览版';
+
+  @override
+  String updateCurrent(String version) {
+    return '当前 $version';
+  }
+
+  @override
+  String updateDate(String date) {
+    return '$date 发布';
+  }
+
+  @override
+  String get updateInstaller => '安装包';
+
+  @override
+  String get updateInstallerHint => '运行安装程序覆盖更新';
+
+  @override
+  String get updateArchive => '压缩包';
+
+  @override
+  String get updateArchiveHint => '退出后自动替换文件';
+
+  @override
+  String get updateNow => '立即更新';
+
+  @override
+  String get updateSkip => '跳过这个版本';
+
+  @override
+  String updateDownloading(String version) {
+    return '正在下载 $version';
+  }
+
+  @override
+  String get updateDownloadingHint => '下载完会自动校验并安装';
+
+  @override
+  String get updateConnecting => '正在连接下载源…';
+
+  @override
+  String updateSource(String source) {
+    return '下载源：$source';
+  }
+
+  @override
+  String get updateFailed => '更新失败';
+
+  @override
+  String get updateNetworkFailed => '没能下载下来。检查网络后重试，或在设置里切换镜像。';
+
+  @override
+  String get updateCorrupted => '文件校验没通过，可能是下载源出了问题。没有安装任何东西。';
+
+  @override
+  String get updateNotWritable => '没有权限替换程序目录里的文件，请改用安装包。';
+
+  @override
+  String get updateInstallFailed => '没能打开安装程序。';
+
+  @override
+  String get updateUseInstaller => '改用安装包';
+
+  @override
+  String get updateOpenBrowser => '在浏览器中下载';
 }

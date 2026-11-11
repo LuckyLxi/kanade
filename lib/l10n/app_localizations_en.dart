@@ -1030,4 +1030,120 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sleepTimerOff => 'Turn off timer';
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String get settingsAbout => 'About';
+
+  @override
+  String get checkUpdate => 'Check for updates';
+
+  @override
+  String currentVersion(String version) {
+    return 'Current version $version';
+  }
+
+  @override
+  String get updateChecking => 'Checking…';
+
+  @override
+  String get upToDate => 'Up to date';
+
+  @override
+  String get updateCheckFailed =>
+      'Couldn\'t check for updates. Try again later.';
+
+  @override
+  String get updatePreview => 'Get preview updates';
+
+  @override
+  String get updatePreviewHint =>
+      'Also notify about beta versions, which may be unstable';
+
+  @override
+  String get updateMirror => 'Download updates through a mirror';
+
+  @override
+  String get updateMirrorHint =>
+      'Skips GitHub entirely and uses mirrors instead';
+
+  @override
+  String updateAvailable(String version) {
+    return '$version is available';
+  }
+
+  @override
+  String get updatePreviewBadge => 'Preview';
+
+  @override
+  String updateCurrent(String version) {
+    return 'Current $version';
+  }
+
+  @override
+  String updateDate(String date) {
+    return 'Released $date';
+  }
+
+  @override
+  String get updateInstaller => 'Installer';
+
+  @override
+  String get updateInstallerHint =>
+      'Runs the installer over the current version';
+
+  @override
+  String get updateArchive => 'Zip archive';
+
+  @override
+  String get updateArchiveHint => 'Replaces the files after the app quits';
+
+  @override
+  String get updateNow => 'Update now';
+
+  @override
+  String get updateSkip => 'Skip this version';
+
+  @override
+  String updateDownloading(String version) {
+    return 'Downloading $version';
+  }
+
+  @override
+  String get updateDownloadingHint =>
+      'It will be verified and installed when done';
+
+  @override
+  String get updateConnecting => 'Connecting…';
+
+  @override
+  String updateSource(String source) {
+    return 'Source: $source';
+  }
+
+  @override
+  String get updateFailed => 'Update failed';
+
+  @override
+  String get updateNetworkFailed =>
+      'The download didn\'t finish. Check your connection and retry, or switch the mirror setting.';
+
+  @override
+  String get updateCorrupted =>
+      'The file failed verification, so the download source may be at fault. Nothing was installed.';
+
+  @override
+  String get updateNotWritable =>
+      'Kanade can\'t replace files in its folder. Use the installer instead.';
+
+  @override
+  String get updateInstallFailed => 'Couldn\'t open the installer.';
+
+  @override
+  String get updateUseInstaller => 'Use the installer';
+
+  @override
+  String get updateOpenBrowser => 'Download in browser';
 }

@@ -1807,6 +1807,198 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'关闭定时'**
   String get sleepTimerOff;
+
+  /// No description provided for @close.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get close;
+
+  /// No description provided for @settingsAbout.
+  ///
+  /// In zh, this message translates to:
+  /// **'关于'**
+  String get settingsAbout;
+
+  /// No description provided for @checkUpdate.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查更新'**
+  String get checkUpdate;
+
+  /// No description provided for @currentVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前版本 {version}'**
+  String currentVersion(String version);
+
+  /// No description provided for @updateChecking.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在检查…'**
+  String get updateChecking;
+
+  /// No description provided for @upToDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'已是最新'**
+  String get upToDate;
+
+  /// No description provided for @updateCheckFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查更新失败，稍后再试'**
+  String get updateCheckFailed;
+
+  /// No description provided for @updatePreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收预览版更新'**
+  String get updatePreview;
+
+  /// No description provided for @updatePreviewHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'测试版也会提醒，可能不稳定'**
+  String get updatePreviewHint;
+
+  /// No description provided for @updateMirror.
+  ///
+  /// In zh, this message translates to:
+  /// **'通过镜像下载更新'**
+  String get updateMirror;
+
+  /// No description provided for @updateMirrorHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开后不连接 GitHub，全部走镜像'**
+  String get updateMirrorHint;
+
+  /// No description provided for @updateAvailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'发现新版本 {version}'**
+  String updateAvailable(String version);
+
+  /// No description provided for @updatePreviewBadge.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览版'**
+  String get updatePreviewBadge;
+
+  /// No description provided for @updateCurrent.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前 {version}'**
+  String updateCurrent(String version);
+
+  /// No description provided for @updateDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'{date} 发布'**
+  String updateDate(String date);
+
+  /// No description provided for @updateInstaller.
+  ///
+  /// In zh, this message translates to:
+  /// **'安装包'**
+  String get updateInstaller;
+
+  /// No description provided for @updateInstallerHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行安装程序覆盖更新'**
+  String get updateInstallerHint;
+
+  /// No description provided for @updateArchive.
+  ///
+  /// In zh, this message translates to:
+  /// **'压缩包'**
+  String get updateArchive;
+
+  /// No description provided for @updateArchiveHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出后自动替换文件'**
+  String get updateArchiveHint;
+
+  /// No description provided for @updateNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即更新'**
+  String get updateNow;
+
+  /// No description provided for @updateSkip.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳过这个版本'**
+  String get updateSkip;
+
+  /// No description provided for @updateDownloading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在下载 {version}'**
+  String updateDownloading(String version);
+
+  /// No description provided for @updateDownloadingHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载完会自动校验并安装'**
+  String get updateDownloadingHint;
+
+  /// No description provided for @updateConnecting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在连接下载源…'**
+  String get updateConnecting;
+
+  /// No description provided for @updateSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载源：{source}'**
+  String updateSource(String source);
+
+  /// No description provided for @updateFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新失败'**
+  String get updateFailed;
+
+  /// No description provided for @updateNetworkFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能下载下来。检查网络后重试，或在设置里切换镜像。'**
+  String get updateNetworkFailed;
+
+  /// No description provided for @updateCorrupted.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件校验没通过，可能是下载源出了问题。没有安装任何东西。'**
+  String get updateCorrupted;
+
+  /// No description provided for @updateNotWritable.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有权限替换程序目录里的文件，请改用安装包。'**
+  String get updateNotWritable;
+
+  /// No description provided for @updateInstallFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没能打开安装程序。'**
+  String get updateInstallFailed;
+
+  /// No description provided for @updateUseInstaller.
+  ///
+  /// In zh, this message translates to:
+  /// **'改用安装包'**
+  String get updateUseInstaller;
+
+  /// No description provided for @updateOpenBrowser.
+  ///
+  /// In zh, this message translates to:
+  /// **'在浏览器中下载'**
+  String get updateOpenBrowser;
 }
 
 class _AppLocalizationsDelegate

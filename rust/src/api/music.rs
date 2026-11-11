@@ -477,6 +477,30 @@ pub fn set_pref(key: String, value: String) -> Result<(), ApiError> {
         .map_err(api_error)?)
 }
 
+/// 读最新版本的清单；`preview` 时包含预览版，`mirror` 时只走镜像。
+pub async fn get_latest_update(preview: bool, mirror: bool) -> Result<UpdateInfo, ApiError> {
+    Ok(crate::update::latest(preview, mirror).await.map_err(api_error)?)
+}
+
+/// 把 `tag` 发布里的 `asset` 下载到 `dest`，下完核对校验码。以结束事件收尾。
+pub async fn download_update(
+    tag: String,
+    asset: UpdateAsset,
+    dest: String,
+    mirror: bool,
+    sink: StreamSink<UpdateEvent>,
+) {
+    crate::update::download(&tag, &asset, std::path::Path::new(&dest), mirror, |e| {
+        let _ = sink.add(e);
+    })
+    .await
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn cancel_update_download() {
+    crate::update::cancel()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

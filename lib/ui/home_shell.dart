@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
@@ -21,6 +22,7 @@ import 'player_route.dart';
 import 'search_page.dart';
 import 'session_ended_dialog.dart';
 import 'song_list_page.dart';
+import 'update_dialog.dart';
 import 'widgets.dart';
 
 /// 底部（窄屏）或侧边（宽屏）导航。每个标签页有自己的 Navigator，
@@ -191,6 +193,8 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
       if (!mounted) return;
       _reportPlayerVisibility();
       _onAuthChanged();
+      // 开发时版本号不准，只在发布版里启动时检查
+      if (kReleaseMode) unawaited(checkForUpdate(context));
     });
   }
 

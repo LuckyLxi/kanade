@@ -4,12 +4,13 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import 'error.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'types.freezed.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 class AlbumBrief {
   final String mid;
@@ -1475,6 +1476,94 @@ class TopListGroup {
           runtimeType == other.runtimeType &&
           name == other.name &&
           lists == other.lists;
+}
+
+/// 发布页上的一个安装文件。
+class UpdateAsset {
+  final String name;
+  final PlatformInt64 size;
+
+  /// 小写十六进制。
+  final String sha256;
+
+  const UpdateAsset({
+    required this.name,
+    required this.size,
+    required this.sha256,
+  });
+
+  @override
+  int get hashCode => name.hashCode ^ size.hashCode ^ sha256.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UpdateAsset &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          size == other.size &&
+          sha256 == other.sha256;
+}
+
+@freezed
+sealed class UpdateEvent with _$UpdateEvent {
+  const UpdateEvent._();
+
+  /// 连上了下载源（`GitHub` 或镜像域名）。
+  const factory UpdateEvent.connected({required String source}) =
+      UpdateEvent_Connected;
+  const factory UpdateEvent.progress({
+    required PlatformInt64 received,
+    required PlatformInt64 total,
+  }) = UpdateEvent_Progress;
+  const factory UpdateEvent.done() = UpdateEvent_Done;
+
+  /// 下完的文件和清单里的校验码对不上，已删除。
+  const factory UpdateEvent.corrupted() = UpdateEvent_Corrupted;
+  const factory UpdateEvent.failed({required ApiError error}) =
+      UpdateEvent_Failed;
+  const factory UpdateEvent.cancelled() = UpdateEvent_Cancelled;
+}
+
+/// 发布流程生成的版本清单。
+class UpdateInfo {
+  /// 发布用的 tag，如 `v1.3.0-beta.1`。
+  final String tag;
+  final bool prerelease;
+
+  /// 发布日期，`YYYY-MM-DD`。
+  final String date;
+
+  /// Markdown 格式的更新说明。
+  final String notes;
+  final List<UpdateAsset> assets;
+
+  const UpdateInfo({
+    required this.tag,
+    required this.prerelease,
+    required this.date,
+    required this.notes,
+    required this.assets,
+  });
+
+  @override
+  int get hashCode =>
+      tag.hashCode ^
+      prerelease.hashCode ^
+      date.hashCode ^
+      notes.hashCode ^
+      assets.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UpdateInfo &&
+          runtimeType == other.runtimeType &&
+          tag == other.tag &&
+          prerelease == other.prerelease &&
+          date == other.date &&
+          notes == other.notes &&
+          assets == other.assets;
 }
 
 enum UserAssetKind { song, playlist, album, video }

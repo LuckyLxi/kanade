@@ -10,12 +10,14 @@ import '../settings/locale_controller.dart';
 import '../settings/theme_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import '../update/app_update.dart';
 import 'foryou_settings_page.dart';
 import 'glass_dropdown.dart';
 import 'kanade_dialog.dart';
 import 'smooth_scroll.dart';
 import 'theme_reveal.dart';
 import 'toast.dart';
+import 'update_dialog.dart';
 import 'widgets.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -97,11 +99,16 @@ class _SettingsPageState extends State<SettingsPage> {
   int? _audioSize;
   int? _apiSize;
   final _scroll = SmoothScrollController();
-  final _sectionKeys = List.generate(4, (_) => GlobalKey());
+  final _sectionKeys = List.generate(5, (_) => GlobalKey());
   final _themeIconKeys = {for (final m in ThemeMode.values) m: GlobalKey()};
   final _qualityMenu = GlobalKey<GlassDropdownState<Quality>>();
   final _languageMenu = GlobalKey<GlassDropdownState<String>>();
   final _limitMenu = GlobalKey<GlassDropdownState<int>>();
+  String? _version;
+  var _checking = false;
+  UpdateCheckResult? _checked;
+  var _preview = AppUpdate.preview;
+  var _mirror = AppUpdate.mirror;
   var _sectionCount = 0;
   var _current = 0;
   var _wide = false;
@@ -114,6 +121,27 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _scroll.addListener(_spy);
     _loadSizes();
+    AppUpdate.currentVersion().then((v) {
+      if (mounted) setState(() => _version = v);
+    });
+  }
+
+  Future<void> _checkUpdate() async {
+    if (_checking) return;
+    setState(() => _checking = true);
+    final result = await checkForUpdate(context, manual: true);
+    if (!mounted) return;
+    setState(() {
+      _checking = false;
+      _checked = result;
+    });
+    if (result == UpdateCheckResult.failed) {
+      showToast(
+        context,
+        AppLocalizations.of(context).updateCheckFailed,
+        kind: ToastKind.error,
+      );
+    }
   }
 
   @override
@@ -549,6 +577,50 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
           ),
         ),
+      (
+        title: l.settingsAbout,
+        icon: Icons.info_outline,
+        rows: [
+          _Item(
+            icon: Icons.system_update_alt_rounded,
+            title: l.checkUpdate,
+            hint: _version == null ? null : l.currentVersion("v$_version"),
+            value: _Value(
+              _checking
+                  ? l.updateChecking
+                  : _checked == UpdateCheckResult.upToDate
+                  ? l.upToDate
+                  : "",
+            ),
+            onTap: _checkUpdate,
+          ),
+          _Item(
+            icon: Icons.science_outlined,
+            title: l.updatePreview,
+            hint: l.updatePreviewHint,
+            onTap: () =>
+                setState(() => AppUpdate.preview = _preview = !_preview),
+            trailing: Switch(
+              value: _preview,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onChanged: (v) =>
+                  setState(() => AppUpdate.preview = _preview = v),
+            ),
+          ),
+          _Item(
+            icon: Icons.public,
+            title: l.updateMirror,
+            hint: l.updateMirrorHint,
+            onTap: () => setState(() => AppUpdate.mirror = _mirror = !_mirror),
+            trailing: Switch(
+              value: _mirror,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onChanged: (v) => setState(() => AppUpdate.mirror = _mirror = v),
+            ),
+          ),
+        ],
+        after: null,
+      ),
     ];
     _sectionCount = sections.length;
     if (_current >= _sectionCount) _current = _sectionCount - 1;
