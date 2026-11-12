@@ -317,6 +317,60 @@ class _LocalPlayerController extends PlayerController {
   @override
   Future<void> playAt(int i) => _playAt(i);
 
+  @override
+  Future<void> removeAt(int i) async {
+    if (i < 0 || i >= queue.length) return;
+    final removingCurrent = i == index;
+    if (i > index && i <= index + _pinnedNext) _pinnedNext--;
+    final (q, n) = removeFromQueue(queue, index, i);
+    queue = q;
+    if (q.isEmpty) {
+      ++_token;
+      ++_urlToken;
+      _attempt = null;
+      _radio = null;
+      _pinnedNext = 0;
+      _restored = false;
+      index = -1;
+      playing = false;
+      loading = false;
+      error = null;
+      actualQuality = null;
+      duration = Duration.zero;
+      position.value = Duration.zero;
+      _sessionStore.clear();
+      _refreshDisplayMetadata();
+      notifyListeners();
+      await _player.stop();
+      return;
+    }
+    if (removingCurrent) {
+      // 原来的下一首已经挪到这个位置；插过“下一首播放”的话它就是第一首插的
+      await _playAt(n, pinnedNext: max(0, _pinnedNext - 1));
+      return;
+    }
+    index = n;
+    _saveSession();
+    notifyListeners();
+  }
+
+  @override
+  void moveQueue(int from, int to) {
+    if (from == to ||
+        from < 0 ||
+        from >= queue.length ||
+        to < 0 ||
+        to >= queue.length) {
+      return;
+    }
+    final (q, n) = moveInQueue(queue, index, from, to);
+    queue = q;
+    index = n;
+    _pinnedNext = min(_pinnedNext, queue.length - 1 - index);
+    _saveSession();
+    notifyListeners();
+  }
+
   Future<void> _playAt(int i, {int skipped = 0, int pinnedNext = 0}) async {
     if (i < 0 || i >= queue.length) return;
     // 手动点了别的歌，之前插的“下一首”就不再算数

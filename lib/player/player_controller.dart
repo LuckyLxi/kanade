@@ -64,6 +64,26 @@ enum PlayNextResult { queued, started, current }
   return (q, i);
 }
 
+/// 从队列里删掉第 [i] 首，返回新队列和当前歌曲的新下标。
+/// 删的就是当前这首时，新下标指向原来的下一首（删的是最后一首就回到开头），队列删空了是 -1。
+(List<Song>, int) removeFromQueue(List<Song> queue, int index, int i) {
+  final q = List.of(queue)..removeAt(i);
+  if (q.isEmpty) return (q, -1);
+  if (i < index) return (q, index - 1);
+  if (i == index) return (q, i % q.length);
+  return (q, index);
+}
+
+/// 把第 [from] 首挪到第 [to] 个位置（挪完后的下标），返回新队列和当前歌曲的新下标。
+(List<Song>, int) moveInQueue(List<Song> queue, int index, int from, int to) {
+  final q = List.of(queue);
+  q.insert(to, q.removeAt(from));
+  if (from == index) return (q, to);
+  if (from < index && to >= index) return (q, index - 1);
+  if (from > index && to <= index) return (q, index + 1);
+  return (q, index);
+}
+
 /// 两种播放实现共用的状态与展示元数据，不持有本地播放器。
 abstract class PlayerController extends ChangeNotifier {
   factory PlayerController(
@@ -149,6 +169,12 @@ abstract class PlayerController extends ChangeNotifier {
   Future<void> playRadio(RadioSource source, {List<Song>? first});
   PlayNextResult playNext(Song song);
   Future<void> playAt(int i);
+
+  /// 从队列里删掉第 [i] 首；删的是正在放的就接着放下一首，删空了就停下。
+  Future<void> removeAt(int i);
+
+  /// 把第 [from] 首挪到第 [to] 个位置（挪完后的下标）。
+  void moveQueue(int from, int to);
   Future<void> next();
   Future<void> previous();
   Future<void> play();

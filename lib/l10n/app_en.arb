@@ -115,6 +115,8 @@
   "alreadyPlaying": "Already playing",
   "volume": "Volume",
   "queue": "Queue",
+  "removeFromQueue": "Remove from queue",
+  "reorderQueue": "Drag to reorder",
   "playbackError": "Playback error: {error}",
   "songUnplayable": "Can't play \"{song}\": {error}",
   "errorNotLoggedIn": "Not logged in",

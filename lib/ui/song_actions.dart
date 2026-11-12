@@ -23,10 +23,20 @@ Future<void> toggleLike(BuildContext context, Song song) async {
   try {
     final liked = await context.read<LibraryController>().toggleLike(song);
     if (context.mounted) {
-      showToast(context, liked ? l.liked : l.unliked, kind: liked ? ToastKind.liked : ToastKind.info);
+      showToast(
+        context,
+        liked ? l.liked : l.unliked,
+        kind: liked ? ToastKind.liked : ToastKind.info,
+      );
     }
   } catch (e) {
-    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)), kind: ToastKind.error);
+    if (context.mounted) {
+      showToast(
+        context,
+        l.actionFailed(errorText(l, e)),
+        kind: ToastKind.error,
+      );
+    }
   }
 }
 
@@ -41,9 +51,21 @@ Future<void> addToPlaylist(BuildContext context, Song song) async {
   if (picked == null || !context.mounted) return;
   try {
     await library.addToPlaylist(picked, song);
-    if (context.mounted) showToast(context, l.addedToPlaylist(picked.name), kind: ToastKind.success);
+    if (context.mounted) {
+      showToast(
+        context,
+        l.addedToPlaylist(picked.name),
+        kind: ToastKind.success,
+      );
+    }
   } catch (e) {
-    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)), kind: ToastKind.error);
+    if (context.mounted) {
+      showToast(
+        context,
+        l.actionFailed(errorText(l, e)),
+        kind: ToastKind.error,
+      );
+    }
   }
 }
 
@@ -60,19 +82,34 @@ void playNext(BuildContext context, Song song) {
 }
 
 /// 从自己的歌单删歌，成功返回 true。
-Future<bool> removeFromPlaylist(BuildContext context, MyPlaylist playlist, Song song) async {
+Future<bool> removeFromPlaylist(
+  BuildContext context,
+  MyPlaylist playlist,
+  Song song,
+) async {
   if (!_requireLogin(context)) return false;
   final l = AppLocalizations.of(context);
   try {
     await context.read<LibraryController>().removeFromPlaylist(playlist, song);
-    if (context.mounted) showToast(context, l.removedFromPlaylist(playlist.name), kind: ToastKind.success);
+    if (context.mounted) {
+      showToast(
+        context,
+        l.removedFromPlaylist(playlist.name),
+        kind: ToastKind.success,
+      );
+    }
     return true;
   } catch (e) {
-    if (context.mounted) showToast(context, l.actionFailed(errorText(l, e)), kind: ToastKind.error);
+    if (context.mounted) {
+      showToast(
+        context,
+        l.actionFailed(errorText(l, e)),
+        kind: ToastKind.error,
+      );
+    }
     return false;
   }
 }
-
 
 /// 选一个自己的歌单。加载中和出错时只占一小块，免得卡片先撑满再缩回去。
 class _PlaylistPicker extends StatefulWidget {
@@ -87,7 +124,8 @@ class _PlaylistPicker extends StatefulWidget {
 class _PlaylistPickerState extends State<_PlaylistPicker> {
   late Future<List<MyPlaylist>> _future = widget.load();
 
-  Widget _placeholder(Widget child) => SizedBox(height: 140, child: Center(child: child));
+  Widget _placeholder(Widget child) =>
+      SizedBox(height: 140, child: Center(child: child));
 
   @override
   Widget build(BuildContext context) {
@@ -101,17 +139,28 @@ class _PlaylistPickerState extends State<_PlaylistPicker> {
             future: _future,
             builder: (context, snap) {
               if (snap.hasError) {
-                return _placeholder(Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(l.loadFailed(errorText(l, snap.error!)), textAlign: TextAlign.center),
-                    const SizedBox(height: 12),
-                    FilledButton.tonal(onPressed: () => setState(() => _future = widget.load()), child: Text(l.retry)),
-                  ],
-                ));
+                return _placeholder(
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        l.loadFailed(errorText(l, snap.error!)),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.tonal(
+                        onPressed: () =>
+                            setState(() => _future = widget.load()),
+                        child: Text(l.retry),
+                      ),
+                    ],
+                  ),
+                );
               }
               final lists = snap.data;
-              if (lists == null) return _placeholder(const CircularProgressIndicator());
+              if (lists == null) {
+                return _placeholder(const CircularProgressIndicator());
+              }
               if (lists.isEmpty) return _placeholder(Text(l.noMyPlaylists));
               // 歌单多的时候会很长，滚轮也要平滑
               return SmoothScroll(

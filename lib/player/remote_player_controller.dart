@@ -129,6 +129,35 @@ class _RemotePlayerController extends PlayerController {
   @override
   Future<void> playAt(int i) => _send('playAt', i);
 
+  // 删除和挪动先改界面这边的队列，拖完松手列表不会先弹回原位再等播放服务的快照
+  @override
+  Future<void> removeAt(int i) {
+    if (i < 0 || i >= queue.length) return Future.value();
+    final before = current?.mid;
+    final (q, n) = removeFromQueue(queue, index, i);
+    queue = q;
+    index = n;
+    if (before != current?.mid) _refreshDisplayMetadata();
+    notifyListeners();
+    return _send('removeAt', i);
+  }
+
+  @override
+  void moveQueue(int from, int to) {
+    if (from == to ||
+        from < 0 ||
+        from >= queue.length ||
+        to < 0 ||
+        to >= queue.length) {
+      return;
+    }
+    final (q, n) = moveInQueue(queue, index, from, to);
+    queue = q;
+    index = n;
+    notifyListeners();
+    _ignore(_send('moveQueue', [from, to]));
+  }
+
   @override
   Future<void> next() => _send('next');
 

@@ -385,6 +385,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get queue => '播放队列';
 
   @override
+  String get removeFromQueue => '从队列移除';
+
+  @override
+  String get reorderQueue => '拖动调整顺序';
+
+  @override
   String playbackError(String error) {
     return '播放出错：$error';
   }

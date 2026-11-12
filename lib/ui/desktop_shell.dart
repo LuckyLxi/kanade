@@ -9,6 +9,7 @@ import '../library/library_controller.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'desktop_queue_popup.dart';
 import 'glass.dart';
 import 'play_pause_button.dart';
 import 'player_background.dart';
@@ -266,7 +267,7 @@ class _SidebarPlaylistsState extends State<_SidebarPlaylists> {
   }
 }
 
-/// 桌面底部整宽的玻璃播放栏：左边歌曲信息，中间播放控制和进度，右边歌词 / 队列 / 音量。
+/// 桌面底部整宽的玻璃播放栏：左边歌曲信息，中间播放控制和进度，右边队列和音量。
 /// 玻璃里只放普通控件，并且图标颜色要显式给（玻璃层会改写继承的图标颜色）。
 class DesktopPlayerBar extends StatefulWidget {
   const DesktopPlayerBar({super.key, this.barAnchor});
@@ -381,8 +382,6 @@ class _DesktopBarContent extends StatelessWidget {
       (c) => c.isLiked(song),
     );
     final muted = scheme.onSurfaceVariant;
-    void openPlayer({bool queue = false}) =>
-        PlayerRoute.open(context, anchor: anchor, showQueue: queue);
 
     return Padding(
       // 两端是半圆，内容往里收一点
@@ -508,16 +507,7 @@ class _DesktopBarContent extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                IconButton(
-                  tooltip: l.lyrics,
-                  onPressed: openPlayer,
-                  icon: Icon(Icons.lyrics_outlined, size: 20, color: muted),
-                ),
-                IconButton(
-                  tooltip: l.queue,
-                  onPressed: () => openPlayer(queue: true),
-                  icon: Icon(Icons.queue_music_rounded, size: 20, color: muted),
-                ),
+                DesktopQueueButton(color: muted),
                 const SizedBox(width: 4),
                 Icon(
                   p.volume == 0

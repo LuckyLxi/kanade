@@ -20,6 +20,7 @@ import 'player_background.dart';
 import 'player_detail.dart';
 import 'player_lyrics.dart';
 import 'player_route.dart';
+import 'queue_list.dart';
 import 'sleep_timer_sheet.dart';
 import 'smooth_scroll.dart';
 import 'song_action_sheet.dart';
@@ -145,7 +146,7 @@ class _PlayerPageState extends State<PlayerPage>
     for (final s in songs) {
       // 换歌后会从新的位置重新来一遍，这一遍不用接着做
       if (!mounted || p.current != song) return;
-      await precacheImage(_queueCover(context, s), context, onError: (_, _) {});
+      await precacheImage(queueCover(context, s), context, onError: (_, _) {});
     }
   }
 
@@ -2087,11 +2088,9 @@ class _QueuePanel extends StatefulWidget {
 }
 
 class _QueuePanelState extends State<_QueuePanel> {
-  static const _extent = 64.0;
   late final ScrollController _scroll = SmoothScrollController(
-    initialScrollOffset: max(
-      0,
-      (context.read<PlayerController>().index - 1) * _extent,
+    initialScrollOffset: QueueList.initialOffset(
+      context.read<PlayerController>().index,
     ),
   );
 
@@ -2101,8 +2100,13 @@ class _QueuePanelState extends State<_QueuePanel> {
   bool _decided = false;
   bool _pulling = false;
 
+  /// 这次按在了拖动手柄上。手柄里的监听比这里的 [_onDown] 先收到按下。
+  bool _onHandle = false;
+
   void _onDown(PointerDownEvent e) {
-    if (widget.onPull == null) return;
+    final onHandle = _onHandle;
+    _onHandle = false;
+    if (widget.onPull == null || onHandle) return;
     _tracker = VelocityTracker.withKind(e.kind)
       ..addPosition(e.timeStamp, e.position);
     _moved = 0;
@@ -2150,7 +2154,6 @@ class _QueuePanelState extends State<_QueuePanel> {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.watch<PlayerController>();
     final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2185,207 +2188,18 @@ class _QueuePanelState extends State<_QueuePanel> {
               onPointerMove: _onMove,
               onPointerUp: (e) => _onUp(e, cancel: false),
               onPointerCancel: (e) => _onUp(e, cancel: true),
-              child: ListView.builder(
+              child: QueueList(
                 controller: _scroll,
                 physics: _pulling ? const NeverScrollableScrollPhysics() : null,
-                itemExtent: _extent,
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 40),
-                itemCount: p.queue.length,
-                itemBuilder: (_, i) => _QueueTile(
-                  song: p.queue[i],
-                  current: i == p.index,
-                  played: i < p.index,
-                  playing: p.playing,
-                  onTap: () => p.playAt(i),
-                ),
+                color: Colors.white,
+                dragColor: const Color(0xF0303030),
+                // 在手柄上按下是要拖动排序，不当成往下拉翻回主页面
+                onHandleDown: () => _onHandle = true,
               ),
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-/// 队列封面只有 46px，按显示尺寸解码，不用解出整张 300px 原图。
-/// 提前加载和列表显示用同一个对象，图片缓存才对得上。
-ImageProvider _queueCover(BuildContext context, Song song) => ResizeImage(
-  NetworkImage(httpsUrl(song.coverUrl)),
-  width: (46 * MediaQuery.devicePixelRatioOf(context)).round(),
-);
-
-class _QueueTile extends StatelessWidget {
-  const _QueueTile({
-    required this.song,
-    required this.current,
-    required this.played,
-    required this.playing,
-    required this.onTap,
-  });
-
-  final Song song;
-  final bool current;
-  final bool played;
-  final bool playing;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    // 已播放的歌用颜色变淡，不用 Opacity 图层
-    final fg = played ? 0.45 : 1.0;
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        hoverColor: Colors.white10,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: current
-                ? Colors.white.withValues(alpha: 0.12)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Stack(
-                children: [
-                  SizedBox.square(
-                    dimension: 46,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Image(
-                        image: _queueCover(context, song),
-                        fit: BoxFit.cover,
-                        color: played ? const Color(0x73FFFFFF) : null,
-                        colorBlendMode: BlendMode.modulate,
-                        errorBuilder: (_, _, _) =>
-                            const ColoredBox(color: Colors.white12),
-                      ),
-                    ),
-                  ),
-                  if (current)
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.black45,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Center(child: _NowPlayingBars(playing: playing)),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      song.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: current ? FontWeight.w800 : FontWeight.w600,
-                        color: Colors.white.withValues(alpha: fg),
-                      ),
-                    ),
-                    Text(
-                      singerNames(song),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.6 * fg),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                formatDuration(Duration(seconds: song.durationSecs)),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.white.withValues(alpha: 0.38 * fg),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 正在播放的跳动音柱。
-class _NowPlayingBars extends StatefulWidget {
-  const _NowPlayingBars({required this.playing});
-
-  final bool playing;
-
-  @override
-  State<_NowPlayingBars> createState() => _NowPlayingBarsState();
-}
-
-class _NowPlayingBarsState extends State<_NowPlayingBars>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1200),
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.playing) _c.repeat();
-  }
-
-  @override
-  void didUpdateWidget(_NowPlayingBars old) {
-    super.didUpdateWidget(old);
-    if (widget.playing && !_c.isAnimating) _c.repeat();
-    if (!widget.playing) _c.stop();
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (_, _) => Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (var i = 0; i < 4; i++)
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 1.2),
-              width: 3,
-              height: widget.playing
-                  ? 5 +
-                        11 *
-                            (0.5 +
-                                0.5 *
-                                    sin(
-                                      _c.value * 2 * pi * (i.isEven ? 2 : 3) +
-                                          i * 1.3,
-                                    ))
-                  : 4,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-        ],
-      ),
     );
   }
 }

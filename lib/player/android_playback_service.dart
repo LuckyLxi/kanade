@@ -174,6 +174,11 @@ class _PlaybackServer {
         player.playNext(songFromJson(argument as Map<String, dynamic>));
       case 'playAt':
         await player.playAt(argument as int);
+      case 'removeAt':
+        await player.removeAt(argument as int);
+      case 'moveQueue':
+        final args = argument as List<Object?>;
+        player.moveQueue(args[0] as int, args[1] as int);
       case 'next':
         await player.next();
       case 'previous':

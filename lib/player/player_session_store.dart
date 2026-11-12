@@ -29,6 +29,9 @@ class PlayerSessionStore {
     }
   }
 
+  /// 队列删空了：下次启动不再恢复。读的时候解析失败就当没有会话。
+  void clear() => api.setPref(key: _key, value: '');
+
   void write(List<Song> queue, int index, String mode) {
     api.setPref(
       key: _key,

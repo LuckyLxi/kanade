@@ -788,6 +788,18 @@ abstract class AppLocalizations {
   /// **'播放队列'**
   String get queue;
 
+  /// No description provided for @removeFromQueue.
+  ///
+  /// In zh, this message translates to:
+  /// **'从队列移除'**
+  String get removeFromQueue;
+
+  /// No description provided for @reorderQueue.
+  ///
+  /// In zh, this message translates to:
+  /// **'拖动调整顺序'**
+  String get reorderQueue;
+
   /// No description provided for @playbackError.
   ///
   /// In zh, this message translates to:

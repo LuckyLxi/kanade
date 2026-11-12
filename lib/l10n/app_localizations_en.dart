@@ -407,6 +407,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get queue => 'Queue';
 
   @override
+  String get removeFromQueue => 'Remove from queue';
+
+  @override
+  String get reorderQueue => 'Drag to reorder';
+
+  @override
   String playbackError(String error) {
     return 'Playback error: $error';
   }
