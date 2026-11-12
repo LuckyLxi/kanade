@@ -48,7 +48,10 @@ class _LocalPlayerController extends PlayerController {
         // 手动切歌淡出的那一小段，进度条已经换成了新歌，旧歌的进度不再显示
         if (_holdGain) return;
         position.value = v;
+        _fadePos = v;
+        _fadeClock.reset();
         _setGain(_gainAt(v));
+        _startFadeTick();
       }),
       _player.stream.duration.listen((v) {
         duration = v;
@@ -105,6 +108,34 @@ class _LocalPlayerController extends PlayerController {
     if (g == _gain) return;
     _gain = g;
     _applyVolume();
+  }
+
+  /// mpv 报进度的间隔比较稀，只在报进度时调音量会一级一级地跳。
+  /// 淡入淡出区间里按上次报的进度加上经过的时间，每 16ms 算一次。
+  Duration _fadePos = Duration.zero;
+  final _fadeClock = Stopwatch()..start();
+  Timer? _fadeTick;
+
+  void _startFadeTick() {
+    if (_fadeTick != null || _gain >= 1 || !_player.state.playing) return;
+    _fadeTick = Timer.periodic(const Duration(milliseconds: 16), (_) {
+      if (_holdGain || !_player.state.playing || _player.state.buffering) {
+        _stopFadeTick();
+        return;
+      }
+      // 卡住不报进度时最多往前推 0.5 秒，免得音量自己走完
+      final ahead = _fadeClock.elapsed < const Duration(milliseconds: 500)
+          ? _fadeClock.elapsed
+          : const Duration(milliseconds: 500);
+      final g = _gainAt(_fadePos + ahead);
+      _setGain(g);
+      if (g >= 1) _stopFadeTick();
+    });
+  }
+
+  void _stopFadeTick() {
+    _fadeTick?.cancel();
+    _fadeTick = null;
   }
 
   /// 暂停、继续时的渐变系数（0–1），和按进度算的 [_gain] 分开乘，互不打乱。
@@ -341,6 +372,9 @@ class _LocalPlayerController extends PlayerController {
   Future<void> _configureAndroidDiskCache() async {
     final native = _player.platform;
     if (native is! NativePlayer) return;
+    // OpenSL ES 默认一次交给系统 250ms 的音频，整块共用一个音量，
+    // 淡入淡出听起来就是每 0.25 秒跳一级。缩到 50ms 让音量变化连贯。
+    await native.setProperty('opensles-buffer-size-in-ms', '50');
     try {
       // Android 的默认目录可能不可写，mpv 会退回内存缓存。
       final directory = await getTemporaryDirectory();
@@ -402,7 +436,10 @@ class _LocalPlayerController extends PlayerController {
     _pauseRamp++;
     _pauseGain = 1;
     // 新歌从静音开始，等进度走起来再渐强
-    _gain = _gainAt(start ?? Duration.zero);
+    _stopFadeTick();
+    _fadePos = start ?? Duration.zero;
+    _fadeClock.reset();
+    _gain = _gainAt(_fadePos);
     _applyVolume();
     try {
       await _setNetworkTimeout(decoded: ready != null);
@@ -669,6 +706,7 @@ class _LocalPlayerController extends PlayerController {
   @override
   void dispose() {
     ++_token;
+    _stopFadeTick();
     _sleepTimer?.cancel();
     if (_volumeSave != null) {
       _volumeSave!.cancel();
