@@ -122,6 +122,7 @@ class _PlayerPageState extends State<PlayerPage>
   void _loadArt(String url) {
     if (url == _artUrl) return;
     _artUrl = url;
+    unawaited(_precacheQueueCovers());
     if (url.isEmpty) return;
     // 迷你播放器一般已经预取好了，第一帧直接用
     final cached = cachedCoverArt(url);
@@ -132,6 +133,20 @@ class _PlayerPageState extends State<PlayerPage>
     loadCoverArt(url).then((art) {
       if (mounted && _artUrl == url) setState(() => _art = art);
     }, onError: (_) {});
+  }
+
+  /// 队列翻开时第一屏的封面提前一张一张加载好。不然十几张封面都在手指刚动的那一帧
+  /// 同时发起网络请求，第一次翻开会卡一下（之后图片缓存里有了就不会）。
+  Future<void> _precacheQueueCovers() async {
+    // 在 build 里调用，不能用 context.read
+    final p = Provider.of<PlayerController>(context, listen: false);
+    final song = p.current;
+    final songs = p.queue.skip(max(0, p.index - 1)).take(24).toList();
+    for (final s in songs) {
+      // 换歌后会从新的位置重新来一遍，这一遍不用接着做
+      if (!mounted || p.current != song) return;
+      await precacheImage(_queueCover(context, s), context, onError: (_, _) {});
+    }
   }
 
   @override
@@ -2192,6 +2207,13 @@ class _QueuePanelState extends State<_QueuePanel> {
   }
 }
 
+/// 队列封面只有 46px，按显示尺寸解码，不用解出整张 300px 原图。
+/// 提前加载和列表显示用同一个对象，图片缓存才对得上。
+ImageProvider _queueCover(BuildContext context, Song song) => ResizeImage(
+  NetworkImage(httpsUrl(song.coverUrl)),
+  width: (46 * MediaQuery.devicePixelRatioOf(context)).round(),
+);
+
 class _QueueTile extends StatelessWidget {
   const _QueueTile({
     required this.song,
@@ -2230,16 +2252,12 @@ class _QueueTile extends StatelessWidget {
             children: [
               Stack(
                 children: [
-                  // 队列封面只有 46px，按显示尺寸解码，不用解出整张 300px 原图
                   SizedBox.square(
                     dimension: 46,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(6),
-                      child: Image.network(
-                        httpsUrl(song.coverUrl),
-                        cacheWidth:
-                            (46 * MediaQuery.devicePixelRatioOf(context))
-                                .round(),
+                      child: Image(
+                        image: _queueCover(context, song),
                         fit: BoxFit.cover,
                         color: played ? const Color(0x73FFFFFF) : null,
                         colorBlendMode: BlendMode.modulate,
