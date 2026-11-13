@@ -36,6 +36,13 @@ libc = "0.2"
 hound = "3.5.1"
 mp4 = "0.14.0"
 
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+
+# 登录凭证用 DPAPI 加密（secret.rs）。
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
+
 [target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_LibraryLoader"] }
 

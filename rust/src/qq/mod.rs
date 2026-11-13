@@ -17,6 +17,7 @@ mod qmc;
 pub mod quality;
 mod ra360;
 pub mod recognize;
+mod secret;
 pub mod sign;
 pub mod social;
 pub mod store;

@@ -16,6 +16,7 @@ class KanadeApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        SessionKey.install(this)
         if (!separateAndroidPlayback) return
         val process = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             getProcessName()

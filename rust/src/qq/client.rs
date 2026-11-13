@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use super::error::ApiError;
+use super::secret;
 use super::sign::{decode_ag1, encrypt_ag1, hash33, sign};
 use super::store::Store;
 use crate::api::types::SessionEndReason;
@@ -141,6 +142,11 @@ pub fn core() -> &'static Core {
     CORE.get_or_init(|| Core::new(Store::in_memory().unwrap()).unwrap())
 }
 
+fn load_session(store: &Store) -> Option<Session> {
+    let raw = store.kv_get("session")?;
+    serde_json::from_str(&secret::open(&raw).ok()?).ok()
+}
+
 pub fn now_ms() -> u128 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()
 }
@@ -155,7 +161,16 @@ impl Core {
         let guid = store.kv_get_or_insert("guid", || {
             (0..10).map(|_| rand::random::<u8>() % 10).map(|d| char::from(b'0' + d)).collect()
         })?;
-        let session = store.kv_get("session").and_then(|s| serde_json::from_str(&s).ok());
+        let session = load_session(&store);
+        // 旧版本明文保存的凭证，读出来后换成加密格式重新写入。
+        if let (Some(s), Some(raw)) = (&session, store.kv_get("session")) {
+            if !secret::is_sealed(&raw) {
+                // 拿不到密钥时先保留明文，不影响启动；下次写入凭证会报错。
+                if let Ok(sealed) = secret::seal(&serde_json::to_string(s)?) {
+                    store.kv_set("session", &sealed)?;
+                }
+            }
+        }
         // PC 接口使用独立的 32 位 GUID，保留旧接口已有的设备标识。
         let desktop_guid = store.kv_get_or_insert("desktop_guid", || {
             uuid::Uuid::new_v4().simple().to_string().to_uppercase()
@@ -165,14 +180,14 @@ impl Core {
 
     pub fn session(&self) -> Option<Session> {
         if cfg!(target_os = "android") {
-            return self.store.kv_get("session").and_then(|s| serde_json::from_str(&s).ok());
+            return load_session(&self.store);
         }
         self.session.read().unwrap().clone()
     }
 
     pub fn set_session(&self, s: Option<Session>) -> Result<()> {
         match &s {
-            Some(s) => self.store.kv_set("session", &serde_json::to_string(s)?)?,
+            Some(s) => self.store.kv_set("session", &secret::seal(&serde_json::to_string(s)?)?)?,
             None => self.store.kv_delete("session")?,
         }
         *self.session.write().unwrap() = s;
@@ -493,6 +508,18 @@ mod tests {
         assert_eq!(authenticated["authst"], "test-key");
         assert_eq!(authenticated["tmeLoginType"], 1);
         assert!(authenticated.get("qq").is_none());
+    }
+
+    #[test]
+    fn legacy_plaintext_session_is_encrypted_on_load() {
+        let store = Store::in_memory().unwrap();
+        store.kv_set("session", r#"{"uin":"1","musickey":"secret-key","login_type":2}"#).unwrap();
+        let client = Core::new(store).unwrap();
+        assert_eq!(client.session().unwrap().musickey, "secret-key");
+        let raw = client.store.kv_get("session").unwrap();
+        assert!(!raw.contains("secret-key"));
+        let reopened = Core::new(client.store).unwrap();
+        assert_eq!(reopened.session().unwrap().musickey, "secret-key");
     }
 
     #[test]
