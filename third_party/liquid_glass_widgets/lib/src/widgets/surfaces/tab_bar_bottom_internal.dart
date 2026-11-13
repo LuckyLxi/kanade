@@ -7,7 +7,7 @@ library;
 
 import 'dart:math' as math;
 
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 
 import '../../../widgets/shared/glass_focus_region.dart';
 import '../../../constants/glass_defaults.dart';

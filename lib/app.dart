@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'auth/auth_controller.dart';
 import 'l10n/app_localizations.dart';
+import 'l10n/localizations_delegates.dart';
 import 'library/library_controller.dart';
 import 'player/media_session.dart';
 import 'player/player_controller.dart';
@@ -131,7 +132,7 @@ class KanadeApp extends StatelessWidget {
       builder: (context, revealing) => MaterialApp(
         onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
         locale: locale,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         debugShowCheckedModeBanner: false,
         theme: buildTheme(Brightness.light),

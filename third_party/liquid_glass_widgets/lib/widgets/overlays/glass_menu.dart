@@ -1,7 +1,7 @@
 import 'dart:async' show scheduleMicrotask;
 import 'dart:math' as math;
 import 'dart:ui';
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import '../../src/utils/glass_localizations.dart';

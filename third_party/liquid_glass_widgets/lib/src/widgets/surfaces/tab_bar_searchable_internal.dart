@@ -8,7 +8,7 @@
 // None of these widgets are part of the public API.
 // ignore_for_file: deprecated_member_use
 
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 
 import '../../../constants/glass_defaults.dart';
 import '../../renderer/liquid_glass_renderer.dart';

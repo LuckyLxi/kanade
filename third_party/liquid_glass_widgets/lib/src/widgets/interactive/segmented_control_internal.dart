@@ -17,7 +17,7 @@
 // Both the tab bar and segmented control already share the right abstractions:
 // DraggableIndicatorPhysics, AnimatedGlassIndicator, and GlassSpring.
 
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 
 import '../../../constants/glass_defaults.dart';
 import '../../renderer/liquid_glass_renderer.dart';

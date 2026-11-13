@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 import '../../constants/glass_defaults.dart';
 import '../../src/renderer/glass_frost_budget.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';

@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart' show CupertinoColors;
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoColors;
 import 'package:flutter/widgets.dart';
 
 import '../../src/renderer/liquid_glass_renderer.dart';

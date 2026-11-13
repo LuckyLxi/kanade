@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 全应用唯一的配色：黑白灰 + 柠檬绿抗色，不随封面变，也不给用户改。
 /// 抗色只用在播放按钮、进度条、正在播放、红心、VIP、分类下划线上；选中态用白底黑字。

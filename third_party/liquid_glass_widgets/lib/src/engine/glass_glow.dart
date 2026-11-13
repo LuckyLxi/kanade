@@ -10,7 +10,7 @@
 
 import 'dart:math' as math;
 
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/rendering.dart';
 import '../../../widgets/shared/inherited_liquid_glass.dart';
 import '../../../utils/glass_spring.dart';

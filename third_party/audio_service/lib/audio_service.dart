@@ -8,7 +8,7 @@ import 'package:audio_service_platform_interface/audio_service_platform_interfac
 import 'package:audio_session/audio_session.dart';
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:rxdart/rxdart.dart';

@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kanade/l10n/app_localizations.dart';
+import 'package:kanade/l10n/localizations_delegates.dart';
 import 'package:kanade/player/player_controller.dart';
 import 'package:kanade/src/rust/api/types.dart';
 import 'package:kanade/ui/player_page.dart';
@@ -55,7 +56,7 @@ Future<void> _showMenu(WidgetTester tester, _Player player, {Locale locale = con
       value: player,
       child: MaterialApp(
         locale: locale,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         // 菜单从按钮往上长，按钮放在下方，展开后的选项才在屏幕里点得到
         home: const Scaffold(body: Align(alignment: Alignment(0, 0.8), child: QualityMenu())),

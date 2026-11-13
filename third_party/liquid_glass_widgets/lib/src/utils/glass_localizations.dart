@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 
 /// The app's Cupertino strings, or the framework's own defaults when the app
 /// ships no Cupertino localizations delegate at all (a bare `WidgetsApp`).

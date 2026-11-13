@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 按 id 打开的页面（歌手、专辑、歌单、用户）。
 /// 同一个页面已经在当前这一叠里时 [openPage] 退回到它，不会在上面再叠一份。

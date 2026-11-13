@@ -1,8 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kanade/l10n/app_localizations.dart';
+import 'package:kanade/l10n/localizations_delegates.dart';
 import 'package:kanade/library/library_controller.dart';
 import 'package:kanade/player/player_controller.dart';
 import 'package:kanade/src/rust/api/types.dart';
@@ -95,7 +96,7 @@ Future<_Player> _show(WidgetTester tester, Song song, {double dpr = 1}) async {
       ],
       child: MaterialApp(
         locale: const Locale('zh'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(body: SongTile(songs: [song], index: 0)),
       ),

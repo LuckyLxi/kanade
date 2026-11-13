@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -45,7 +45,7 @@ void main() {
         mediaSession: false,
         child: MaterialApp(
           locale: const Locale('zh'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildTheme(Brightness.light),
           home: const SingerPage(mid: '002wbPaC0L9C3A', name: '鸣潮先约电台'),

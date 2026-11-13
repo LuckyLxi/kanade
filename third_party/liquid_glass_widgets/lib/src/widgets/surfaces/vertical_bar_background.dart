@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 
 import '../../../widgets/surfaces/glass_large_title.dart';
 import '../../../widgets/surfaces/glass_vertical_bar.dart';

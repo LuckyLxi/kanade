@@ -3,7 +3,7 @@ import 'dart:math';
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
@@ -145,59 +145,64 @@ class _MvControlsState extends State<MvControls> {
     return Focus(
       autofocus: true,
       onKeyEvent: _onKey,
-      child: MouseRegion(
-        onHover: (_) => _show(),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            GestureDetector(behavior: HitTestBehavior.opaque, onTap: _onTap),
-            if (_buffering)
-              const Center(
-                child: SizedBox.square(
-                  dimension: 36,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    color: Colors.white,
+      // media_kit 的全屏路由包的是 flutter/material 的旧 Material，
+      // material_ui 的 IconButton 认不出，需要自己的 Material 祖先
+      child: Material(
+        type: MaterialType.transparency,
+        child: MouseRegion(
+          onHover: (_) => _show(),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              GestureDetector(behavior: HitTestBehavior.opaque, onTap: _onTap),
+              if (_buffering)
+                const Center(
+                  child: SizedBox.square(
+                    dimension: 36,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              IgnorePointer(
+                ignoring: !_visible,
+                child: AnimatedOpacity(
+                  opacity: _visible ? 1 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      IgnorePointer(
+                        child: ColoredBox(
+                          color: Colors.black.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      SafeArea(
+                        top: fullscreen,
+                        bottom: fullscreen,
+                        child: Padding(
+                          padding: EdgeInsets.all(fullscreen ? 12 : 8),
+                          child: Column(
+                            children: [
+                              _TopBar(title: fullscreen ? widget.title : null),
+                              Expanded(
+                                child: _buffering
+                                    ? const SizedBox()
+                                    : _center(fullscreen),
+                              ),
+                              _SeekBar(_player, onSeek: _show),
+                              _bottomRow(fullscreen),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            IgnorePointer(
-              ignoring: !_visible,
-              child: AnimatedOpacity(
-                opacity: _visible ? 1 : 0,
-                duration: const Duration(milliseconds: 200),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    IgnorePointer(
-                      child: ColoredBox(
-                        color: Colors.black.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    SafeArea(
-                      top: fullscreen,
-                      bottom: fullscreen,
-                      child: Padding(
-                        padding: EdgeInsets.all(fullscreen ? 12 : 8),
-                        child: Column(
-                          children: [
-                            _TopBar(title: fullscreen ? widget.title : null),
-                            Expanded(
-                              child: _buffering
-                                  ? const SizedBox()
-                                  : _center(fullscreen),
-                            ),
-                            _SeekBar(_player, onSeek: _show),
-                            _bottomRow(fullscreen),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -6,6 +6,7 @@ import '../src/rust/api/types.dart';
 import 'app_localizations.dart';
 
 export 'app_localizations.dart';
+export 'localizations_delegates.dart';
 
 /// Rust 返回的错误码 → 当前语言的文案。
 String errorText(AppLocalizations l, Object e) => switch (e) {

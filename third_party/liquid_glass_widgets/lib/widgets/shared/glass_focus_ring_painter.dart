@@ -3,7 +3,7 @@
 // NOT part of the public API — do not export from liquid_glass_widgets.dart.
 library;
 
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 
 /// Paints an iOS 26-style keyboard focus ring around a [ShapeBorder].
 ///

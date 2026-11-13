@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 播放和暂停之间来回形变的图标。
 class PlayPauseIcon extends StatefulWidget {

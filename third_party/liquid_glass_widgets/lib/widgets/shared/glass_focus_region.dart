@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 import 'glass_focus_ring_painter.dart';
 
 /// A shared accessibility and focus region for interactive glass widgets.

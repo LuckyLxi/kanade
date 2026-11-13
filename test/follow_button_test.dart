@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kanade/auth/auth_controller.dart';
 import 'package:kanade/l10n/l10n_ext.dart';
@@ -47,7 +47,7 @@ Future<void> _show(WidgetTester tester, _Auth auth, Future<void> Function(bool) 
       value: auth,
       child: MaterialApp(
         locale: const Locale('zh'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: StatefulBuilder(
