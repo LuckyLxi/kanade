@@ -215,12 +215,7 @@ async fn finish_login(check_sig_url: &str) -> Result<UserInfo> {
     let c = core();
     c.set_session(None)?;
     let data = c.musicu_with_comm("QQConnectLogin.LoginServer", "QQLogin", json!({ "code": code }), json!({ "tmeLoginType": "2" })).await?;
-    let musicid = s(&data["musicid"]);
-    let musickey = first_s(&data, &["musickey", "qm_keyst"]);
-    if musicid.is_empty() || musickey.is_empty() {
-        bail!(ApiError::login("QQ Music login returned no musickey"));
-    }
-    c.set_session(Some(Session::new(musicid, musickey, 2, key_expires_at(&data))))?;
+    c.set_session(Some(login_session(&data, Some(2))?))?;
     refresh_user_info().await
 }
 
@@ -243,6 +238,68 @@ pub async fn login_with_cookie(cookie: &str) -> Result<UserInfo> {
     let login_type = if musickey.starts_with("W_X") { 1 } else { 2 };
     core().set_session(Some(Session::new(uin, musickey, login_type, 0)))?;
     refresh_user_info().await
+}
+
+/// 从登录或续期响应取出正式凭证。`login_type` 为 None 时按 musickey 前缀判断（微信账号以 W_X 开头）。
+fn login_session(data: &Value, login_type: Option<i32>) -> Result<Session> {
+    let musicid = s(&data["musicid"]);
+    let musickey = first_s(&data, &["musickey", "qm_keyst"]);
+    if musicid.is_empty() || musickey.is_empty() {
+        bail!(ApiError::login("QQ Music login returned no musickey"));
+    }
+    let login_type = login_type.unwrap_or(if musickey.starts_with("W_X") { 1 } else { 2 });
+    let mut session = Session::new(musicid, musickey, login_type, key_expires_at(data));
+    session.refresh_key = s(&data["refresh_key"]);
+    session.refresh_token = s(&data["refresh_token"]);
+    session.access_token = s(&data["access_token"]);
+    session.openid = s(&data["openid"]);
+    session.access_expires_at = n(&data["expired_at"]);
+    Ok(session)
+}
+
+/// 用 refresh_key / refresh_token 换新的 musickey，参数取自官方 PC 客户端的续期请求
+/// （`music.login.LoginServer.Login`，抓包见 docs/qqmusic-api.md）。期间退出或换了账号就丢掉结果。
+pub async fn refresh_session() -> Result<Session> {
+    let c = core();
+    let old = c.session().context(ApiError::NotLoggedIn)?;
+    if !old.can_refresh() {
+        bail!(ApiError::login("session has no refresh credentials"));
+    }
+    let musicid: i64 = old.uin.parse().context(ApiError::login("invalid musicid"))?;
+    let data = if old.tme {
+        // 照抄 PC 客户端 22.76 的 WXLoginByToken；App 扫码登录没有 refresh_token 时也这样发。
+        let param = json!({
+            "access_token": "", "deviceName": "L", "deviceType": "Widnows", "expired_in": 0,
+            "forceRefreshToken": 0, "musicid": musicid, "musickey": old.musickey, "onlyNeedAccessToken": 0,
+            "openid": "", "refresh_key": old.refresh_key, "refresh_token": old.refresh_token, "strAppid": WX_APPID,
+        });
+        c.desktop_login("WXLoginByToken", "Login", param, 1).await?
+    } else if old.login_type == 2 {
+        // 照抄 PC 客户端 22.76 重启时的 QQ 账号续期（2026-11-14 抓包）；expired_in 是登录响应的 expired_at。
+        let param = json!({
+            "access_token": old.access_token, "appid": THIRD_AID.parse::<i64>()?, "deviceName": "L", "deviceType": "Widnows",
+            "expired_in": old.access_expires_at, "forceRefreshToken": 0, "musicid": musicid, "musickey": old.musickey,
+            "onlyNeedAccessToken": 0, "openid": old.openid, "refresh_key": old.refresh_key, "refresh_token": old.refresh_token,
+        });
+        c.desktop_login("music.login.LoginServer.Login", "Login", param, 2).await?
+    } else {
+        let param = json!({
+            "musicid": musicid, "musickey": old.musickey,
+            "refresh_key": old.refresh_key, "refresh_token": old.refresh_token, "strAppid": WX_APPID,
+        });
+        c.musicu_with_comm("music.login.LoginServer", "Login", param, json!({ "tmeLoginType": old.login_type.to_string() }))
+            .await?
+    };
+    let mut renewed = login_session(&data, Some(old.login_type))?;
+    renewed.tme = old.tme;
+    renewed.login_comm = old.login_comm.clone();
+    if renewed.uin != old.uin || c.session().is_none_or(|s| s.musickey != old.musickey) {
+        bail!(ApiError::login("session changed during refresh"));
+    }
+    renewed.nickname = old.nickname;
+    renewed.avatar_url = old.avatar_url;
+    c.set_session(Some(renewed.clone()))?;
+    Ok(renewed)
 }
 
 /// 登录响应给出的 musickey 到期时间（Unix 秒），没有有效期字段时为 0。
@@ -373,12 +430,7 @@ async fn finish_wx_login(wx_code: &str) -> Result<UserInfo> {
             json!({ "tmeLoginType": "1" }),
         )
         .await?;
-    let musicid = s(&data["musicid"]);
-    let musickey = first_s(&data, &["musickey", "qm_keyst"]);
-    if musicid.is_empty() || musickey.is_empty() {
-        bail!(ApiError::login("QQ Music login returned no musickey"));
-    }
-    c.set_session(Some(Session::new(musicid, musickey, 1, key_expires_at(&data))))?;
+    c.set_session(Some(login_session(&data, Some(1))?))?;
     refresh_user_info().await
 }
 
@@ -414,7 +466,6 @@ const TME_LOGIN_MODULE: &str = "music.login.LoginServer";
 /// 一次授权始终使用同一 Android 会话，不借用当前账号或通用接口的公参。
 struct TmeClient {
     comm: serde_json::Value,
-    user_agent: String,
 }
 
 impl TmeClient {
@@ -434,7 +485,7 @@ impl TmeClient {
             "qq": "0", "authst": "", "uid": "", "sid": "",
             "OpenUDID": device_id, "OpenUDID2": device_id, "udid": device_id,
         });
-        let mut client = Self { comm, user_agent: String::new() };
+        let mut client = Self { comm };
         // 使用本机公开的系统属性，不把随机字符串当作服务端签发的 QIMEI。
         #[cfg(target_os = "android")]
         for (field, property) in [
@@ -451,7 +502,6 @@ impl TmeClient {
             }
             client.comm[field] = json!(value);
         }
-        client.user_agent = format!("QQMusic {ANDROID_VERSION}(android {})", client.comm["os_ver"].as_str().unwrap_or("10"));
         let data = client.call("music.getSession.session", "GetSession", json!({"uid": "", "vkey": 0, "caller": 0}), json!({})).await?;
         let uid = s(&data["session"]["uid"]);
         let sid = s(&data["session"]["sid"]);
@@ -474,7 +524,7 @@ impl TmeClient {
         let resp = core()
             .http
             .post("https://u.y.qq.com/cgi-bin/musicu.fcg")
-            .header("User-Agent", &self.user_agent)
+            .header("User-Agent", format!("QQMusic {ANDROID_VERSION}(android {})", self.comm["os_ver"].as_str().unwrap_or("10")))
             .header("Referer", "https://y.qq.com/")
             .header("Origin", "https://y.qq.com")
             .header("Cookie", "")
@@ -502,15 +552,13 @@ fn tme_response(resp: serde_json::Value, module: &str, method: &str) -> Result<s
 
 pub async fn create_tme_qr() -> Result<QrCode> {
     let client = TmeClient::new().await?;
-    // 手机授权入口专用 ct/cv；param 中保留 Android 客户端版本。
-    let data = client
-        .call(
-            TME_LOGIN_MODULE,
-            "CreateQRCode",
-            json!({"tmeAppID": "qqmusic", "ct": 11, "cv": ANDROID_VERSION}),
-            json!({"ct": 23, "cv": 0}),
-        )
-        .await?;
+    // 手机授权入口专用 ct/cv；param 里是要登录的客户端：Windows 照 PC 客户端 22.76，其他平台用 Android。
+    let param = if cfg!(windows) {
+        json!({"tmeAppID": "qqmusic", "ct": 19, "cv": 2276})
+    } else {
+        json!({"tmeAppID": "qqmusic", "ct": 11, "cv": ANDROID_VERSION})
+    };
+    let data = client.call(TME_LOGIN_MODULE, "CreateQRCode", param, json!({"ct": 23, "cv": 0})).await?;
     let qrcode_id = s(&data["qrcodeID"]);
     let image = s(&data["qrcode"])
         .split_once("base64,")
@@ -614,23 +662,44 @@ async fn finish_tme_login(client: &TmeClient, qrcode_id: &str, payload: &[u8]) -
         bail!(ApiError::login("MQTT cookies message is missing credentials"));
     }
     let c = core();
-    let data = client
-        .call(
-            "music.login.LoginServer",
-            "Login",
-            json!({ "musicid": uin, "qrCodeID": qrcode_id, "token": token }),
-            json!({ "tmeLoginType": 6 }),
-        )
-        .await?;
-    let musicid = s(&data["musicid"]);
-    let musickey = first_s(&data, &["musickey", "qm_keyst"]);
-    if musicid.is_empty() || musickey.is_empty() {
-        bail!(ApiError::login("QQ Music login returned no musickey"));
+    let param = json!({ "musicid": uin, "qrCodeID": qrcode_id, "token": token });
+    // Windows 以 PC 客户端身份换票，设备管理里记成 Windows PC；Android 保持 Android 身份。
+    let data = if cfg!(windows) {
+        c.desktop_login("music.login.LoginServer.Login", "Login", param, 6).await?
+    } else {
+        client.call("music.login.LoginServer", "Login", param, json!({ "tmeLoginType": 6 })).await?
+    };
+    let mut session = login_session(&data, None)?;
+    session.tme = true;
+    if !cfg!(windows) {
+        session.login_comm = Some(client.comm.clone());
     }
-    // 微信账号的 musickey 以 W_X 开头
-    let login_type = if musickey.starts_with("W_X") { 1 } else { 2 };
-    c.set_session(Some(Session::new(musicid, musickey, login_type, key_expires_at(&data))))?;
+    c.set_session(Some(session))?;
     refresh_user_info().await
+}
+
+/// 先通知服务器下线这台设备（官方 PC 客户端退出时发 `music.login.LoginServer.Logout`），
+/// 再删本地登录态。通知失败或超时也照常退出。
+pub async fn logout() -> Result<()> {
+    let c = core();
+    if let Some(s) = c.session() {
+        let notify = async {
+            if s.tme && cfg!(windows) {
+                c.desktop_private("music.login.LoginServer", "Logout", json!({})).await
+            } else if let Some(mut comm) = s.login_comm.clone() {
+                // 2026-11-14 实测：只有带上登录时的 uid/sid 等设备公参，Android 设备才会从列表里删掉。
+                comm["qq"] = json!(s.uin);
+                comm["authst"] = json!(s.musickey);
+                comm["tmeLoginType"] = json!(s.login_type);
+                let param = json!({ "dummy": 0, "scene": "user_logout" });
+                TmeClient { comm }.call(TME_LOGIN_MODULE, "Logout", param, json!({})).await
+            } else {
+                c.mobile_write("music.login.LoginServer", "Logout", json!({})).await
+            }
+        };
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(5), notify).await;
+    }
+    c.set_session(None)
 }
 
 #[cfg(test)]
@@ -664,7 +733,6 @@ mod tests {
         let client = TmeClient {
             comm: json!({"ct": 11, "cv": ANDROID_VERSION, "v": ANDROID_VERSION,
                 "uid": "server-uid", "sid": "server-sid", "OpenUDID": "install-id", "qq": "0", "authst": ""}),
-            user_agent: String::new(),
         };
         let qr = client.body(TME_LOGIN_MODULE, "CreateQRCode", json!({"ct": 11, "cv": ANDROID_VERSION}), json!({"ct": 23, "cv": 0}));
         let login = client.body(
@@ -713,6 +781,19 @@ mod tests {
         assert_eq!(key_expires_at(&json!({"musickey": "k"})), 0);
         let now = (now_ms() / 1000) as i64;
         assert!((now + 259200..=now + 259201).contains(&key_expires_at(&json!({"keyExpiresIn": 259200}))));
+    }
+
+    #[test]
+    fn login_session_keeps_refresh_credentials() {
+        let data = json!({"musicid": 1152921505293476114_i64, "musickey": "W_X_k", "refresh_key": "rk", "refresh_token": "rt",
+            "musickeyCreateTime": 100, "keyExpiresIn": 259200});
+        let session = login_session(&data, None).unwrap();
+        assert_eq!(session.uin, "1152921505293476114");
+        assert_eq!(session.login_type, 1);
+        assert_eq!((session.refresh_key.as_str(), session.refresh_token.as_str()), ("rk", "rt"));
+        assert_eq!(session.expires_at, 259300);
+        assert_eq!(login_session(&json!({"musicid": 1, "musickey": "Q_H_L_k"}), None).unwrap().login_type, 2);
+        assert!(login_session(&json!({"musicid": 1}), Some(2)).is_err());
     }
 
     #[test]

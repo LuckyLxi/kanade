@@ -36,11 +36,67 @@ pub struct Session {
     /// musickey 到期时间（Unix 秒），0 表示不知道。
     #[serde(default)]
     pub expires_at: i64,
+    /// 续期用的凭证，登录响应里给出；Cookie 登录和旧版本保存的登录态没有。
+    #[serde(default)]
+    pub refresh_key: String,
+    #[serde(default)]
+    pub refresh_token: String,
+    /// QQ 音乐 App 扫码登录。这种登录没有 refresh_token，照官方 PC 客户端只凭 refresh_key 续期。
+    #[serde(default, alias = "desktop")]
+    pub tme: bool,
+    /// Android 身份 App 扫码登录时用的整套设备公参（含 GetSession 的 uid/sid）。
+    /// 退出时原样带上，服务器才会从登录设备管理里删掉这台设备。
+    #[serde(default)]
+    pub login_comm: Option<Value>,
+    /// QQ 登录响应里的 QQ 互联凭证和它的到期时间（`expired_at`，Unix 秒）；QQ 账号续期要原样带上。
+    #[serde(default)]
+    pub access_token: String,
+    #[serde(default)]
+    pub openid: String,
+    #[serde(default)]
+    pub access_expires_at: i64,
 }
+
+/// 离到期不到这么久时，复核登录态前先续期。
+const REFRESH_AHEAD_SECS: i64 = 24 * 3600;
 
 impl Session {
     pub fn new(uin: String, musickey: String, login_type: i32, expires_at: i64) -> Self {
-        Self { uin, musickey, login_type, nickname: String::new(), avatar_url: String::new(), expires_at }
+        Self {
+            uin,
+            musickey,
+            login_type,
+            nickname: String::new(),
+            avatar_url: String::new(),
+            expires_at,
+            refresh_key: String::new(),
+            refresh_token: String::new(),
+            tme: false,
+            login_comm: None,
+            access_token: String::new(),
+            openid: String::new(),
+            access_expires_at: 0,
+        }
+    }
+
+    /// 网页通道续期要 refresh_key 和 refresh_token 都有。App 扫码登录只给 refresh_key，
+    /// 网页通道续期会返回 1000 并让当前 musickey 一起失效（2026-11-13 实测）；
+    /// 改照 PC 客户端的 WXLoginByToken 后，PC 和 Android 身份签发的微信账号都能续期（2026-11-14 实测）。
+    pub fn can_refresh(&self) -> bool {
+        !self.refresh_key.is_empty()
+            && if self.tme {
+                self.login_type == 1
+            } else if self.login_type == 2 {
+                // QQ 账号照 PC 客户端续期（2026-11-14 实测），旧版本保存的登录态没有 access_token，需重新登录一次。
+                !self.refresh_token.is_empty() && !self.access_token.is_empty()
+            } else {
+                !self.refresh_token.is_empty()
+            }
+    }
+
+    /// 能续期，且快到期或不知道到期时间。
+    pub fn needs_refresh(&self, now_secs: i64) -> bool {
+        self.can_refresh() && now_secs >= self.expires_at - REFRESH_AHEAD_SECS
     }
 
     fn end_reason(&self, now_secs: i64) -> SessionEndReason {
@@ -79,23 +135,28 @@ pub fn suspect_session() {
     }
 }
 
-/// 用「最近播放」复核登录态（凭证失效时稳定返回 1000）；确认失效就退出登录并通知界面。
+/// 用「最近播放」复核登录态（凭证失效时稳定返回 1000）。快到期时先续期，被拒时没续过期就续一次；
+/// 仍被拒就退出登录并通知界面。
 pub async fn verify_session() {
     let c = core();
-    let Some(session) = c.session() else { return };
+    let Some(mut session) = c.session() else { return };
     if VERIFYING.swap(true, Ordering::SeqCst) {
         return;
     }
-    let result = c
-        .desktop_private(
-            "music.musicasset.PlayRecentlyRead",
-            "GetPlayRecentlyInfo",
-            json!({ "requestCnt": 1, "type": 2, "updateTime": 0 }),
-        )
-        .await;
+    let refresh_early = session.needs_refresh((now_ms() / 1000) as i64);
+    if refresh_early {
+        if let Ok(renewed) = super::login::refresh_session().await {
+            session = renewed;
+        }
+    }
+    let mut rejected = session_rejected(c).await;
+    if rejected && !refresh_early && session.can_refresh() {
+        if let Ok(renewed) = super::login::refresh_session().await {
+            session = renewed;
+            rejected = session_rejected(c).await;
+        }
+    }
     VERIFYING.store(false, Ordering::SeqCst);
-    // 直接检查错误链；会话副作用仅由 API 边界触发。
-    let rejected = result.err().is_some_and(|e| e.chain().any(|c| c.downcast_ref::<ApiError>().is_some_and(ApiError::is_auth_rejected)));
     // 复核期间退出或换了账号就不动
     if !rejected || c.session().is_none_or(|s| s.musickey != session.musickey) {
         return;
@@ -107,6 +168,18 @@ pub async fn verify_session() {
     if let Some(hook) = SESSION_END.read().unwrap().as_ref() {
         hook(session.end_reason((now_ms() / 1000) as i64));
     }
+}
+
+async fn session_rejected(c: &Core) -> bool {
+    let result = c
+        .desktop_private(
+            "music.musicasset.PlayRecentlyRead",
+            "GetPlayRecentlyInfo",
+            json!({ "requestCnt": 1, "type": 2, "updateTime": 0 }),
+        )
+        .await;
+    // 直接检查错误链；会话副作用仅由 API 边界触发。
+    result.err().is_some_and(|e| e.chain().any(|c| c.downcast_ref::<ApiError>().is_some_and(ApiError::is_auth_rejected)))
 }
 
 pub struct Core {
@@ -232,6 +305,10 @@ impl Core {
 
     // QQ 音乐 Windows 22.76（patch 118）的搜索抓包公参。
     fn desktop_comm(&self) -> Value {
+        self.desktop_comm_for(self.session().as_ref())
+    }
+
+    fn desktop_comm_for(&self, session: Option<&Session>) -> Value {
         let mut comm = json!({
             "ct": "19",
             "cv": "2276",
@@ -241,7 +318,7 @@ impl Core {
             "tmeAppID": "qqmusic",
             "guid": self.desktop_guid,
         });
-        if let Some(s) = self.session() {
+        if let Some(s) = session {
             comm["uin"] = json!(s.uin);
             comm["authst"] = json!(s.musickey);
             comm["tmeLoginType"] = json!(s.login_type);
@@ -251,13 +328,28 @@ impl Core {
 
     /// PC 请求结构走客户端内置的 musicu 网关，不需要复用抓包的 Sign/Mask。
     pub async fn desktop_musicu(&self, module: &str, method: &str, param: Value) -> Result<Value> {
-        self.desktop_request(DESKTOP_MUSICU, module, module, method, param, false).await
+        self.desktop_request(DESKTOP_MUSICU, self.desktop_comm(), module, module, method, param, false).await
+    }
+
+    /// 以未登录的 PC 客户端身份登录或续期（`uin="0"`、`authst=""`、不带 Cookie），与官方 PC 客户端抓包一致。
+    pub async fn desktop_login(&self, key: &str, method: &str, param: Value, login_type: i32) -> Result<Value> {
+        let mut comm = self.desktop_comm_for(None);
+        comm.as_object_mut().unwrap().extend(
+            json!({
+                "uin": "0", "authst": "", "tmeLoginType": login_type,
+                "psrf_access_token_expiresAt": 0, "psrf_qqaccess_token": "", "psrf_qqopenid": "", "psrf_qqunionid": "",
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        );
+        self.desktop_request(DESKTOP_MUSICU, comm, key, "music.login.LoginServer", method, param, false).await
     }
 
     /// 读写当前账号自己的数据（歌单、最近播放）：保留 PC 的完整请求键和 Cookie；
     /// musicu 网关不需要尚未实现的 Sign/Mask。
     pub async fn desktop_private(&self, module: &str, method: &str, param: Value) -> Result<Value> {
-        self.desktop_request(DESKTOP_MUSICU, &format!("{module}.{method}"), module, method, param, true).await
+        self.desktop_request(DESKTOP_MUSICU, self.desktop_comm(), &format!("{module}.{method}"), module, method, param, true).await
     }
 
     /// 与应用登录时的 Android 凭证上下文一致；写操作只发一次，不走通用接口的回退重发。
@@ -304,9 +396,19 @@ impl Core {
         musicu_result(response, module, method)
     }
 
-    async fn desktop_request(&self, url: &str, key: &str, module: &str, method: &str, param: Value, cookie: bool) -> Result<Value> {
+    #[allow(clippy::too_many_arguments)]
+    async fn desktop_request(
+        &self,
+        url: &str,
+        comm: Value,
+        key: &str,
+        module: &str,
+        method: &str,
+        param: Value,
+        cookie: bool,
+    ) -> Result<Value> {
         let body = json!({
-            "comm": self.desktop_comm(),
+            "comm": comm,
             (key): { "module": module, "method": method, "param": param },
         });
         let mut req = self
@@ -531,6 +633,29 @@ mod tests {
         // 旧版本保存的登录态没有到期时间
         let old: Session = serde_json::from_str(r#"{"uin":"1","musickey":"k","login_type":2}"#).unwrap();
         assert_eq!(old.end_reason(2_000), SessionEndReason::Unknown);
+    }
+
+    #[test]
+    fn refresh_starts_a_day_before_expiry() {
+        let mut session = Session::new("1".into(), "k".into(), 2, 100_000);
+        assert!(!session.needs_refresh(99_000), "没有续期凭证");
+        session.refresh_key = "rk".into();
+        assert!(!session.needs_refresh(200_000), "只有 refresh_key（App 授权登录）");
+        session.tme = true;
+        assert!(!session.can_refresh(), "只抓到微信账号的 WXLoginByToken");
+        session.login_type = 1;
+        assert!(session.can_refresh(), "App 扫码登录的微信账号只凭 refresh_key 续期");
+        session.tme = false;
+        session.refresh_token = "rt".into();
+        assert!(!session.needs_refresh(100_000 - REFRESH_AHEAD_SECS - 1));
+        assert!(session.needs_refresh(100_000 - REFRESH_AHEAD_SECS));
+        assert!(session.needs_refresh(200_000));
+        session.expires_at = 0;
+        assert!(session.needs_refresh(1), "不知道到期时间");
+        session.login_type = 2;
+        assert!(!session.can_refresh(), "QQ 账号续期还要 access_token");
+        session.access_token = "at".into();
+        assert!(session.can_refresh());
     }
 
     #[tokio::test]

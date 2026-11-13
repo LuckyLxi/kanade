@@ -540,3 +540,33 @@ async fn signed_web_transport_with_readonly_call() {
     let data = client::core().signed_web_musicu("music.vipcgi.VipBannerCgi", "QueryVipBanner", serde_json::json!({})).await.unwrap();
     assert!(data.get("banner").is_some(), "签名加密通道没有返回预期的只读数据");
 }
+
+/// 续期会换掉账号的 musickey；只用 KANADE_TEST_DB_DIR 指向的数据库副本（里面要有带 refresh_key 的登录态），不碰 App 正在用的 kanade.db。
+#[tokio::test]
+#[ignore = "需要网络和带续期凭证的数据库副本；会让该账号的旧 musickey 失效"]
+async fn refresh_session_renews_musickey() {
+    let dir = std::env::var("KANADE_TEST_DB_DIR").expect("请通过 KANADE_TEST_DB_DIR 指定 kanade.db 副本所在目录");
+    client::init_store(std::path::Path::new(&dir)).unwrap();
+    // 连续续期两次：Windows App 扫码登录第一次没有 refresh_token，续期后才拿到。
+    for round in 1..=2 {
+        let old = client::core().session().expect("副本里没有登录态");
+        assert!(old.can_refresh(), "登录态不能续期，需要用新版本重新登录");
+        let renewed = login::refresh_session().await.unwrap();
+        assert_eq!(renewed.uin, old.uin);
+        assert_ne!(renewed.musickey, old.musickey);
+        assert!(!renewed.refresh_key.is_empty() && renewed.expires_at > 0);
+        client::core()
+            .desktop_private("music.musicasset.PlayRecentlyRead", "GetPlayRecentlyInfo", serde_json::json!({ "requestCnt": 1, "type": 2, "updateTime": 0 }))
+            .await
+            .expect("新 musickey 被拒绝");
+        println!(
+            "round {round}: login_type={} tme={} had_refresh_token={} got_refresh_token={} refresh_key_changed={} expires_in={}s; new musickey accepted",
+            renewed.login_type,
+            renewed.tme,
+            !old.refresh_token.is_empty(),
+            !renewed.refresh_token.is_empty(),
+            renewed.refresh_key != old.refresh_key,
+            renewed.expires_at - (client::now_ms() / 1000) as i64
+        );
+    }
+}

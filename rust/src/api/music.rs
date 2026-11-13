@@ -455,8 +455,8 @@ pub async fn check_session() {
     client::verify_session().await
 }
 
-pub fn logout() -> Result<(), ApiError> {
-    Ok(client::core().set_session(None).map_err(api_error)?)
+pub async fn logout() -> Result<(), ApiError> {
+    login::logout().await.map_err(api_error)
 }
 
 pub fn clear_cache() -> Result<(), ApiError> {
