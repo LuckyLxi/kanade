@@ -86,7 +86,7 @@ class MediaSession {
   ) async {
     try {
       final _Sink? sink;
-      if (Platform.isAndroid) {
+      if (Platform.isAndroid || Platform.isIOS) {
         sink = await _AndroidSink.create(p, () => _toggleLike(p, library));
       } else if (Platform.isWindows) {
         sink = await _WindowsSink.create(p, locale);
