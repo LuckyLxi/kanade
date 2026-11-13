@@ -2,3 +2,6 @@ arb-dir: lib/l10n
 template-arb-file: app_zh.arb
 output-localization-file: app_localizations.dart
 nullable-getter: false
+# 生成的 localizationsDelegates 仍引用 flutter_localizations 的旧本地化，
+# 项目实际用 lib/l10n/localizations_delegates.dart
+header: "// ignore_for_file: deprecated_member_use"
