@@ -131,6 +131,12 @@ jobs:
       - name: Generate changelog
         run: |
           tag="${GITHUB_REF_NAME}"
+          # 有手写的 release-notes/<tag>.md 就用它，没有再按提交记录生成
+          if [ -f "release-notes/${tag}.md" ]; then
+            cp "release-notes/${tag}.md" CHANGELOG.md
+            cat CHANGELOG.md
+            exit 0
+          fi
           prev=$(git describe --tags --abbrev=0 --match "v*" "${tag}^" 2>/dev/null || true)
           if [ -n "$prev" ]; then range="${prev}..${tag}"; else range="${tag}"; fi
 
