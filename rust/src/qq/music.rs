@@ -600,7 +600,7 @@ pub(super) async fn tracks_by_id(ids: &[i64]) -> Result<Value> {
 }
 
 /// 首页推荐和专属乐流用新版 Android 客户端（20.09）的公参：栏目才带能单独刷新的 `refresh_param`，
-/// 第 1 页之后也才有专属乐流。抓包和实测见 docs/qqmusic-feed-column-capture.md、docs/qqmusic-home-refresh-capture.md。
+/// 第 1 页之后也才有专属乐流。见 docs/qqmusic-api.md「首页推荐」。
 fn android_feed_comm() -> Value {
     json!({"cv": "20090808", "v": "20090808", "chid": "73387"})
 }
@@ -657,7 +657,7 @@ pub async fn recommend_feed() -> Result<RecommendFeed> {
         .collect();
     let mut sections = recommend_sections(&all).await?;
     // 「你的歌单补给站」只发给未登录和 QQ 登录，微信登录没有；这时从歌单广场补一栏放在最后。
-    // 补的这栏取不到不影响首页其余内容。见 docs/qqmusic-playlist-rec-android-capture.md
+    // 补的这栏取不到不影响首页其余内容。见 docs/qqmusic-api.md「歌单补位」。
     if !all.iter().any(|shelf| s(&shelf["id"]) == PLAYLIST_SHELF) {
         if let Ok(playlists) = square_playlists().await {
             if !playlists.is_empty() {
@@ -795,7 +795,7 @@ fn foryou_listed(x: &Value) -> bool {
     n(&x["ChoseStatus"]) == -1 || n(&x["ItemType"]) == 500
 }
 
-/// 首页最上面那排卡片的可选项（只含 Kanade 能显示的），需要登录。抓包见 docs/qqmusic-home-refresh-capture.md。
+/// 首页最上面那排卡片的可选项（只含 Kanade 能显示的），需要登录。见 docs/qqmusic-api.md「自定义推荐页」。
 pub async fn foryou_config() -> Result<Vec<ForyouItem>> {
     Ok(foryou_selections()
         .await?

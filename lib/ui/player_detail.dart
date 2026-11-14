@@ -23,7 +23,7 @@ const _fade = 16.0;
 const _playlistCount = 6;
 
 /// 播放页右滑出来的歌曲信息页：发行信息、标签、AI 解读、精选视频、也在听、相关歌单。
-/// 接口见 docs/qqmusic-player-detail-android-capture.md，哪一栏没内容就不显示。
+/// 接口见 docs/qqmusic-api.md「播放页信息页」，哪一栏没内容就不显示。
 class SongDetailView extends StatefulWidget {
   const SongDetailView({super.key});
 

@@ -1,4 +1,4 @@
-//! 听歌识曲。接口和录音格式见 docs/qqmusic-song-recognition-capture.md。
+//! 听歌识曲。接口和录音格式见 docs/qqmusic-api.md「听歌识曲」。
 
 use anyhow::{bail, Result};
 use base64::Engine;

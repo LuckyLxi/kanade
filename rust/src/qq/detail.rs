@@ -291,7 +291,7 @@ impl CommentCursor {
     }
 }
 
-/// 推荐 / 最热 / 最新评论，参数照抄 Android 客户端（docs/qqmusic-comments-android-capture.md）。
+/// 推荐 / 最热 / 最新评论，参数照抄 Android 客户端，见 docs/qqmusic-api.md「评论」。
 /// `cursor` 第一页传空字符串，之后传上一页返回的 `cursor`。
 pub async fn comment_feed(target: CommentTarget, id: i64, sort: CommentSort, cursor: &str) -> Result<CommentFeed> {
     let mut cur = CommentCursor::parse(cursor)?;
@@ -388,7 +388,7 @@ pub async fn reply_feed(root_id: &str, cursor: &str) -> Result<CommentFeed> {
     Ok(cur.advance(&data).feed(replies, has_more))
 }
 
-/// 播放页右滑的歌曲信息页，参数照抄 Android 客户端（docs/qqmusic-player-detail-android-capture.md）。
+/// 播放页右滑的歌曲信息页，参数照抄 Android 客户端，见 docs/qqmusic-api.md「播放页信息页」。
 /// 各栏目分开请求，某一栏失败只让它为空，全部失败才报错。
 pub async fn song_page(id: i64, mid: &str) -> Result<SongPage> {
     let c = core();

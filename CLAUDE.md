@@ -50,7 +50,7 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 
 ## Reference material
 
-- `docs/qqmusic-api.md` maps each upstream QQ Music HTTP/MQTT endpoint to its Rust/Dart entry point. Read it before adding or changing an API call. The `docs/*-capture.md` notes record how each endpoint was captured.
+- `docs/qqmusic-api.md` maps each upstream QQ Music HTTP/MQTT endpoint to its Rust/Dart entry point. Read it before adding or changing an API call.
 - The repo root holds local `.har` / `.saz` / `.etl` / `.pcapng` captures (gitignored). Use them as reference for request shapes; they contain credentials, so never commit or quote them.
 - `rust/tests/live.rs` holds opt-in live smoke tests. They read the login state from the HAR at `QQMUSIC_TEST_HAR` into an in-memory DB.
 - Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed (Flutter 3.50.0, Windows zip + Inno Setup installer, Android arm64 APK).

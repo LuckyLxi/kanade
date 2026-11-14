@@ -122,7 +122,7 @@ pub struct Lyric {
     pub plain: String,
 }
 
-/// 高潮片段，毫秒。见 docs/qqmusic-chorus-capture.md。
+/// 高潮片段，毫秒。见 docs/qqmusic-api.md「歌词与高潮片段」。
 #[derive(Debug, Clone)]
 pub struct ChorusRange {
     pub start_ms: u32,

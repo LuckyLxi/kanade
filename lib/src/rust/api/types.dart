@@ -121,7 +121,7 @@ class CachedAudio {
           quality == other.quality;
 }
 
-/// 高潮片段，毫秒。见 docs/qqmusic-chorus-capture.md。
+/// 高潮片段，毫秒。见 docs/qqmusic-api.md「歌词与高潮片段」。
 class ChorusRange {
   final int startMs;
   final int endMs;

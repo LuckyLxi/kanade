@@ -8,7 +8,7 @@ Kanade is a Flutter + Rust QQ Music client for Windows and Android. Flutter hand
 - `rust/src/api/`: interfaces exposed through flutter_rust_bridge; `rust/src/qq/`: implementation.
 - `lib/src/rust/` and `rust/src/frb_generated.rs`: generated bindings; `rust_builder/`: native build integration.
 - `test/`, `integration_test/`, and `rust/tests/`: Flutter unit/widget tests, device tests, and Rust live API tests.
-- `shaders/`: player shader assets; `docs/`: API references and capture notes; `scripts/`: capture utilities.
+- `shaders/`: player shader assets; `docs/`: QQ Music API reference and README screenshots; `scripts/`: capture utilities.
 - `third_party/`: patched local dependencies; preserve their patches.
 
 ## Build, Test, and Development Commands
