@@ -10,7 +10,7 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 
 ### Dart ↔ Rust boundary
 
-- `rust/src/api/music.rs` is the only Rust surface Dart calls (via flutter_rust_bridge 2.12.0, configured in `flutter_rust_bridge.yaml`: `rust_input: crate::api`, output `lib/src/rust`). Each function is a thin wrapper around `crate::qq::*`. Shared data types live in `rust/src/api/types.rs`.
+- `rust/src/api/music.rs` is the only Rust surface Dart calls (via flutter_rust_bridge 2.12.0, configured in `flutter_rust_bridge.yaml`: `rust_input: crate::api`, output `lib/src/rust`). Each function is a thin wrapper around `crate::qq::*` (or `crate::update` for app updates). Shared data types live in `rust/src/api/types.rs`.
 - Every API error passes through `api_error()`, which maps it to an `ApiError` code that Dart translates, and calls `client::suspect_session()` when the server rejects auth. New API functions should use the same `.map_err(api_error)` pattern.
 - After changing anything in `rust/src/api/`, run `flutter_rust_bridge_codegen generate`. Dart imports the generated code as `src/rust/api/music.dart as api`.
 - `rust/src/qq/client.rs` is the single place for the network client, login session (`Session`: uin/musickey/login_type) and request signing (`sign.rs`). `store.rs` is one SQLite DB (`kanade.db` in the app support dir) that holds API response cache, song cache index and key-value prefs, login included.
@@ -42,6 +42,11 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 - `ExcludeSemantics(excluding: Platform.isWindows)` in `main.dart` deliberately works around a Flutter Windows accessibility crash. Keep it.
 - The ARB template is `lib/l10n/app_zh.arb` (Chinese is the source language). Code comments and docs are mostly in Chinese.
 
+### App updates
+
+- `rust/src/update.rs` reads a version manifest from the repo's `update-manifest` branch (`stable.json` / `preview.json`), downloads the installer from GitHub Releases and verifies its SHA-256. With the mirror pref on, it fetches both through `ghfast.top` / `gh-proxy.com` instead of GitHub; mirrors don't forward the GitHub API, so version info is a plain file.
+- The release workflow writes that manifest, so changing the manifest shape means changing `release.yml` and `update.rs` together. Dart-side prefs and install live in `lib/update/app_update.dart`.
+
 ### Patched dependencies (`third_party/`)
 
 - `audio_service`: notification artwork cache capped at 4 MB.
@@ -52,5 +57,6 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 
 - `docs/qqmusic-api.md` maps each upstream QQ Music HTTP/MQTT endpoint to its Rust/Dart entry point. Read it before adding or changing an API call.
 - The repo root holds local `.har` / `.saz` / `.etl` / `.pcapng` captures (gitignored). Use them as reference for request shapes; they contain credentials, so never commit or quote them.
+- Frame/perf/screenshot integration tests run with `flutter drive --driver=test_driver/integration_test.dart --target=integration_test/<name>_test.dart` (add `--profile` for perf). Each test's header comment has its exact command and device. Driving on the Android phone replaces the installed release build and wipes its data, so ask first.
 - `rust/tests/live.rs` holds opt-in live smoke tests. They read the login state from the HAR at `QQMUSIC_TEST_HAR` into an in-memory DB.
 - Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed (Flutter 3.50.0, Windows zip + Inno Setup installer, Android arm64 APK).
