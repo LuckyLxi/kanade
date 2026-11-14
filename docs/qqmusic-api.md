@@ -282,6 +282,7 @@ songmid=<SONG_MID>&format=json&nobase64=1&g_tk=5381
 | 榜单目录：`musicToplist.ToplistInfoServer.GetAll` | 通用 | `{}` | `group[].toplist[]`；榜单 `topId/title/period`、封面、前三首预览 |
 | 榜单详情：`musicToplist.ToplistInfoServer.GetDetail` | 通用 | `topId`、`offset=0`、`num=100`、`period` | 榜单元数据在 `data`，歌曲在 `songInfoList` |
 | 推荐首页：`music.recommend.RecommendFeed.get_recommend_feed` | 内嵌页 | `direction=0`、`page=1`、`v_cache=[]`、`v_uniq=[]`、`s_num=0` | `v_shelf[].v_niche[].v_card[]` |
+| 推荐歌单补位：`music.playlist.PlaylistSquare.GetRecommendWhole` | 通用 | `IsReqHead=false`、`IsReqFeed=true`、`FeedReq={From:0,Size:21}` | `FeedRsp.List[].Playlist.basic`；首页没有 shelf 271（微信登录）时补一栏推荐歌单放在最后，失败不影响首页 |
 | 猜你喜欢：`music.radioProxy.MbTrackRadioSvr.get_radio_track` | 内嵌页 | `id=99`、`num=5`、`from=0`、`scene=0`、`song_ids=[]` | `tracks[]`；每次取新批次，不缓存 |
 | 刷歌 / 雷达：`music.recommend.TrackRelationServer.GetRadarSong` | 内嵌页 | `Page`、`ReqType=0`、`FavSongs=[]`、`EntranceSongs=[song_id,…]` | `VecSongs[].Track`；批次从 1 开始，不缓存 |
 | 新歌首发：`newsong.NewSongServer.get_new_song_info` | 内嵌页 | `type=5` | `songlist[]` |
@@ -783,6 +784,7 @@ HAR 凭据辅助函数依赖该文件内存在可解析的 `comm.uin/authst/tmeL
 | [Android 排行榜抓包](qqmusic-toplist-android-capture.md) | 目录分组、往期、分页、排名变化 `rankType`、歌曲标签，及与 PC 模块的对照 |
 | [Android 评论页抓包](qqmusic-comments-android-capture.md) | 推荐 / 最热 / 最新 / 语音 / 时刻 / 表白各 tab、翻页游标、回复分页，及与 PC 内嵌页的差异 |
 | [Android 播放页歌曲信息页抓包](qqmusic-player-detail-android-capture.md) | 右滑信息页的合并请求、栏目顺序、标签、相关歌单换一批、精选视频 |
+| [Android 歌单推荐抓包](qqmusic-playlist-rec-android-capture.md) | 首页「你的歌单补给站」栏目（shelf 271）只在未登录 / QQ 登录时下发；歌单广场 `PlaylistSquare` 匿名可用 |
 | [推荐页抓包](qqmusic-recommendations-capture.md) / [推荐封面抓包](qqmusic-recommendation-covers-capture.md) | 推荐结构、取歌与图片来源 |
 
 原始 HAR / SAZ / PCAPNG 是本地诊断材料，不是运行依赖，也不是本文的必需附件。项目忽略规则保留它们在本机；发布本文不需要上传这些文件。

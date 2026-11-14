@@ -6,15 +6,20 @@ use serde_json::{json, Value};
 
 use super::client::core;
 use super::error::ApiError;
-use super::parse::{self, first_s, n, s};
 use super::lyric;
-use super::sign::hash33;
+use super::parse::{self, first_s, n, s};
 use super::quality::{file_name, playback_chain, stream_available};
+use super::sign::hash33;
 use crate::api::types::*;
 
 fn search_id() -> String {
     // Windows 客户端抓包中的 searchid 为 37 位大写十六进制字符串。
-    format!("{}{:05X}", uuid::Uuid::new_v4().simple(), rand::random::<u32>() & 0xfffff).to_uppercase()
+    format!(
+        "{}{:05X}",
+        uuid::Uuid::new_v4().simple(),
+        rand::random::<u32>() & 0xfffff
+    )
+    .to_uppercase()
 }
 
 pub async fn search_songs(keyword: &str, page: u32, page_size: u32) -> Result<SearchResult> {
@@ -23,17 +28,33 @@ pub async fn search_songs(keyword: &str, page: u32, page_size: u32) -> Result<Se
 
 /// 歌曲更多菜单的“查找相似歌曲”，按上游顺序返回。
 pub async fn similar_songs(song_id: i64) -> Result<Vec<Song>> {
-    let data = core().musicu("music.recommend.TrackRelationServer", "GetSimilarSongs", json!({"songid": song_id})).await?;
+    let data = core()
+        .musicu(
+            "music.recommend.TrackRelationServer",
+            "GetSimilarSongs",
+            json!({"songid": song_id}),
+        )
+        .await?;
     similar_song_list(&data)
 }
 
 fn similar_song_list(data: &Value) -> Result<Vec<Song>> {
-    let code = data["retcode"].as_i64().context(ApiError::bad_response("similar songs response has no retcode"))?;
+    let code = data["retcode"].as_i64().context(ApiError::bad_response(
+        "similar songs response has no retcode",
+    ))?;
     if code != 0 {
-        bail!(ApiError::ServerError { api: "music.recommend.TrackRelationServer.GetSimilarSongs".into(), code: code.to_string() });
+        bail!(ApiError::ServerError {
+            api: "music.recommend.TrackRelationServer.GetSimilarSongs".into(),
+            code: code.to_string()
+        });
     }
-    let list = data["vecSong"].as_array().context(ApiError::bad_response("similar songs response has no vecSong"))?;
-    Ok(list.iter().filter_map(|item| parse::song(&item["track"])).collect())
+    let list = data["vecSong"].as_array().context(ApiError::bad_response(
+        "similar songs response has no vecSong",
+    ))?;
+    Ok(list
+        .iter()
+        .filter_map(|item| parse::song(&item["track"]))
+        .collect())
 }
 
 /// 各分类在 Windows 客户端抓包中的 search_type、remoteplace，以及结果在 `body` 下的字段名。
@@ -51,7 +72,12 @@ fn search_spec(kind: SearchKind) -> (u32, &'static str, &'static str) {
 
 /// 分类搜索，`page` 从 1 开始。歌曲搜索未登录时沿用旧接口；
 /// 旧接口没有其他分类，其他分类始终走 PC 接口。
-pub async fn search(keyword: &str, kind: SearchKind, page: u32, page_size: u32) -> Result<SearchResult> {
+pub async fn search(
+    keyword: &str,
+    kind: SearchKind,
+    page: u32,
+    page_size: u32,
+) -> Result<SearchResult> {
     let c = core();
     let desktop = c.session().is_some() || kind != SearchKind::Song;
     let (search_type, remoteplace, group) = search_spec(kind);
@@ -95,7 +121,13 @@ pub async fn search(keyword: &str, kind: SearchKind, page: u32, page_size: u32) 
     Ok(search_result(kind, keyword, page, page_size, &data))
 }
 
-fn search_result(kind: SearchKind, keyword: &str, page: u32, page_size: u32, data: &Value) -> SearchResult {
+fn search_result(
+    kind: SearchKind,
+    keyword: &str,
+    page: u32,
+    page_size: u32,
+    data: &Value,
+) -> SearchResult {
     let list = &data["list"];
     let items = list.as_array().map(Vec::as_slice).unwrap_or_default();
     let total = n(&data["total"]) as u32;
@@ -143,13 +175,23 @@ fn search_result(kind: SearchKind, keyword: &str, page: u32, page_size: u32, dat
             r.albums = items
                 .iter()
                 .map(|x| {
-                    let singers: Vec<String> = x["singer_list"].as_array().into_iter().flatten().map(|x| s(&x["name"])).filter(|x| !x.is_empty()).collect();
+                    let singers: Vec<String> = x["singer_list"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .map(|x| s(&x["name"]))
+                        .filter(|x| !x.is_empty())
+                        .collect();
                     AlbumBrief {
                         mid: s(&x["albumMID"]),
                         name: s(&x["albumName"]),
                         cover_url: parse::album_cover(&s(&x["albumMID"])),
                         publish_date: s(&x["publicTime"]),
-                        singer_name: if singers.is_empty() { s(&x["singerName"]) } else { singers.join(" / ") },
+                        singer_name: if singers.is_empty() {
+                            s(&x["singerName"])
+                        } else {
+                            singers.join(" / ")
+                        },
                     }
                 })
                 .filter(|x| !x.mid.is_empty())
@@ -221,18 +263,33 @@ fn lyric_snippet(item: &Value, keyword: &str) -> String {
     // 搜人名时命中的多是“曲：周杰伦”这类署名行，有真正的歌词行就优先用
     let is_credit = |line: &&str| line.chars().take(16).any(|c| c == '：' || c == ':');
     let lyrics: Vec<&str> = matched.iter().copied().filter(|l| !is_credit(l)).collect();
-    let hits: Vec<&str> = if lyrics.is_empty() { matched } else { lyrics }.into_iter().take(2).collect();
+    let hits: Vec<&str> = if lyrics.is_empty() { matched } else { lyrics }
+        .into_iter()
+        .take(2)
+        .collect();
     if !hits.is_empty() {
         return hits.join(" / ");
     }
-    first_s(item, &["lyric_hilight", "lyric"]).replace("<em>", "").replace("</em>", "").lines().map(str::trim).filter(|x| !x.is_empty()).take(2).collect::<Vec<_>>().join(" / ")
+    first_s(item, &["lyric_hilight", "lyric"])
+        .replace("<em>", "")
+        .replace("</em>", "")
+        .lines()
+        .map(str::trim)
+        .filter(|x| !x.is_empty())
+        .take(2)
+        .collect::<Vec<_>>()
+        .join(" / ")
 }
 
 fn hot_keywords(list: &Value) -> Vec<HotKeyword> {
     list.as_array()
         .map(|a| {
             a.iter()
-                .map(|k| HotKeyword { title: s(&k["title"]), query: s(&k["query"]), description: s(&k["description"]) })
+                .map(|k| HotKeyword {
+                    title: s(&k["title"]),
+                    query: s(&k["query"]),
+                    description: s(&k["description"]),
+                })
                 .filter(|k| !k.query.is_empty())
                 .collect()
         })
@@ -252,7 +309,10 @@ pub async fn hot_search() -> Result<HotSearch> {
             )
         })
         .await?;
-    Ok(HotSearch { hot: hot_keywords(&data["vec_hotkey"]), recommended: hot_keywords(&data["vec_reckey"]) })
+    Ok(HotSearch {
+        hot: hot_keywords(&data["vec_hotkey"]),
+        recommended: hot_keywords(&data["vec_reckey"]),
+    })
 }
 
 /// Windows 客户端的搜索联想，支持拼音和首字母。
@@ -279,8 +339,16 @@ pub async fn search_suggestions(query: &str) -> Result<Vec<SearchSuggestion>> {
             if title.is_empty() {
                 continue;
             }
-            let subtitle = if kind == SuggestionKind::Singer { String::new() } else { s(&item["singer"]) };
-            out.push(SearchSuggestion { kind, title, subtitle });
+            let subtitle = if kind == SuggestionKind::Singer {
+                String::new()
+            } else {
+                s(&item["singer"])
+            };
+            out.push(SearchSuggestion {
+                kind,
+                title,
+                subtitle,
+            });
         }
     }
     Ok(out)
@@ -294,7 +362,10 @@ pub async fn song_url(mid: &str, media_mid: &str, quality: Quality) -> Result<So
     let vkey_apis: &[(&str, &str)] = if desktop {
         &[("music.vkey.GetVkey", "UrlGetVkey")]
     } else {
-        &[("music.vkey.GetVkey", "UrlGetVkey"), ("vkey.GetVkeyServer", "CgiGetVkey")]
+        &[
+            ("music.vkey.GetVkey", "UrlGetVkey"),
+            ("vkey.GetVkeyServer", "CgiGetVkey"),
+        ]
     };
     let mut last_err = None;
     let mut got_response = false;
@@ -335,10 +406,19 @@ pub async fn song_url(mid: &str, media_mid: &str, quality: Quality) -> Result<So
             if !purl.is_empty() && s(&item["ekey"]).is_empty() {
                 let sip = data["sip"]
                     .as_array()
-                    .and_then(|a| a.iter().map(s).find(|x| x.starts_with("https")).or_else(|| a.first().map(s)))
+                    .and_then(|a| {
+                        a.iter()
+                            .map(s)
+                            .find(|x| x.starts_with("https"))
+                            .or_else(|| a.first().map(s))
+                    })
                     .unwrap_or_else(|| "https://isure.stream.qqmusic.qq.com/".into());
                 let url = format!("{sip}{purl}");
-                if !matches!(q, Quality::Low | Quality::Standard | Quality::High | Quality::Lossless) && !stream_available(&url).await? {
+                if !matches!(
+                    q,
+                    Quality::Low | Quality::Standard | Quality::High | Quality::Lossless
+                ) && !stream_available(&url).await?
+                {
                     continue;
                 }
                 return Ok(SongUrl {
@@ -409,7 +489,11 @@ pub async fn lyric(mid: &str, id: i64) -> Result<Lyric> {
 /// 歌曲信息里的 `file.try_begin` / `try_end` 就是官方客户端标出的高潮片段，没有时是 0。
 pub async fn chorus(id: i64) -> Result<Option<ChorusRange>> {
     let c = core();
-    let file = c.cached(&format!("chorus:{id}"), 7 * 86400, || async { Ok(tracks_by_id(&[id]).await?[0]["file"].clone()) }).await?;
+    let file = c
+        .cached(&format!("chorus:{id}"), 7 * 86400, || async {
+            Ok(tracks_by_id(&[id]).await?[0]["file"].clone())
+        })
+        .await?;
     Ok(chorus_range(&file))
 }
 
@@ -421,7 +505,9 @@ fn chorus_range(file: &Value) -> Option<ChorusRange> {
 pub async fn toplists() -> Result<Vec<TopListGroup>> {
     let c = core();
     let data = c
-        .cached("toplists", 3600, || c.musicu("musicToplist.ToplistInfoServer", "GetAll", json!({})))
+        .cached("toplists", 3600, || {
+            c.musicu("musicToplist.ToplistInfoServer", "GetAll", json!({}))
+        })
         .await?;
     let groups = data["group"].as_array().cloned().unwrap_or_default();
     Ok(groups
@@ -439,7 +525,14 @@ pub async fn toplists() -> Result<Vec<TopListGroup>> {
                             period: s(&t["period"]),
                             preview: t["song"]
                                 .as_array()
-                                .map(|x| x.iter().take(3).map(|x| format!("{} - {}", s(&x["title"]), s(&x["singerName"]))).collect())
+                                .map(|x| {
+                                    x.iter()
+                                        .take(3)
+                                        .map(|x| {
+                                            format!("{} - {}", s(&x["title"]), s(&x["singerName"]))
+                                        })
+                                        .collect()
+                                })
                                 .unwrap_or_default(),
                         })
                         .collect()
@@ -475,7 +568,10 @@ pub async fn toplist_detail(top_id: i64, period: &str) -> Result<TopListDetail> 
 /// 登录后带上账号和 g_tk，推荐结果才是个性化的。
 pub(crate) fn webkit_comm() -> Value {
     let c = core();
-    let g_tk = c.session().map(|s| hash33(&s.musickey, 5381)).unwrap_or(5381);
+    let g_tk = c
+        .session()
+        .map(|s| hash33(&s.musickey, 5381))
+        .unwrap_or(5381);
     json!({
         "ct": 20,
         "cv": 2276,
@@ -494,7 +590,11 @@ pub(super) async fn tracks_by_id(ids: &[i64]) -> Result<Value> {
         return Ok(json!([]));
     }
     let data = core()
-        .musicu("music.trackInfo.UniformRuleCtrl", "CgiGetTrackInfo", json!({ "ids": ids, "types": vec![0; ids.len()] }))
+        .musicu(
+            "music.trackInfo.UniformRuleCtrl",
+            "CgiGetTrackInfo",
+            json!({ "ids": ids, "types": vec![0; ids.len()] }),
+        )
         .await?;
     Ok(data["tracks"].clone())
 }
@@ -510,16 +610,34 @@ async fn recommend_page(mut param: Value) -> Result<Value> {
     let c = core();
     // 不带 is_20_style 时栏目没有 refresh_param
     param["v_uniq"] = json!([]);
-    param["ext"] = json!({"is_20_style": "1", "has_login": if c.session().is_some() { "1" } else { "0" }});
-    c.musicu_with_comm("music.recommend.RecommendFeed", "get_recommend_feed", param, android_feed_comm()).await
+    param["ext"] =
+        json!({"is_20_style": "1", "has_login": if c.session().is_some() { "1" } else { "0" }});
+    c.musicu_with_comm(
+        "music.recommend.RecommendFeed",
+        "get_recommend_feed",
+        param,
+        android_feed_comm(),
+    )
+    .await
 }
 
 /// 把栏目转成区块，歌曲卡只有 id，统一补全一次。
 async fn recommend_sections(shelves: &[&Value]) -> Result<Vec<RecommendSection>> {
-    let ids: Vec<i64> =
-        shelves.iter().flat_map(|shelf| shelf_cards(shelf)).filter(|c| n(&c["type"]) == 200).map(|c| n(&c["id"])).filter(|id| *id > 0).collect();
-    let tracks = parse::songs(&tracks_by_id(&ids).await?).into_iter().map(|s| (s.id, s)).collect();
-    Ok(shelves.iter().filter_map(|shelf| recommend_section(shelf, &tracks)).collect())
+    let ids: Vec<i64> = shelves
+        .iter()
+        .flat_map(|shelf| shelf_cards(shelf))
+        .filter(|c| n(&c["type"]) == 200)
+        .map(|c| n(&c["id"]))
+        .filter(|id| *id > 0)
+        .collect();
+    let tracks = parse::songs(&tracks_by_id(&ids).await?)
+        .into_iter()
+        .map(|s| (s.id, s))
+        .collect();
+    Ok(shelves
+        .iter()
+        .filter_map(|shelf| recommend_section(shelf, &tracks))
+        .collect())
 }
 
 /// 首页个性推荐（v_shelf → v_niche → v_card）。保留能直接用的歌曲卡（type 200）
@@ -527,31 +645,100 @@ async fn recommend_sections(shelves: &[&Value]) -> Result<Vec<RecommendSection>>
 /// 官方首页的歌曲栏目分在两页：第 1 页一个，第 2 页还有两个（第 2 页另带专属乐流的第一批，专属乐流另外取）。
 /// 第 2 页的 `v_cache` 是第 1 页的栏目 id，`s_num` 是栏目数，和官方一样。
 pub async fn recommend_feed() -> Result<RecommendFeed> {
-    let first = recommend_page(json!({ "direction": 0, "page": 1, "s_num": 0, "v_cache": [] })).await?;
+    let first =
+        recommend_page(json!({ "direction": 0, "page": 1, "s_num": 0, "v_cache": [] })).await?;
     let shown: Vec<String> = shelves(&first).map(|shelf| s(&shelf["id"])).collect();
-    let second = recommend_page(json!({ "direction": 1, "page": 2, "s_num": shown.len(), "v_cache": shown })).await?;
-    let all: Vec<&Value> = shelves(&first).chain(shelves(&second).filter(|shelf| s(&shelf["id"]) != FEED_COLUMN_SHELF)).collect();
-    let sections = recommend_sections(&all).await?;
+    let second = recommend_page(
+        json!({ "direction": 1, "page": 2, "s_num": shown.len(), "v_cache": shown }),
+    )
+    .await?;
+    let all: Vec<&Value> = shelves(&first)
+        .chain(shelves(&second).filter(|shelf| s(&shelf["id"]) != FEED_COLUMN_SHELF))
+        .collect();
+    let mut sections = recommend_sections(&all).await?;
+    // 「你的歌单补给站」只发给未登录和 QQ 登录，微信登录没有；这时从歌单广场补一栏放在最后。
+    // 补的这栏取不到不影响首页其余内容。见 docs/qqmusic-playlist-rec-android-capture.md
+    if !all.iter().any(|shelf| s(&shelf["id"]) == PLAYLIST_SHELF) {
+        if let Ok(playlists) = square_playlists().await {
+            if !playlists.is_empty() {
+                sections.push(RecommendSection {
+                    title: String::new(),
+                    songs: vec![],
+                    playlists,
+                    refresh: String::new(),
+                });
+            }
+        }
+    }
     let (radar_seed, radar_cover) = radar_entry(&first).unwrap_or_default();
-    Ok(RecommendFeed { sections, radar_seed, radar_cover })
+    Ok(RecommendFeed {
+        sections,
+        radar_seed,
+        radar_cover,
+    })
+}
+
+/// 首页推荐里「你的歌单补给站」栏目的 id。
+const PLAYLIST_SHELF: &str = "271";
+
+/// 歌单广场「推荐」标签的第一批（官方分类歌单页一批 21 个），不需要登录。
+async fn square_playlists() -> Result<Vec<PlaylistBrief>> {
+    let data = core()
+        .musicu(
+            "music.playlist.PlaylistSquare",
+            "GetRecommendWhole",
+            json!({ "IsReqHead": false, "IsReqFeed": true, "FeedReq": { "From": 0, "Size": 21 } }),
+        )
+        .await?;
+    Ok(parse_square_playlists(&data))
+}
+
+fn parse_square_playlists(data: &Value) -> Vec<PlaylistBrief> {
+    data["FeedRsp"]["List"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|x| &x["Playlist"]["basic"])
+        .filter(|b| n(&b["tid"]) > 0)
+        .map(|b| PlaylistBrief {
+            id: n(&b["tid"]).to_string(),
+            title: s(&b["title"]),
+            cover_url: s(&b["cover"]["medium_url"]),
+            song_count: n(&b["song_cnt"]) as u32,
+            play_count: n(&b["play_cnt"]) as u64,
+            creator: s(&b["creator"]["nick"]),
+        })
+        .collect()
 }
 
 /// 单独刷新首页的一个栏目，`refresh` 是该栏目的 [`RecommendSection::refresh`]，原样带回；
 /// 服务端只返回这一栏的新内容，标题也可能换了。第 2 页的栏目也是这样刷新。
 pub async fn refresh_recommend_section(refresh: &str) -> Result<RecommendSection> {
-    let info: Value = serde_json::from_str(refresh).context(ApiError::bad_response("invalid recommend refresh_param"))?;
-    let feed = recommend_page(json!({ "direction": 0, "page": 1, "s_num": 0, "v_cache": [], "refresh_info": info })).await?;
+    let info: Value = serde_json::from_str(refresh)
+        .context(ApiError::bad_response("invalid recommend refresh_param"))?;
+    let feed = recommend_page(
+        json!({ "direction": 0, "page": 1, "s_num": 0, "v_cache": [], "refresh_info": info }),
+    )
+    .await?;
     let shelves: Vec<&Value> = shelves(&feed).collect();
     recommend_sections(&shelves)
         .await?
         .into_iter()
         .next()
-        .context(ApiError::bad_response("refreshed recommend shelf has no songs or playlists"))
+        .context(ApiError::bad_response(
+            "refreshed recommend shelf has no songs or playlists",
+        ))
 }
 
 /// 一个栏目里没有能显示的歌曲或歌单时为 None。
-fn recommend_section(shelf: &Value, tracks: &std::collections::HashMap<i64, Song>) -> Option<RecommendSection> {
-    let title = s(&shelf["title_template"]).replace("{String}", &s(&shelf["title_content"])).trim().to_string();
+fn recommend_section(
+    shelf: &Value,
+    tracks: &std::collections::HashMap<i64, Song>,
+) -> Option<RecommendSection> {
+    let title = s(&shelf["title_template"])
+        .replace("{String}", &s(&shelf["title_content"]))
+        .trim()
+        .to_string();
     let shelf_cards: Vec<&Value> = shelf_cards(shelf).collect();
     let songs: Vec<Song> = shelf_cards
         .iter()
@@ -573,8 +760,17 @@ fn recommend_section(shelf: &Value, tracks: &std::collections::HashMap<i64, Song
         .collect();
     // 顶上那排（301）和未登录时的栏目 ModuleID 为空，不能单独刷新
     let refresh = &shelf["refresh_param"];
-    let refresh = if s(&refresh["ModuleID"]).is_empty() { String::new() } else { refresh.to_string() };
-    (!songs.is_empty() || !playlists.is_empty()).then_some(RecommendSection { title, songs, playlists, refresh })
+    let refresh = if s(&refresh["ModuleID"]).is_empty() {
+        String::new()
+    } else {
+        refresh.to_string()
+    };
+    (!songs.is_empty() || !playlists.is_empty()).then_some(RecommendSection {
+        title,
+        songs,
+        playlists,
+        refresh,
+    })
 }
 
 const FORYOU_MODULE: &str = "music.recommend.RecommendWidget";
@@ -583,7 +779,14 @@ const FORYOU_MODULE: &str = "music.recommend.RecommendWidget";
 async fn foryou_selections() -> Result<Vec<Value>> {
     let c = core();
     c.session().context(ApiError::NotLoggedIn)?;
-    let data = c.musicu_with_comm(FORYOU_MODULE, "GetForyouConfigItems", json!({ "Cmd": "0" }), android_feed_comm()).await?;
+    let data = c
+        .musicu_with_comm(
+            FORYOU_MODULE,
+            "GetForyouConfigItems",
+            json!({ "Cmd": "0" }),
+            android_feed_comm(),
+        )
+        .await?;
     Ok(data["Selections"].as_array().cloned().unwrap_or_default())
 }
 
@@ -598,7 +801,12 @@ pub async fn foryou_config() -> Result<Vec<ForyouItem>> {
         .await?
         .iter()
         .filter(|x| foryou_listed(x))
-        .map(|x| ForyouItem { id: s(&x["Id"]), title: s(&x["Title"]), fixed: n(&x["ChoseStatus"]) == -1, chosen: n(&x["ChoseStatus"]) == 1 })
+        .map(|x| ForyouItem {
+            id: s(&x["Id"]),
+            title: s(&x["Title"]),
+            fixed: n(&x["ChoseStatus"]) == -1,
+            chosen: n(&x["ChoseStatus"]) == 1,
+        })
         .collect())
 }
 
@@ -606,14 +814,25 @@ pub async fn foryou_config() -> Result<Vec<ForyouItem>> {
 /// 没列出的项保持原状，不动手机版的选择。
 pub async fn save_foryou_config(chosen: &[String]) -> Result<()> {
     let mut items = foryou_selections().await?;
-    for x in items.iter_mut().filter(|x| n(&x["ChoseStatus"]) != -1 && foryou_listed(x)) {
+    for x in items
+        .iter_mut()
+        .filter(|x| n(&x["ChoseStatus"]) != -1 && foryou_listed(x))
+    {
         x["ChoseStatus"] = json!(if chosen.contains(&s(&x["Id"])) { 1 } else { 2 });
     }
     let data = core()
-        .musicu_write_with_comm(FORYOU_MODULE, "SaveForyouConfigItems", json!({ "Selections": items }), android_feed_comm())
+        .musicu_write_with_comm(
+            FORYOU_MODULE,
+            "SaveForyouConfigItems",
+            json!({ "Selections": items }),
+            android_feed_comm(),
+        )
         .await?;
     if n(&data["Code"]) != 0 {
-        bail!(ApiError::ServerError { api: format!("{FORYOU_MODULE}.SaveForyouConfigItems"), code: s(&data["Code"]) });
+        bail!(ApiError::ServerError {
+            api: format!("{FORYOU_MODULE}.SaveForyouConfigItems"),
+            code: s(&data["Code"])
+        });
     }
     Ok(())
 }
@@ -653,16 +872,31 @@ pub async fn feed_column(page: u32, seen: &[String]) -> Result<FeedColumnPage> {
     let group_ids: Vec<i64> = cards
         .iter()
         .filter(|c| n(&c["subtype"]) == 206)
-        .flat_map(|c| c["card_extra_info"]["SongList"].as_array().into_iter().flatten().map(|x| n(&x["ID"])))
+        .flat_map(|c| {
+            c["card_extra_info"]["SongList"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|x| n(&x["ID"]))
+        })
         .filter(|id| *id > 0)
         .collect();
     let tracks: std::collections::HashMap<i64, Song> =
-        parse::songs(&tracks_by_id(&group_ids).await?).into_iter().map(|s| (s.id, s)).collect();
+        parse::songs(&tracks_by_id(&group_ids).await?)
+            .into_iter()
+            .map(|s| (s.id, s))
+            .collect();
     Ok(feed_column_page(&cards, &tracks))
 }
 
-fn feed_column_page(cards: &[&Value], tracks: &std::collections::HashMap<i64, Song>) -> FeedColumnPage {
-    let seen = cards.iter().map(|c| format!("{}_{}_{}", n(&c["type"]), n(&c["subtype"]), s(&c["id"]))).collect();
+fn feed_column_page(
+    cards: &[&Value],
+    tracks: &std::collections::HashMap<i64, Song>,
+) -> FeedColumnPage {
+    let seen = cards
+        .iter()
+        .map(|c| format!("{}_{}_{}", n(&c["type"]), n(&c["subtype"]), s(&c["id"])))
+        .collect();
     let cards = cards
         .iter()
         .filter_map(|c| match (n(&c["type"]), n(&c["subtype"])) {
@@ -716,9 +950,19 @@ fn radar_entry(feed: &Value) -> Option<(Vec<i64>, String)> {
             if !scheme.contains("jumpToRadarMode") {
                 return None;
             }
-            let p = url::Url::parse(&scheme).ok()?.query_pairs().find(|(k, _)| k == "p")?.1.into_owned();
+            let p = url::Url::parse(&scheme)
+                .ok()?
+                .query_pairs()
+                .find(|(k, _)| k == "p")?
+                .1
+                .into_owned();
             let p: Value = serde_json::from_str(&p).ok()?;
-            let ids: Vec<i64> = p["EntranceSongs"].as_array()?.iter().map(n).filter(|id| *id > 0).collect();
+            let ids: Vec<i64> = p["EntranceSongs"]
+                .as_array()?
+                .iter()
+                .map(n)
+                .filter(|id| *id > 0)
+                .collect();
             Some((ids, s(&c["cover"])))
         })
         .find(|(ids, _)| !ids.is_empty())
@@ -755,7 +999,12 @@ pub async fn radar_songs(seed: &[i64], page: u32) -> Result<Vec<Song>> {
             webkit_comm(),
         )
         .await?;
-    let tracks: Vec<Value> = data["VecSongs"].as_array().into_iter().flatten().map(|x| x["Track"].clone()).collect();
+    let tracks: Vec<Value> = data["VecSongs"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|x| x["Track"].clone())
+        .collect();
     Ok(parse::songs(&Value::Array(tracks)))
 }
 
@@ -764,7 +1013,11 @@ fn shelves(feed: &Value) -> impl Iterator<Item = &Value> {
 }
 
 fn shelf_cards(shelf: &Value) -> impl Iterator<Item = &Value> {
-    shelf["v_niche"].as_array().into_iter().flatten().flat_map(|niche| niche["v_card"].as_array().into_iter().flatten())
+    shelf["v_niche"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .flat_map(|niche| niche["v_card"].as_array().into_iter().flatten())
 }
 
 fn cards(feed: &Value) -> impl Iterator<Item = &Value> {
@@ -807,24 +1060,35 @@ pub async fn playlist_detail(id: &str) -> Result<PlaylistDetail> {
 /// 当前登录用户创建的歌单（含“我喜欢”）和收藏的歌单。
 pub async fn user_playlists() -> Result<Vec<PlaylistBrief>> {
     let c = core();
-    let Some(sess) = c.session() else { bail!(ApiError::NotLoggedIn) };
+    let Some(sess) = c.session() else {
+        bail!(ApiError::NotLoggedIn)
+    };
     let mut out = Vec::new();
 
     let created = c
         .get_json(
             "https://c.y.qq.com/rsc/fcgi-bin/fcg_user_created_diss",
-            &[("hostuin", sess.uin.clone()), ("sin", "0".into()), ("size", "200".into()), ("format", "json".into())],
+            &[
+                ("hostuin", sess.uin.clone()),
+                ("sin", "0".into()),
+                ("size", "200".into()),
+                ("format", "json".into()),
+            ],
         )
         .await?;
     if let Some(list) = created["data"]["disslist"].as_array() {
-        out.extend(list.iter().filter(|p| n(&p["tid"]) != 0).map(|p| PlaylistBrief {
-            id: s(&p["tid"]),
-            title: s(&p["diss_name"]),
-            cover_url: s(&p["diss_cover"]),
-            song_count: n(&p["song_cnt"]) as u32,
-            play_count: n(&p["listen_num"]) as u64,
-            creator: sess.nickname.clone(),
-        }));
+        out.extend(
+            list.iter()
+                .filter(|p| n(&p["tid"]) != 0)
+                .map(|p| PlaylistBrief {
+                    id: s(&p["tid"]),
+                    title: s(&p["diss_name"]),
+                    cover_url: s(&p["diss_cover"]),
+                    song_count: n(&p["song_cnt"]) as u32,
+                    play_count: n(&p["listen_num"]) as u64,
+                    creator: sess.nickname.clone(),
+                }),
+        );
     }
 
     let fav = c
@@ -869,6 +1133,22 @@ mod tests {
     }
 
     #[test]
+    fn parses_square_playlists() {
+        let data = json!({"FeedRsp": {"HasMore": true, "List": [
+            {"Playlist": {"basic": {"tid": 8584177317u64, "title": "抖音超火", "cover": {"medium_url": "http://m"},
+             "song_cnt": 229, "play_cnt": 81002785, "creator": {"nick": "轨迹"}}}, "WhereFrom": "干预"},
+            {"Playlist": {"basic": {"tid": 0}}},
+        ]}});
+        let p = parse_square_playlists(&data);
+        assert_eq!(p.len(), 1);
+        assert_eq!(
+            (p[0].id.as_str(), p[0].cover_url.as_str(), p[0].song_count),
+            ("8584177317", "http://m", 229)
+        );
+        assert_eq!((p[0].play_count, p[0].creator.as_str()), (81002785, "轨迹"));
+    }
+
+    #[test]
     fn lists_only_foryou_items_kanade_can_show() {
         let listed = |v: Value| foryou_listed(&v);
         assert!(listed(json!({ "ChoseStatus": -1, "ItemType": 700 })));
@@ -892,13 +1172,38 @@ mod tests {
             .map(|s| (s.id, s))
             .collect();
         let page = feed_column_page(&cards, &tracks);
-        assert_eq!(page.seen, ["200_0_376471754", "200_206_1052115", "500_0_9525416362", "1100_1100_1"]);
+        assert_eq!(
+            page.seen,
+            [
+                "200_0_376471754",
+                "200_206_1052115",
+                "500_0_9525416362",
+                "1100_1100_1"
+            ]
+        );
         assert_eq!(page.cards.len(), 3);
-        assert_eq!((page.cards[0].kind, page.cards[0].tag.as_str(), page.cards[0].songs[0].mid.as_str()), (FeedCardKind::Song, "“男女对唱”", "0026MOow3oTkqr"));
+        assert_eq!(
+            (
+                page.cards[0].kind,
+                page.cards[0].tag.as_str(),
+                page.cards[0].songs[0].mid.as_str()
+            ),
+            (FeedCardKind::Song, "“男女对唱”", "0026MOow3oTkqr")
+        );
         // 补全不到的歌跳过，组里剩下两首
-        assert_eq!((page.cards[1].kind, page.cards[1].songs.len()), (FeedCardKind::Group, 2));
+        assert_eq!(
+            (page.cards[1].kind, page.cards[1].songs.len()),
+            (FeedCardKind::Group, 2)
+        );
         let playlist = page.cards[2].playlist.as_ref().unwrap();
-        assert_eq!((page.cards[2].kind, playlist.id.as_str(), playlist.play_count), (FeedCardKind::Playlist, "9525416362", 53012));
+        assert_eq!(
+            (
+                page.cards[2].kind,
+                playlist.id.as_str(),
+                playlist.play_count
+            ),
+            (FeedCardKind::Playlist, "9525416362", 53012)
+        );
     }
 
     #[test]
@@ -910,12 +1215,18 @@ mod tests {
         let songs = similar_song_list(&data).unwrap();
         assert_eq!(songs.iter().map(|s| s.id).collect::<Vec<_>>(), vec![11, 22]);
         assert_eq!(songs[0].mv_vid, "video");
-        assert!(similar_song_list(&json!({"retcode": 0, "vecSong": []})).unwrap().is_empty());
+        assert!(similar_song_list(&json!({"retcode": 0, "vecSong": []}))
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
     fn similar_songs_reject_failed_or_malformed_results() {
-        for data in [json!({"retcode": 1000, "vecSong": []}), json!({"vecSong": []}), json!({"retcode": 0})] {
+        for data in [
+            json!({"retcode": 1000, "vecSong": []}),
+            json!({"vecSong": []}),
+            json!({"retcode": 0}),
+        ] {
             assert!(similar_song_list(&data).is_err());
         }
     }
@@ -939,7 +1250,10 @@ mod tests {
         let feed = json!({ "v_shelf": [{ "v_niche": [{ "v_card": [
             { "type": 900, "cover": "https://y.gtimg.cn/c.jpg", "scheme": "qqmusic://qq.com/ui/jumpToRadarMode?p=%7B%22EntranceSongs%22%3A%5B104420880%5D%2C%22Page%22%3A%221%22%7D" }
         ] }] }] });
-        assert_eq!(radar_entry(&feed), Some((vec![104420880], "https://y.gtimg.cn/c.jpg".into())));
+        assert_eq!(
+            radar_entry(&feed),
+            Some((vec![104420880], "https://y.gtimg.cn/c.jpg".into()))
+        );
     }
 
     #[tokio::test]
@@ -956,7 +1270,14 @@ mod tests {
     fn parses_category_search_results() {
         let singers = json!({ "list": [{ "singerMID": "003xSwHe0xtkZI", "singerName": "jixwang", "songNum": 168, "albumNum": 34 }], "total": 19, "nextpage": -1 });
         let r = search_result(SearchKind::Singer, "鸣潮", 1, 28, &singers);
-        assert_eq!((r.singers[0].name.as_str(), r.singers[0].song_count, r.has_more), ("jixwang", 168, false));
+        assert_eq!(
+            (
+                r.singers[0].name.as_str(),
+                r.singers[0].song_count,
+                r.has_more
+            ),
+            ("jixwang", 168, false)
+        );
 
         let albums = json!({ "list": [{ "albumMID": "00087mKB1xbyP2", "albumName": "定玄", "publicTime": "2026-06-26", "singerName": "x",
             "singer_list": [{ "name": "鸣潮先约电台" }] }], "total": 251, "nextpage": 2 });
@@ -967,7 +1288,10 @@ mod tests {
         let playlists = json!({ "list": [{ "dissid": "9629670386", "dissname": "锁暝", "imgurl": "https://a/b", "song_count": 276,
             "listennum": 315007, "creator": { "name": "艾德" } }], "total": 300, "nextpage": 2 });
         let r = search_result(SearchKind::Playlist, "鸣潮", 1, 21, &playlists);
-        assert_eq!((r.playlists[0].id.as_str(), r.playlists[0].creator.as_str()), ("9629670386", "艾德"));
+        assert_eq!(
+            (r.playlists[0].id.as_str(), r.playlists[0].creator.as_str()),
+            ("9629670386", "艾德")
+        );
 
         let videos = json!({ "list": [
             { "v_id": "004cp3hL2EXB5u", "mv_id": 2447344, "mv_name": "心月辞·何所往", "mv_pic_url": "http://y.gtimg.cn/x.jpg",
@@ -984,20 +1308,50 @@ mod tests {
     fn lyric_snippet_skips_title_line() {
         let item = json!({ "mid": "000bjZqH448qnK", "name": "远航星的告别", "lyric": "", "lyric_hilight": "",
             "content": "远航星的告别 - 鸣潮先约电台\n词：Xulai\n出品：鸣潮先约电台\nThat snowflake once fell on my nose" });
-        let r = search_result(SearchKind::Lyric, "snowflake", 1, 10, &json!({ "list": [item], "total": 1000, "nextpage": 2 }));
-        assert_eq!(r.lyric_snippets, vec!["That snowflake once fell on my nose".to_string()]);
+        let r = search_result(
+            SearchKind::Lyric,
+            "snowflake",
+            1,
+            10,
+            &json!({ "list": [item], "total": 1000, "nextpage": 2 }),
+        );
+        assert_eq!(
+            r.lyric_snippets,
+            vec!["That snowflake once fell on my nose".to_string()]
+        );
         assert_eq!(r.songs.len(), 1);
-        assert_eq!(lyric_snippet(&json!({ "content": "a - b", "lyric_hilight": "<em>你</em>好\n世界" }), "你"), "你好 / 世界");
+        assert_eq!(
+            lyric_snippet(
+                &json!({ "content": "a - b", "lyric_hilight": "<em>你</em>好\n世界" }),
+                "你"
+            ),
+            "你好 / 世界"
+        );
         let credits = json!({ "content": "晴天 - 周杰伦\n词：周杰伦\n曲：周杰伦\n周杰伦说过的话" });
         assert_eq!(lyric_snippet(&credits, "周杰伦"), "周杰伦说过的话");
-        assert_eq!(lyric_snippet(&json!({ "content": "晴天 - 周杰伦\n词：周杰伦" }), "周杰伦"), "词：周杰伦");
+        assert_eq!(
+            lyric_snippet(&json!({ "content": "晴天 - 周杰伦\n词：周杰伦" }), "周杰伦"),
+            "词：周杰伦"
+        );
     }
 
     #[test]
     fn legacy_song_search_estimates_more_pages() {
-        let r = search_result(SearchKind::Song, "x", 1, 2, &json!({ "list": [{ "mid": "a" }, { "mid": "b" }], "total": 3 }));
+        let r = search_result(
+            SearchKind::Song,
+            "x",
+            1,
+            2,
+            &json!({ "list": [{ "mid": "a" }, { "mid": "b" }], "total": 3 }),
+        );
         assert!(r.has_more);
-        let r = search_result(SearchKind::Song, "x", 2, 2, &json!({ "list": [{ "mid": "c" }], "total": 3 }));
+        let r = search_result(
+            SearchKind::Song,
+            "x",
+            2,
+            2,
+            &json!({ "list": [{ "mid": "c" }], "total": 3 }),
+        );
         assert!(!r.has_more);
     }
 
@@ -1005,6 +1359,10 @@ mod tests {
     #[ignore = "需要联网"]
     async fn suggests_from_pinyin_initials() {
         let list = search_suggestions("yhbk").await.unwrap();
-        assert!(list.iter().any(|x| x.kind == SuggestionKind::Song && x.title.contains("有何不可")), "{list:?}");
+        assert!(
+            list.iter()
+                .any(|x| x.kind == SuggestionKind::Song && x.title.contains("有何不可")),
+            "{list:?}"
+        );
     }
 }
