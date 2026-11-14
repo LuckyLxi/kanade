@@ -24,8 +24,11 @@ SolidCompression=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
+ShowLanguageDialog=auto
 
 [Languages]
+; Inno Setup 不自带简体中文，ChineseSimplified.isl 取自 issrc 的 Files/Languages/Unofficial
+Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
