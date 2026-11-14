@@ -840,8 +840,8 @@ class _ControlsArea extends StatelessWidget {
         const SizedBox(height: 6),
         const _Transport(),
         const SizedBox(height: 14),
+        // 每个按钮占等宽一格，定时关闭的倒计时变长时不会把旁边的挤开
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _ToggleIcon(
               icon: Icons.mode_comment_outlined,
@@ -861,7 +861,7 @@ class _ControlsArea extends StatelessWidget {
                 accent: accent,
                 onTap: onQueue!,
               ),
-          ],
+          ].map((w) => Expanded(child: Center(child: w))).toList(),
         ),
       ],
     );
