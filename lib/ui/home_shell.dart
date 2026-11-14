@@ -867,7 +867,7 @@ class _TabSwitcher extends StatefulWidget {
 
   final int index;
 
-  /// 滑动期间页面画成一张快照来挪，和系统的页面转场一样；页面里的小动画这 0.3 秒停住。
+  /// 滑动期间滑走的页面画成一张快照来挪，它里面的小动画这 0.3 秒停住。
   final bool snapshot;
   final List<Widget> children;
 
@@ -920,8 +920,10 @@ class _TabSwitcherState extends State<_TabSwitcher>
           final moving = _slide.isAnimating;
           final t = Curves.easeOutCubic.transform(_slide.value);
           final dir = to > _from ? 1.0 : -1.0;
-          for (final s in _snapshots) {
-            s.allowSnapshotting = widget.snapshot && moving;
+          // 只给滑走的页面拍快照。滑进来的页面刚显示，图片加载完、淡入开始都发生在这 0.3 秒里，
+          // 拍成快照就要等滑完才一下子冒出来
+          for (final (i, s) in _snapshots.indexed) {
+            s.allowSnapshotting = widget.snapshot && moving && i != to;
           }
           return Stack(
             fit: StackFit.expand,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -264,6 +265,28 @@ class _LoggedInState extends State<_LoggedIn> {
   bool _collected = false;
   bool _creating = false;
   final _scroll = SmoothScrollController();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _precacheAvatar();
+  }
+
+  @override
+  void didUpdateWidget(_LoggedIn old) {
+    super.didUpdateWidget(old);
+    if (old.user.avatarUrl != widget.user.avatarUrl) _precacheAvatar();
+  }
+
+  // 头像是 CircleAvatar 的背景图，要等第一次画出来才开始加载，
+  // 第一次切到这一页时滑完了才冒出来。这一页在后台建好时就先加载
+  void _precacheAvatar() {
+    final url = widget.user.avatarUrl;
+    if (url.isEmpty) return;
+    unawaited(
+      precacheImage(NetworkImage(httpsUrl(url)), context, onError: (_, _) {}),
+    );
+  }
 
   @override
   void dispose() {
