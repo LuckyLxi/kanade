@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' show lerpDouble;
+import 'dart:ui' show ImageFilter, lerpDouble;
 
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
@@ -12,6 +12,7 @@ import '../auth/auth_controller.dart';
 import '../l10n/app_localizations.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/types.dart';
+import 'baked_shadow.dart';
 import 'desktop_shell.dart';
 import 'discover_page.dart';
 import 'glass.dart';
@@ -412,6 +413,8 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
     final destinations = _destinations(AppLocalizations.of(context));
     final body = _TabSwitcher(
       index: _tab,
+      // 手机布局下面压着玻璃导航栏，滑动时每帧重画两整页太重，改成挪快照
+      snapshot: !wide,
       children: [
         _tabNavigator(0, const DiscoverPage()),
         _tabNavigator(1, const SearchPage()),
@@ -510,19 +513,50 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
           blurRadius: 1.5,
         ),
       ];
+      // Impeller 上图标和标签的阴影画成图缓存（见 BakedTextShadow），点导航栏时不用每帧重做模糊。
+      // Skia（Windows 窄窗口）没有这个开销，缓存的阴影在那边也和直接画的不一样，照旧直接画。
+      final bakeShadows = ImageFilter.isShaderFilterSupported;
       final labelStyle = TextStyle(
         decoration: TextDecoration.none,
         shadows: shadows,
       );
+      // 组件库自己画的标签用不了这个缓存，所以缓存时标签和图标一起放在这里，
+      // 字号、字重、间距照组件库默认的标签：11，未选中 w500、选中 w600，和图标隔 4
+      Widget tabFace(IconData icon, String label, FontWeight weight) =>
+          BakedTextShadow(
+            shadows: shadows,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 4,
+              children: [
+                Icon(icon),
+                Text(
+                  label,
+                  maxLines: 1,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: weight,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ],
+            ),
+          );
       final tabs = GlassTabBar.bottom(
         selectedIndex: _tab,
         onTabSelected: _select,
         tabs: [
           for (final d in destinations)
             GlassTab(
-              icon: Icon(d.$1, shadows: shadows),
-              activeIcon: Icon(d.$2, shadows: shadows),
-              label: d.$3,
+              icon: bakeShadows
+                  ? tabFace(d.$1, d.$3, FontWeight.w500)
+                  : Icon(d.$1, shadows: shadows),
+              activeIcon: bakeShadows
+                  ? tabFace(d.$2, d.$3, FontWeight.w600)
+                  : Icon(d.$2, shadows: shadows),
+              label: bakeShadows ? null : d.$3,
               semanticLabel: d.$3,
             ),
         ],
@@ -825,9 +859,16 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
 /// 切换标签时页面横着滑过去：往右边的标签切，新页面从右边推进来，反过来从左边。
 /// 三个页面一直留着（滚动位置、二级页面都在），不在显示的不绘制、停掉动画。
 class _TabSwitcher extends StatefulWidget {
-  const _TabSwitcher({required this.index, required this.children});
+  const _TabSwitcher({
+    required this.index,
+    required this.snapshot,
+    required this.children,
+  });
 
   final int index;
+
+  /// 滑动期间页面画成一张快照来挪，和系统的页面转场一样；页面里的小动画这 0.3 秒停住。
+  final bool snapshot;
   final List<Widget> children;
 
   @override
@@ -847,6 +888,9 @@ class _TabSwitcherState extends State<_TabSwitcher>
           if (s == AnimationStatus.completed) setState(() {});
         });
   late int _from = widget.index;
+  late final _snapshots = [
+    for (final _ in widget.children) SnapshotController(),
+  ];
 
   @override
   void didUpdateWidget(_TabSwitcher old) {
@@ -860,6 +904,9 @@ class _TabSwitcherState extends State<_TabSwitcher>
   @override
   void dispose() {
     _slide.dispose();
+    for (final s in _snapshots) {
+      s.dispose();
+    }
     super.dispose();
   }
 
@@ -873,6 +920,9 @@ class _TabSwitcherState extends State<_TabSwitcher>
           final moving = _slide.isAnimating;
           final t = Curves.easeOutCubic.transform(_slide.value);
           final dir = to > _from ? 1.0 : -1.0;
+          for (final s in _snapshots) {
+            s.allowSnapshotting = widget.snapshot && moving;
+          }
           return Stack(
             fit: StackFit.expand,
             children: [
@@ -889,8 +939,12 @@ class _TabSwitcherState extends State<_TabSwitcher>
                       ),
                       child: IgnorePointer(
                         ignoring: i != to,
-                        // 滑动时只挪图层，不重绘页面内容
-                        child: RepaintBoundary(child: child),
+                        // 滑动时只挪图层，不重绘页面内容。手机上的 Impeller 不缓存图层内容，
+                        // 还得靠快照才真的不重画；GlassSnapshot 让页面里的高画质玻璃（二级页的返回钮）在快照里对得上
+                        child: GlassSnapshot(
+                          controller: _snapshots[i],
+                          child: RepaintBoundary(child: child),
+                        ),
                       ),
                     ),
                   ),
