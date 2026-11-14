@@ -70,3 +70,6 @@ app.*.map.json
 /android/key.properties
 *.jks
 *.keystore
+
+# Local release build output
+/dist/
