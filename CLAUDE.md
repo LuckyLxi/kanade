@@ -32,7 +32,7 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 ### Audio sources and caching
 
 - `AudioSource.resolve` (`lib/player/audio_source.dart`) tries the local cache first, then an online URL, then any cached quality when offline.
-- Online audio never reaches media_kit directly. `rust/src/qq/audio_cache.rs` runs a local relay that streams to the player while it writes the whole file to the cache, and evicts least-recently-played songs above the size limit (`pref:audio_cache_limit_mb`, default 1024 MB).
+- Online audio never reaches media_kit directly. `rust/src/qq/audio_cache.rs` runs a local relay that streams to the player while it writes the whole file to the cache, and evicts least-recently-played songs above the size limit (`pref:audio_cache_limit_mb`, default 1024 MB). Encrypted formats are decrypted in that relay (`qmc.rs` for QMCv2 ekeys, `encrypted_audio.rs` for format detection and header checks), so the player and the cache only ever see plain audio.
 - `rust/src/qq/quality.rs` builds the list of quality tiers for the current account. Special formats (DTS, 360 Reality Audio, NAC) depend on optional platform decoders (`dts.rs`, `ra360.rs`, `nac.rs`), which exist only on Windows x86_64 and Android aarch64; on other targets `available()` returns false. Their C++ sources live in `native/` and are built by `windows/CMakeLists.txt` and `android/app/build.gradle.kts` (via `native/android/CMakeLists.txt`), not by cargo.
 
 ### UI
@@ -40,12 +40,22 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 - `lib/ui/home_shell.dart` (mobile) and `desktop_shell.dart` are the app shells. The player is a custom route (`player_route.dart`, `player_page.dart`) that animates out of the mini player / bar.
 - Glass effects come from the patched `third_party/liquid_glass_widgets`, wrapped by `lib/ui/glass.dart` (`KanadeGlass`). Use the `liquid-glass-widgets` skill when editing glass UI.
 - `ExcludeSemantics(excluding: Platform.isWindows)` in `main.dart` deliberately works around a Flutter Windows accessibility crash. Keep it.
+- Widgets come from the split `material_ui` / `cupertino_ui` packages, not `package:flutter/material.dart`; don't mix the two. For the same reason the app uses `lib/l10n/localizations_delegates.dart` instead of the gen-l10n `AppLocalizations.localizationsDelegates`, which would make widgets fall back to English.
 - The ARB template is `lib/l10n/app_zh.arb` (Chinese is the source language). Code comments and docs are mostly in Chinese.
+
+### Song recognition
+
+- `lib/recognition/recognition_controller.dart` records PCM and calls `api.recognizeSong` (`rust/src/qq/recognize.rs`). On Android, `android_recognition_platform.dart` drives a floating bubble and foreground service (`RecognizeBubble.kt`, `RecognizeService.kt`) over the `kanade/recognize` MethodChannel.
+
+### Login
+
+- `rust/src/qq/login.rs` handles QR login. The QQ Music app-authorization flow waits for the scan result over a minimal MQTT 5 client carried on WebSocket (`mqtt.rs`), which implements only the packets that flow needs.
 
 ### App updates
 
 - `rust/src/update.rs` reads a version manifest from the repo's `update-manifest` branch (`stable.json` / `preview.json`), downloads the installer from GitHub Releases and verifies its SHA-256. With the mirror pref on, it fetches both through `ghfast.top` / `gh-proxy.com` instead of GitHub; mirrors don't forward the GitHub API, so version info is a plain file.
 - The release workflow writes that manifest, so changing the manifest shape means changing `release.yml` and `update.rs` together. Dart-side prefs and install live in `lib/update/app_update.dart`.
+- Release notes come from `release-notes/<tag>.md` when it exists, otherwise from the commit log.
 
 ### Patched dependencies (`third_party/`)
 
