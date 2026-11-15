@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -48,13 +49,21 @@ class _SingerBody extends StatefulWidget {
   State<_SingerBody> createState() => _SingerBodyState();
 }
 
-class _SingerBodyState extends State<_SingerBody> {
+class _SingerBodyState extends State<_SingerBody>
+    with SingleTickerProviderStateMixin {
   static const _heroHeight = 280.0;
   static const _barHeight = 56.0;
+
+  /// 新分类从这么远的地方滑进来。
+  static const _entry = 72.0;
 
   final _scroll = SmoothScrollController();
   final _marker = GlobalKey();
   var _tab = _Tab.featured;
+
+  /// 分类内容的横向偏移，切换和手指左右滑时用。
+  late final _shift = AnimationController.unbounded(vsync: this);
+  double _drag = 0;
 
   late final _songs = Pager<Song>(
     (_, offset) async {
@@ -95,6 +104,7 @@ class _SingerBodyState extends State<_SingerBody> {
   @override
   void dispose() {
     _scroll.dispose();
+    _shift.dispose();
     _songs.dispose();
     _albums.dispose();
     _videos?.dispose();
@@ -107,7 +117,46 @@ class _SingerBodyState extends State<_SingerBody> {
       _marker,
       MediaQuery.paddingOf(context).top + _barHeight,
     );
+    if (tab == _tab) return;
+    _shift.value = tab.index > _tab.index ? _entry : -_entry;
+    _shift.animateTo(
+      0,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
     setState(() => _tab = tab);
+  }
+
+  _Tab? _neighbor(int step) {
+    final i = _tab.index + step;
+    return i < 0 || i >= _Tab.values.length ? null : _Tab.values[i];
+  }
+
+  void _dragStart(DragStartDetails _) {
+    _shift.stop();
+    _drag = _shift.value / 0.4;
+  }
+
+  void _dragUpdate(DragUpdateDetails d) {
+    _drag += d.delta.dx;
+    // 两头没有下一个分类时拉不太动
+    final hasNext = _neighbor(_drag < 0 ? 1 : -1) != null;
+    _shift.value = _drag * (hasNext ? 0.4 : 0.15);
+  }
+
+  void _dragEnd(DragEndDetails d) {
+    final v = d.primaryVelocity ?? 0;
+    final step = v.abs() > 400 ? (v < 0 ? 1 : -1) : (_drag < 0 ? 1 : -1);
+    final target = _neighbor(step);
+    if (target != null && (_drag.abs() > 80 || v.abs() > 400)) {
+      _select(target);
+    } else {
+      _shift.animateTo(
+        0,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   Pager<VideoBrief> _videoPager(int tag) {
@@ -155,112 +204,131 @@ class _SingerBodyState extends State<_SingerBody> {
       future: _social,
       builder: (context, snap) {
         final social = snap.data;
-        return CustomScrollView(
-          controller: _scroll,
-          slivers: [
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _Hero(
-                d: d,
-                subtitle: social == null
-                    ? ''
-                    : [
-                        l.userFans(formatCount(l, social.fansCount.toInt())),
-                        social.guardTitle,
-                      ].where((s) => s.isNotEmpty).join(' · '),
-                top: top,
-                maxHeight: top + _heroHeight,
-                minHeight: top + _barHeight,
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size(0, 46),
-                        ),
-                        onPressed: d.songs.isEmpty
-                            ? null
-                            : () => context.read<PlayerController>().playList(
-                                d.songs,
-                                0,
-                              ),
-                        icon: const Icon(Icons.play_arrow_rounded),
-                        label: Text(l.playAll(d.songs.length)),
-                      ),
-                    ),
-                    if (social != null) ...[
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        height: 46,
-                        child: FollowButton(
-                          followed: _followed ?? social.followed,
-                          onChanged: (value) async {
-                            await api.setSingerFollowed(
-                              mid: d.mid,
-                              followed: value,
-                            );
-                            if (mounted) setState(() => _followed = value);
-                          },
-                        ),
-                      ),
-                    ],
-                  ],
+        return GestureDetector(
+          onHorizontalDragStart: _dragStart,
+          onHorizontalDragUpdate: _dragUpdate,
+          onHorizontalDragEnd: _dragEnd,
+          onHorizontalDragCancel: () => _dragEnd(DragEndDetails()),
+          child: CustomScrollView(
+            controller: _scroll,
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _Hero(
+                  d: d,
+                  subtitle: social == null
+                      ? ''
+                      : [
+                          l.userFans(formatCount(l, social.fansCount.toInt())),
+                          social.guardTitle,
+                        ].where((s) => s.isNotEmpty).join(' · '),
+                  top: top,
+                  maxHeight: top + _heroHeight,
+                  minHeight: top + _barHeight,
                 ),
               ),
-            ),
-            SliverToBoxAdapter(key: _marker),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: PinnedBox(
-                height: 56,
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: PillRow(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    spacing: 12,
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                  child: Row(
                     children: [
-                      for (final (tab, label) in [
-                        (_Tab.featured, l.singerFeatured),
-                        (_Tab.songs, l.tabSongs),
-                        (_Tab.albums, l.tabAlbums),
-                        (_Tab.videos, l.searchKindVideo),
-                        (_Tab.about, l.singerAbout),
-                      ])
-                        UnderlineTab(
-                          label: label,
-                          selected: _tab == tab,
-                          onTap: () => _select(tab),
+                      Expanded(
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(0, 46),
+                          ),
+                          onPressed: d.songs.isEmpty
+                              ? null
+                              : () => context.read<PlayerController>().playList(
+                                  d.songs,
+                                  0,
+                                ),
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: Text(l.playAll(d.songs.length)),
                         ),
+                      ),
+                      if (social != null) ...[
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          height: 46,
+                          child: FollowButton(
+                            followed: _followed ?? social.followed,
+                            onChanged: (value) async {
+                              await api.setSingerFollowed(
+                                mid: d.mid,
+                                followed: value,
+                              );
+                              if (mounted) setState(() => _followed = value);
+                            },
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
-            ),
-            ...switch (_tab) {
-              _Tab.featured => _featured(l),
-              _Tab.songs => [
-                PagedSliver(
-                  pager: _songs,
-                  itemBuilder: (_, items, i) =>
-                      SongTile(songs: items, index: i),
+              SliverToBoxAdapter(key: _marker),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: PinnedBox(
+                  height: 56,
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: PillRow(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      spacing: 12,
+                      children: [
+                        for (final (tab, label) in [
+                          (_Tab.featured, l.singerFeatured),
+                          (_Tab.songs, l.tabSongs),
+                          (_Tab.albums, l.tabAlbums),
+                          (_Tab.videos, l.searchKindVideo),
+                          (_Tab.about, l.singerAbout),
+                        ])
+                          UnderlineTab(
+                            label: label,
+                            selected: _tab == tab,
+                            onTap: () => _select(tab),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
-              ],
-              _Tab.albums => [
-                PagedSliver(
-                  pager: _albums,
-                  itemBuilder: (_, items, i) => AlbumTile(items[i]),
+              ),
+              AnimatedBuilder(
+                animation: _shift,
+                builder: (_, child) => _SliverShift(
+                  dx: _shift.value,
+                  sliver: SliverOpacity(
+                    opacity: (1 - _shift.value.abs() / 120).clamp(0.0, 1.0),
+                    sliver: child,
+                  ),
                 ),
-              ],
-              _Tab.videos => [_videoSlivers(l)],
-              _Tab.about => _about(l, social),
-            },
-            PinFiller(marker: _marker, pinnedAbove: top + _barHeight),
-          ],
+                child: SliverMainAxisGroup(
+                  key: ValueKey(_tab),
+                  slivers: switch (_tab) {
+                    _Tab.featured => _featured(l),
+                    _Tab.songs => [
+                      PagedSliver(
+                        pager: _songs,
+                        itemBuilder: (_, items, i) =>
+                            SongTile(songs: items, index: i),
+                      ),
+                    ],
+                    _Tab.albums => [
+                      PagedSliver(
+                        pager: _albums,
+                        itemBuilder: (_, items, i) => AlbumTile(items[i]),
+                      ),
+                    ],
+                    _Tab.videos => [_videoSlivers(l)],
+                    _Tab.about => _about(l, social),
+                  },
+                ),
+              ),
+              PinFiller(marker: _marker, pinnedAbove: top + _barHeight),
+            ],
+          ),
         );
       },
     );
@@ -495,6 +563,54 @@ class _SingerBodyState extends State<_SingerBody> {
       ),
       const SliverToBoxAdapter(child: BottomSpacer()),
     ];
+  }
+}
+
+/// 把竖向列表里的一段整体横向挪 [dx]，点击跟着挪。
+class _SliverShift extends SingleChildRenderObjectWidget {
+  const _SliverShift({required this.dx, required Widget sliver})
+    : super(child: sliver);
+
+  final double dx;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderSliverShift(dx);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderSliverShift ro) =>
+      ro.dx = dx;
+}
+
+class _RenderSliverShift extends RenderProxySliver {
+  _RenderSliverShift(this._dx);
+
+  double _dx;
+  set dx(double value) {
+    if (value == _dx) return;
+    _dx = value;
+    markNeedsPaint();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      super.paint(context, offset.translate(_dx, 0));
+
+  @override
+  bool hitTestChildren(
+    SliverHitTestResult result, {
+    required double mainAxisPosition,
+    required double crossAxisPosition,
+  }) => super.hitTestChildren(
+    result,
+    mainAxisPosition: mainAxisPosition,
+    crossAxisPosition: crossAxisPosition - _dx,
+  );
+
+  @override
+  void applyPaintTransform(RenderObject child, Matrix4 transform) {
+    super.applyPaintTransform(child, transform);
+    transform.translateByDouble(_dx, 0, 0, 1);
   }
 }
 
