@@ -24,6 +24,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tabMine => '我的';
 
   @override
+  String get pressBackAgainToExit => '再按一次退出';
+
+  @override
   String get windowMinimize => '最小化';
 
   @override

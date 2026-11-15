@@ -123,6 +123,12 @@ abstract class AppLocalizations {
   /// **'我的'**
   String get tabMine;
 
+  /// No description provided for @pressBackAgainToExit.
+  ///
+  /// In zh, this message translates to:
+  /// **'再按一次退出'**
+  String get pressBackAgainToExit;
+
   /// No description provided for @windowMinimize.
   ///
   /// In zh, this message translates to:

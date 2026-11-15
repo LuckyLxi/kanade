@@ -5,6 +5,7 @@ import 'dart:ui' show ImageFilter, lerpDouble;
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/physics.dart';
+import 'package:flutter/services.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:provider/provider.dart';
 
@@ -23,6 +24,7 @@ import 'player_route.dart';
 import 'search_page.dart';
 import 'session_ended_dialog.dart';
 import 'song_list_page.dart';
+import 'toast.dart';
 import 'update_dialog.dart';
 import 'widgets.dart';
 
@@ -42,6 +44,9 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
 
   /// 当前标签页进了二级页面（歌单、设置……）时收起底部导航。
   bool get _nested => _depths[_tab].depth > 1;
+
+  static const _exitWindow = Duration(seconds: 2);
+  DateTime? _lastBackAt;
 
   // 观察者的回调可能发生在构建期间，推到这一帧结束后再刷新
   void _onDepthChanged() => WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -844,12 +849,21 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final nav = _keys[_tab].currentState;
-        if (nav != null && nav.canPop()) {
-          // maybePop 让二级页面自己的 PopScope 先处理（比如歌单页先退出搜索）
-          nav.maybePop();
-        } else if (_tab != 0) {
-          setState(() => _tab = 0);
+        // maybePop 让页面自己的 PopScope 先处理（比如歌单页先退出搜索、搜索页先退回热搜）；
+        // 标签首页没拦截时返回 false，才走退出提示
+        if (nav != null && await nav.maybePop()) return;
+        if (!mounted) return;
+        final now = DateTime.now();
+        final last = _lastBackAt;
+        if (last != null && now.difference(last) < _exitWindow) {
+          SystemNavigator.pop();
+          return;
         }
+        _lastBackAt = now;
+        showToast(
+          this.context,
+          AppLocalizations.of(this.context).pressBackAgainToExit,
+        );
       },
       child: content,
     );

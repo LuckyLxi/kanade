@@ -24,6 +24,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tabMine => 'Me';
 
   @override
+  String get pressBackAgainToExit => 'Press back again to exit';
+
+  @override
   String get windowMinimize => 'Minimize';
 
   @override

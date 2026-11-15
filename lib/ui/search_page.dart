@@ -156,6 +156,23 @@ class _SearchPageState extends State<SearchPage> {
     });
   }
 
+  bool get _showingSuggestions => _typing && _controller.text.trim().isNotEmpty;
+
+  /// 返回键：联想退回上次的结果，结果退回热搜。
+  void _back() {
+    if (_showingSuggestions && _keyword.isNotEmpty) {
+      _debounce?.cancel();
+      FocusManager.instance.primaryFocus?.unfocus();
+      setState(() {
+        _controller.text = _keyword;
+        _typing = false;
+        _suggestions = [];
+      });
+    } else {
+      _clear();
+    }
+  }
+
   /// 点联想或热搜词：填进输入框并直接搜索。
   void _searchFor(String keyword) {
     _controller.text = keyword;
@@ -213,33 +230,39 @@ class _SearchPageState extends State<SearchPage> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: SearchBar(
-          controller: _controller,
-          hintText: l.searchHint,
-          leading: const Icon(Icons.search),
-          elevation: const WidgetStatePropertyAll(0),
-          onSubmitted: _search,
-          trailing: [
-            if (_controller.text.isNotEmpty)
-              IconButton(icon: const Icon(Icons.clear), onPressed: _clear)
-            else
-              IconButton(
-                icon: const Icon(Icons.mic_none_rounded),
-                tooltip: l.recognizeSong,
-                onPressed: () => showRecognizeSheet(context),
-              ),
-          ],
-          onChanged: _onChanged,
+    return PopScope(
+      canPop: !_showingSuggestions && _keyword.isEmpty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _back();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: SearchBar(
+            controller: _controller,
+            hintText: l.searchHint,
+            leading: const Icon(Icons.search),
+            elevation: const WidgetStatePropertyAll(0),
+            onSubmitted: _search,
+            trailing: [
+              if (_controller.text.isNotEmpty)
+                IconButton(icon: const Icon(Icons.clear), onPressed: _clear)
+              else
+                IconButton(
+                  icon: const Icon(Icons.mic_none_rounded),
+                  tooltip: l.recognizeSong,
+                  onPressed: () => showRecognizeSheet(context),
+                ),
+            ],
+            onChanged: _onChanged,
+          ),
         ),
+        body: _body(l),
       ),
-      body: _body(l),
     );
   }
 
   Widget _body(AppLocalizations l) {
-    if (_typing && _controller.text.trim().isNotEmpty) {
+    if (_showingSuggestions) {
       return _suggestionList(l);
     }
     if (_keyword.isEmpty) {
