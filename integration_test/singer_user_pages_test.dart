@@ -58,29 +58,30 @@ void main() {
     await wait(600);
     expect(find.text('精选专辑'), findsOneWidget);
     await screenshot('featured_collapsed');
-    await tester.tap(find.widgetWithText(Pill, '详情'));
+    await tester.tap(find.widgetWithText(UnderlineTab, '详情'));
     await wait(600);
     expect(find.text('简介'), findsOneWidget);
     expect(find.text('守护'), findsOneWidget);
     await screenshot('singer_about');
-    await tester.tap(find.widgetWithText(Pill, '视频'));
+    await tester.tap(find.widgetWithText(UnderlineTab, '视频'));
     await wait();
     expect(find.byType(VideoTile), findsWidgets);
     final latest = tester.widgetList<VideoTile>(find.byType(VideoTile)).take(3).map((v) => v.video.vid).toList();
-    await tester.tap(find.widgetWithText(Pill, '最热'));
+    // 排序是一个按钮，文字显示当前排序，点一下在最新/最热之间切换
+    await tester.tap(find.text('最新'));
     await wait();
     expect(find.byType(VideoTile), findsWidgets);
-    expect(tester.widget<Pill>(find.widgetWithText(Pill, '最热')).selected, isTrue);
+    expect(find.text('最热'), findsOneWidget);
     final hot = tester.widgetList<VideoTile>(find.byType(VideoTile)).take(3).map((v) => v.video.vid).toList();
     expect(hot, isNot(orderedEquals(latest)));
     await screenshot('singer_hot_videos');
     await tester.tap(find.widgetWithText(Pill, '动画版'));
     await wait();
     expect(find.byType(VideoTile), findsOneWidget);
-    expect(tester.widget<Pill>(find.widgetWithText(Pill, '最热')).selected, isTrue);
-    await tester.tap(find.widgetWithText(Pill, '最新'));
+    expect(find.text('最热'), findsOneWidget);
+    await tester.tap(find.text('最热'));
     await wait();
-    expect(tester.widget<Pill>(find.widgetWithText(Pill, '最新')).selected, isTrue);
+    expect(find.text('最新'), findsOneWidget);
     await screenshot('singer_videos');
     expect(tester.takeException(), isNull);
 
@@ -104,7 +105,7 @@ void main() {
     expect(find.byType(UserPage), findsOneWidget);
     expect(find.byType(ListTile), findsWidgets);
     await screenshot('user_head');
-    await tester.tap(find.widgetWithText(Pill, '我喜欢'));
+    await tester.tap(find.widgetWithText(UnderlineTab, '我喜欢'));
     await wait();
     expect(find.byType(SongTile), findsWidgets);
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
@@ -134,7 +135,7 @@ void main() {
     Navigator.of(tester.element(find.byType(UserPage)))
         .pushReplacement(UserPage.route(videoUser!.euin, videoUser.name));
     await wait();
-    await tester.tap(find.widgetWithText(Pill, '我喜欢'));
+    await tester.tap(find.widgetWithText(UnderlineTab, '我喜欢'));
     await tester.pump();
     await tester.tap(find.widgetWithText(Pill, '视频'));
     await wait();

@@ -41,6 +41,15 @@ void main() {
     });
     Finder segment(String label) => find.descendant(of: find.byType(SlidingSegments), matching: find.text(label));
     Future<void> settle([int ms = 2500]) => tester.runAsync(() => Future<void>.delayed(Duration(milliseconds: ms)));
+    // 分段放不下时会横向滚动，先滚进视野再点；keepVisibleAtEnd 不会顺带把外面竖向列表滚走
+    Future<void> tapSegment(Finder f) async {
+      await Scrollable.ensureVisible(
+        tester.element(f),
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
+      await settle(300);
+      await tester.tap(f);
+    }
 
     await initTestApp();
     api.setPref(
@@ -60,7 +69,7 @@ void main() {
         failures.add(board);
         continue;
       }
-      await tester.tap(pill);
+      await tapSegment(pill);
       await settle(500);
       await shoot('hot_$board');
     }
@@ -97,7 +106,7 @@ void main() {
     }
 
     for (final (i, label) in ['歌曲', '歌手', '专辑', '歌单', '视频', '歌词', '用户'].indexed) {
-      await tester.tap(segment(label));
+      await tapSegment(segment(label));
       await settle(4000);
       await shoot('${i}_$label');
       // 每个分类都应该至少出来一行结果，而不是转圈或报错
@@ -105,7 +114,7 @@ void main() {
     }
 
     // 视频滚到底，确认能翻页
-    await tester.tap(segment('视频'));
+    await tapSegment(segment('视频'));
     await settle(500);
     final list = find.descendant(of: find.byType(SearchPage), matching: find.byType(Scrollable)).last;
     for (var i = 0; i < 6; i++) {
@@ -131,7 +140,7 @@ void main() {
     await settle(800);
 
     // 用户主页
-    await tester.tap(segment('用户'));
+    await tapSegment(segment('用户'));
     await settle(1500);
     await shoot('9_用户列表');
     // 第一个通常是歌手账号（没有歌单标签），点第二个
