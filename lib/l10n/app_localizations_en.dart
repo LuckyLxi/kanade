@@ -862,6 +862,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchKindUser => 'Users';
 
   @override
+  String get searchHistory => 'Recent searches';
+
+  @override
+  String get searchHistoryClear => 'Clear recent searches';
+
+  @override
   String get mvUnavailable => 'This video can\'t be played right now';
 
   @override

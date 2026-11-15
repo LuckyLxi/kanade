@@ -817,6 +817,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchKindUser => '用户';
 
   @override
+  String get searchHistory => '最近搜索';
+
+  @override
+  String get searchHistoryClear => '清空最近搜索';
+
+  @override
   String get mvUnavailable => '这个视频暂时无法播放';
 
   @override

@@ -509,6 +509,8 @@
     }
   },
   "searchKindUser": "用户",
+  "searchHistory": "最近搜索",
+  "searchHistoryClear": "清空最近搜索",
   "mvUnavailable": "这个视频暂时无法播放",
   "watchMv": "观看 MV",
   "findSimilarSongs": "查找相似歌曲",

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -7,11 +8,12 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:kanade/app.dart';
+import 'package:kanade/src/rust/api/music.dart' as api;
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:kanade/ui/glass.dart';
 import 'package:kanade/ui/mv_page.dart';
 import 'package:kanade/ui/search_page.dart';
-import 'package:kanade/ui/widgets.dart';
+import 'package:kanade/ui/sliding_segments.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'harness.dart';
@@ -37,9 +39,14 @@ void main() {
       image.dispose();
       File('${out.path}/$name.png').writeAsBytesSync(png!.buffer.asUint8List());
     });
+    Finder segment(String label) => find.descendant(of: find.byType(SlidingSegments), matching: find.text(label));
     Future<void> settle([int ms = 2500]) => tester.runAsync(() => Future<void>.delayed(Duration(milliseconds: ms)));
 
     await initTestApp();
+    api.setPref(
+      key: 'search_history',
+      value: jsonEncode(['林俊杰', '陈奕迅 十年', 'YOASOBI', '五月天 倔强', '邓紫棋', 'Taylor Swift', '毛不易', '夜曲', '周杰伦 晴天']),
+    );
     await windowManager.setSize(const Size(430, 900));
     await tester.pumpWidget(KanadeGlass.wrap(child: const AppProviders(mediaSession: false, child: KanadeApp())));
     await settle();
@@ -48,7 +55,7 @@ void main() {
     await settle(3000);
     final failures = <String>[];
     for (final board in ['热门搜索', '微博热搜', '抖音热搜']) {
-      final pill = find.widgetWithText(Pill, board);
+      final pill = find.descendant(of: find.byType(SlidingSegments), matching: find.text(board));
       if (pill.evaluate().isEmpty) {
         failures.add(board);
         continue;
@@ -58,7 +65,23 @@ void main() {
       await shoot('hot_$board');
     }
 
+    // 最近搜索（启动前写好，超过一行）：截收起、展开动画中、展开后、收起后
+    await shoot('history_collapsed');
+    final toggle = find.byIcon(Icons.keyboard_arrow_down_rounded);
+    if (toggle.evaluate().isEmpty) failures.add('最近搜索展开按钮');
+    await tester.tap(toggle);
+    await settle(120);
+    await shoot('history_expanding');
+    await settle(500);
+    await shoot('history_expanded');
+    await tester.tap(toggle);
+    await settle(120);
+    await shoot('history_collapsing');
+    await settle(500);
+    await shoot('history_collapsed_again');
+
     final field = find.descendant(of: find.byType(SearchPage), matching: find.byType(TextField));
+
     await tester.enterText(field, '周杰伦');
     await settle(2000);
     await shoot('suggest');
@@ -74,7 +97,7 @@ void main() {
     }
 
     for (final (i, label) in ['歌曲', '歌手', '专辑', '歌单', '视频', '歌词', '用户'].indexed) {
-      await tester.tap(find.widgetWithText(Pill, label));
+      await tester.tap(segment(label));
       await settle(4000);
       await shoot('${i}_$label');
       // 每个分类都应该至少出来一行结果，而不是转圈或报错
@@ -82,7 +105,7 @@ void main() {
     }
 
     // 视频滚到底，确认能翻页
-    await tester.tap(find.widgetWithText(Pill, '视频'));
+    await tester.tap(segment('视频'));
     await settle(500);
     final list = find.descendant(of: find.byType(SearchPage), matching: find.byType(Scrollable)).last;
     for (var i = 0; i < 6; i++) {
@@ -108,7 +131,7 @@ void main() {
     await settle(800);
 
     // 用户主页
-    await tester.tap(find.widgetWithText(Pill, '用户'));
+    await tester.tap(segment('用户'));
     await settle(1500);
     await shoot('9_用户列表');
     // 第一个通常是歌手账号（没有歌单标签），点第二个

@@ -1545,6 +1545,18 @@ abstract class AppLocalizations {
   /// **'用户'**
   String get searchKindUser;
 
+  /// No description provided for @searchHistory.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近搜索'**
+  String get searchHistory;
+
+  /// No description provided for @searchHistoryClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空最近搜索'**
+  String get searchHistoryClear;
+
   /// No description provided for @mvUnavailable.
   ///
   /// In zh, this message translates to:

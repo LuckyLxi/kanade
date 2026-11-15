@@ -241,6 +241,8 @@
   "searchTotalItems": "{count, plural, =1{1 result} other{{count} results}}",
   "singerStats": "{songs} songs · {albums} albums",
   "searchKindUser": "Users",
+  "searchHistory": "Recent searches",
+  "searchHistoryClear": "Clear recent searches",
   "mvUnavailable": "This video can't be played right now",
   "watchMv": "Watch MV",
   "findSimilarSongs": "Find similar songs",
