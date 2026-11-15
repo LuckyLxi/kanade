@@ -13,10 +13,14 @@ typedef PageFetch<T> = Future<(List<T>, bool)> Function(int page, int offset);
 class Pager<T> extends ChangeNotifier {
   Pager(this._fetch, {List<T> initial = const [], this.hasMore = true})
     : items = [...initial],
-      _page = initial.isEmpty ? 0 : 1;
+      _page = initial.isEmpty ? 0 : 1,
+      stagger = EntranceStagger.list(revealed: initial.length);
 
   final PageFetch<T> _fetch;
   final List<T> items;
+
+  /// 放这里而不是列表里，切走再切回来不会重播入场动画。
+  final EntranceStagger stagger;
   int _page;
 
   /// 只由 [more] 更新。
@@ -75,11 +79,24 @@ class PagedSliver<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: pager,
-      builder: (context, _) => SliverList.builder(
-        itemCount: pager.items.length + 1,
-        itemBuilder: (context, i) => i < pager.items.length
-            ? itemBuilder(context, pager.items, i)
-            : _footer(context),
+      builder: (context, _) => SliverMainAxisGroup(
+        slivers: [
+          SliverList.builder(
+            itemCount: pager.items.length,
+            itemBuilder: (context, i) => Entrance(
+              key: ObjectKey(pager.items[i]),
+              delay: pager.stagger.delay(i),
+              child: itemBuilder(context, pager.items, i),
+            ),
+          ),
+          // 放在列表外面，新的一页插进来时它还是同一个，才能淡出
+          SliverToBoxAdapter(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: _footer(context),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -89,6 +106,7 @@ class PagedSliver<T> extends StatelessWidget {
     final error = pager.error;
     if (error != null) {
       return ListTile(
+        key: const ValueKey('error'),
         title: Text(
           l.loadFailed(errorText(l, error)),
           textAlign: TextAlign.center,
@@ -99,19 +117,28 @@ class PagedSliver<T> extends StatelessWidget {
     if (pager.hasMore && !pager.loading) {
       WidgetsBinding.instance.addPostFrameCallback((_) => pager.more());
     }
+    if (pager.hasMore && pager.items.isEmpty) {
+      return const Padding(
+        key: ValueKey('first'),
+        padding: EdgeInsets.all(32),
+        child: PageLoading(),
+      );
+    }
     if (pager.hasMore) {
       return const Padding(
+        key: ValueKey('more'),
         padding: EdgeInsets.all(16),
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(child: BouncingDots()),
       );
     }
     if (pager.items.isEmpty) {
       return Padding(
+        key: const ValueKey('empty'),
         padding: const EdgeInsets.all(32),
         child: Center(child: Text(emptyText ?? l.noItems)),
       );
     }
-    return const BottomSpacer();
+    return const BottomSpacer(key: ValueKey('end'));
   }
 }
 

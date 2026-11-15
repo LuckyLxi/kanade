@@ -98,7 +98,7 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await settle(5000);
     await shoot('all_0');
-    final allList = find.descendant(of: find.byType(SearchPage), matching: find.byType(ListView)).first;
+    final allList = find.descendant(of: find.byType(SearchPage), matching: find.byType(CustomScrollView)).first;
     for (var i = 1; i <= 4; i++) {
       await tester.drag(allList, const Offset(0, -1500));
       await settle(1500);

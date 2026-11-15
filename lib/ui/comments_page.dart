@@ -275,6 +275,7 @@ class _CommentListState extends State<_CommentList>
   bool _hasMore = true;
   bool _loading = false;
   Object? _error;
+  final _stagger = EntranceStagger.list();
 
   /// 回复面板会传进它自己的 controller（拖动面板用），否则用自己的。
   final _scroll = SmoothScrollController();
@@ -327,6 +328,7 @@ class _CommentListState extends State<_CommentList>
     Widget footer;
     if (_error != null) {
       footer = Center(
+        key: const ValueKey('error'),
         child: TextButton(
           onPressed: _more,
           child: Text(
@@ -335,36 +337,59 @@ class _CommentListState extends State<_CommentList>
           ),
         ),
       );
+    } else if (_loading && _items.isEmpty) {
+      footer = const Padding(
+        key: ValueKey('first'),
+        padding: EdgeInsets.all(32),
+        child: PageLoading(),
+      );
     } else if (_loading) {
       footer = const Padding(
+        key: ValueKey('more'),
         padding: EdgeInsets.all(16),
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(child: BouncingDots()),
       );
     } else if (_items.isEmpty) {
       footer = Padding(
+        key: const ValueKey('empty'),
         padding: const EdgeInsets.all(32),
         child: Center(child: Text(l.noComments, style: text.bodyMedium)),
       );
     } else {
-      footer = const SizedBox(height: 24);
+      footer = const SizedBox(key: ValueKey('end'), height: 24);
     }
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
         if (n.metrics.extentAfter < 400 && _error == null) _more();
         return false;
       },
-      child: ListView.builder(
+      child: CustomScrollView(
         controller: widget.controller ?? _scroll,
-        itemCount: _items.length + 1,
-        itemBuilder: (_, i) {
-          if (i == _items.length) return footer;
-          final tile = CommentTile(_items[i], reply: widget.reply);
-          if (widget.reply || i == 0) return tile;
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [const Divider(height: 1, indent: 64), tile],
-          );
-        },
+        slivers: [
+          SliverList.builder(
+            itemCount: _items.length,
+            itemBuilder: (_, i) {
+              final tile = CommentTile(_items[i], reply: widget.reply);
+              return Entrance(
+                key: ObjectKey(_items[i]),
+                delay: _stagger.delay(i),
+                child: widget.reply || i == 0
+                    ? tile
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [const Divider(height: 1, indent: 64), tile],
+                      ),
+              );
+            },
+          ),
+          // 放在列表外面，新的一页插进来时它还是同一个，才能淡出
+          SliverToBoxAdapter(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: footer,
+            ),
+          ),
+        ],
       ),
     );
   }

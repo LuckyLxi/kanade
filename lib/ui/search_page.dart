@@ -50,6 +50,9 @@ class _Results {
   bool loading = false;
   Object? error;
 
+  /// 跟着结果走，切换分类再切回来不会重播入场动画。
+  final stagger = EntranceStagger.list();
+
   int get length =>
       songs.length +
       singers.length +
@@ -401,12 +404,26 @@ class _SearchPageState extends State<SearchPage> {
         }
         return false;
       },
-      child: ListView.builder(
+      child: CustomScrollView(
         key: ValueKey(_kind),
         controller: _scrolls[_kind],
-        itemCount: count + 1,
-        itemBuilder: (context, i) =>
-            i == count ? _footer(l, r) : rows?[i] ?? _item(l, r, i),
+        slivers: [
+          SliverList.builder(
+            itemCount: count,
+            // 结果只往后追加，按序号对得上
+            itemBuilder: (context, i) => Entrance(
+              delay: r.stagger.delay(i),
+              child: rows?[i] ?? _item(l, r, i),
+            ),
+          ),
+          // 放在列表外面，新的一页插进来时它还是同一个，才能淡出
+          SliverToBoxAdapter(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: _footer(l, r),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -619,6 +636,7 @@ class _SearchPageState extends State<SearchPage> {
   Widget _footer(AppLocalizations l, _Results r) {
     if (r.error != null) {
       return ListTile(
+        key: const ValueKey('error'),
         title: Text(
           l.loadFailed(errorText(l, r.error!)),
           textAlign: TextAlign.center,
@@ -628,10 +646,11 @@ class _SearchPageState extends State<SearchPage> {
     }
     final songs = _kind == SearchKind.song || _kind == SearchKind.lyric;
     return Padding(
+      key: ValueKey(r.loading),
       padding: const EdgeInsets.all(16),
       child: Center(
         child: r.loading
-            ? const CircularProgressIndicator()
+            ? const BouncingDots()
             // 综合页上游不给总数
             : _kind == SearchKind.all
             ? null

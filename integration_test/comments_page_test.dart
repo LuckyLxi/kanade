@@ -95,13 +95,13 @@ void main() {
     await settle();
     expect(find.byType(CommentTile), findsWidgets);
     await tester.fling(
-      find.byType(ListView).last,
+      find.byType(CustomScrollView).last,
       const Offset(0, -6000),
       8000,
     );
     await settle();
     await tester.fling(
-      find.byType(ListView).last,
+      find.byType(CustomScrollView).last,
       const Offset(0, -6000),
       8000,
     );

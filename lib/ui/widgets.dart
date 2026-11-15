@@ -713,3 +713,160 @@ bool get touchPlatform => const {
   TargetPlatform.android,
   TargetPlatform.iOS,
 }.contains(defaultTargetPlatform);
+
+/// 列表滑到底、加载下一页时底下三个点轮流跳起来。
+class BouncingDots extends StatefulWidget {
+  const BouncingDots({super.key});
+
+  @override
+  State<BouncingDots> createState() => _BouncingDotsState();
+}
+
+class _BouncingDotsState extends State<BouncingDots>
+    with SingleTickerProviderStateMixin {
+  late final _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return SizedBox(
+      height: 36,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var j = 0; j < 3; j++) ...[
+              if (j > 0) const SizedBox(width: 6),
+              _dot(color, (_controller.value - j / 6) % 1),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 一个周期的前 40% 跳起、40%~80% 落下，剩下时间停在原处。
+  Widget _dot(Color color, double t) {
+    final up = t < 0.4 ? t / 0.4 : (t < 0.8 ? (0.8 - t) / 0.4 : 0.0);
+    final f = Curves.easeInOut.transform(up);
+    return Transform.translate(
+      offset: Offset(0, -8 * f),
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.4 + 0.6 * f),
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+}
+
+/// 入场：从下面 28 像素处淡入上浮。[delay] 为 null 时直接显示。
+/// 只在第一次挂上时决定播不播，之后父级重建不会打断。
+class Entrance extends StatefulWidget {
+  const Entrance({super.key, required this.delay, required this.child});
+
+  final Duration? delay;
+  final Widget child;
+
+  @override
+  State<Entrance> createState() => _EntranceState();
+}
+
+class _EntranceState extends State<Entrance>
+    with SingleTickerProviderStateMixin {
+  late final _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 460),
+  );
+  late final _t = CurvedAnimation(
+    parent: _controller,
+    curve: const Cubic(0.2, 0.8, 0.2, 1),
+  );
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    final delay = widget.delay;
+    if (delay == null) {
+      _controller.value = 1;
+    } else if (delay == Duration.zero) {
+      _controller.forward();
+    } else {
+      _timer = Timer(delay, _controller.forward);
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _t.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+    opacity: _t,
+    child: AnimatedBuilder(
+      animation: _t,
+      builder: (context, child) => Transform.translate(
+        offset: Offset(0, 28 * (1 - _t.value)),
+        child: child,
+      ),
+      child: widget.child,
+    ),
+  );
+}
+
+/// 给列表里的 [Entrance] 排入场时间：同一帧出现的几项依次错开，已经入场过的不再播。
+class EntranceStagger {
+  /// [revealed] 之前的项不播入场动画，比如跟着页面一起出来的第一页。
+  EntranceStagger({this._revealed = 0, this.step = 70, this.limit});
+
+  /// 一行一条的列表一屏条数多，错开得短一些，也只错开前几条，免得最后一条等太久。
+  EntranceStagger.list({int revealed = 0})
+    : this(revealed: revealed, step: 30, limit: 8);
+
+  /// 相邻两项错开的毫秒数。
+  final int step;
+
+  /// 同一帧里最多错开几项，之后的跟着最后一项一起入场；null 不限。
+  final int? limit;
+
+  /// 序号小于它的项已经播过入场动画，划走再划回来不再播。
+  int _revealed;
+
+  /// 这一帧里开始入场的项数。
+  int _staggered = 0;
+
+  /// 列表整个换掉后调用，新内容重新入场。
+  void reset() => _revealed = 0;
+
+  /// 第 [i] 项第一次出现时等多久再入场；已经出现过的返回 null。
+  Duration? delay(int i) {
+    if (i < _revealed) return null;
+    _revealed = i + 1;
+    if (_staggered == 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _staggered = 0);
+    }
+    final n = _staggered++;
+    final limit = this.limit;
+    return Duration(
+      milliseconds: step * (limit == null ? n : math.min(n, limit - 1)),
+    );
+  }
+}
