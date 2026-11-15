@@ -157,7 +157,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchPrompt => 'Type a keyword and press Enter';
 
   @override
-  String get searchHot => 'Trending';
+  String get searchKindAll => 'Top';
+
+  @override
+  String get searchMoreSongs => 'More songs';
+
+  @override
+  String get searchRelated => 'Related searches';
 
   @override
   String get searchRecommended => 'You might like';

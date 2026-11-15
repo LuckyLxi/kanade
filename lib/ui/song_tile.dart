@@ -16,6 +16,7 @@ class SongTile extends StatelessWidget {
     required this.index,
     this.rank,
     this.onRemove,
+    this.tags = const [],
   });
 
   final List<Song> songs;
@@ -24,6 +25,9 @@ class SongTile extends StatelessWidget {
 
   /// 自己的歌单里才有，更多菜单里会出现“从歌单中删除”。
   final VoidCallback? onRemove;
+
+  /// 搜索结果里的“飙升榜No.18”、一句热评这类标签，显示在歌手名下面一行。
+  final List<String> tags;
 
   static const _coverSize = 48.0;
 
@@ -93,24 +97,27 @@ class SongTile extends StatelessWidget {
       ),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 3),
-        child: Row(
-          children: [
-            if (song.vip) const QualityBadge('VIP', filled: true),
-            if (song.hasFlac)
-              const QualityBadge('SQ')
-            else if (song.hasHq)
-              const QualityBadge('HQ'),
-            Expanded(
-              child: Text(
-                [
-                  singerNames(song),
-                  if (song.albumName.isNotEmpty) song.albumName,
-                ].join(' · '),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+        child: _withTags(
+          Row(
+            children: [
+              if (song.vip) const QualityBadge('VIP', filled: true),
+              if (song.hasFlac)
+                const QualityBadge('SQ')
+              else if (song.hasHq)
+                const QualityBadge('HQ'),
+              Expanded(
+                child: Text(
+                  [
+                    singerNames(song),
+                    if (song.albumName.isNotEmpty) song.albumName,
+                  ].join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          scheme,
         ),
       ),
       trailing: Row(
@@ -135,6 +142,25 @@ class SongTile extends StatelessWidget {
       contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 4),
       onTap: () => context.read<PlayerController>().playList(songs, index),
       onLongPress: () => showSongActions(context, song, onRemove: onRemove),
+    );
+  }
+
+  Widget _withTags(Widget subtitle, ColorScheme scheme) {
+    if (tags.isEmpty) return subtitle;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        subtitle,
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
+            tags.join("  "),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12, color: scheme.primary),
+          ),
+        ),
+      ],
     );
   }
 }

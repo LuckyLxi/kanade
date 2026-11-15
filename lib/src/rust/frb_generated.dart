@@ -3028,6 +3028,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  HotBoard dco_decode_hot_board(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return HotBoard(
+      name: dco_decode_String(arr[0]),
+      keywords: dco_decode_list_hot_keyword(arr[1]),
+    );
+  }
+
+  @protected
   HotKeyword dco_decode_hot_keyword(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -3047,7 +3059,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (arr.length != 2)
       throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
     return HotSearch(
-      hot: dco_decode_list_hot_keyword(arr[0]),
+      boards: dco_decode_list_hot_board(arr[0]),
       recommended: dco_decode_list_hot_keyword(arr[1]),
     );
   }
@@ -3095,9 +3107,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<HotBoard> dco_decode_list_hot_board(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_hot_board).toList();
+  }
+
+  @protected
   List<HotKeyword> dco_decode_list_hot_keyword(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_hot_keyword).toList();
+  }
+
+  @protected
+  List<List<String>> dco_decode_list_list_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_list_String).toList();
   }
 
   @protected
@@ -3164,6 +3188,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<RecommendSection> dco_decode_list_recommend_section(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_recommend_section).toList();
+  }
+
+  @protected
+  List<SearchDirect> dco_decode_list_search_direct(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_search_direct).toList();
   }
 
   @protected
@@ -3532,6 +3562,28 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  SearchDirect dco_decode_search_direct(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return SearchDirect(
+      kind: dco_decode_search_direct_kind(arr[0]),
+      id: dco_decode_String(arr[1]),
+      title: dco_decode_String(arr[2]),
+      subtitle: dco_decode_String(arr[3]),
+      coverUrl: dco_decode_String(arr[4]),
+      tag: dco_decode_String(arr[5]),
+    );
+  }
+
+  @protected
+  SearchDirectKind dco_decode_search_direct_kind(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return SearchDirectKind.values[raw as int];
+  }
+
+  @protected
   SearchKind dco_decode_search_kind(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return SearchKind.values[raw as int];
@@ -3541,18 +3593,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   SearchResult dco_decode_search_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 9)
-      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    if (arr.length != 12)
+      throw Exception('unexpected arr length: expect 12 but see ${arr.length}');
     return SearchResult(
       songs: dco_decode_list_song(arr[0]),
-      lyricSnippets: dco_decode_list_String(arr[1]),
-      singers: dco_decode_list_singer_brief(arr[2]),
-      albums: dco_decode_list_album_brief(arr[3]),
-      playlists: dco_decode_list_playlist_brief(arr[4]),
-      videos: dco_decode_list_video_brief(arr[5]),
-      users: dco_decode_list_user_brief(arr[6]),
-      total: dco_decode_u_32(arr[7]),
-      hasMore: dco_decode_bool(arr[8]),
+      songTags: dco_decode_list_list_String(arr[1]),
+      lyricSnippets: dco_decode_list_String(arr[2]),
+      singers: dco_decode_list_singer_brief(arr[3]),
+      albums: dco_decode_list_album_brief(arr[4]),
+      playlists: dco_decode_list_playlist_brief(arr[5]),
+      videos: dco_decode_list_video_brief(arr[6]),
+      users: dco_decode_list_user_brief(arr[7]),
+      direct: dco_decode_list_search_direct(arr[8]),
+      related: dco_decode_list_String(arr[9]),
+      total: dco_decode_u_32(arr[10]),
+      hasMore: dco_decode_bool(arr[11]),
     );
   }
 
@@ -3560,12 +3615,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   SearchSuggestion dco_decode_search_suggestion(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
     return SearchSuggestion(
       kind: dco_decode_suggestion_kind(arr[0]),
       title: dco_decode_String(arr[1]),
-      subtitle: dco_decode_String(arr[2]),
+      mid: dco_decode_String(arr[2]),
+      coverUrl: dco_decode_String(arr[3]),
     );
   }
 
@@ -4256,6 +4312,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  HotBoard sse_decode_hot_board(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_name = sse_decode_String(deserializer);
+    var var_keywords = sse_decode_list_hot_keyword(deserializer);
+    return HotBoard(name: var_name, keywords: var_keywords);
+  }
+
+  @protected
   HotKeyword sse_decode_hot_keyword(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_title = sse_decode_String(deserializer);
@@ -4271,9 +4335,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   HotSearch sse_decode_hot_search(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_hot = sse_decode_list_hot_keyword(deserializer);
+    var var_boards = sse_decode_list_hot_board(deserializer);
     var var_recommended = sse_decode_list_hot_keyword(deserializer);
-    return HotSearch(hot: var_hot, recommended: var_recommended);
+    return HotSearch(boards: var_boards, recommended: var_recommended);
   }
 
   @protected
@@ -4349,6 +4413,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<HotBoard> sse_decode_list_hot_board(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <HotBoard>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_hot_board(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<HotKeyword> sse_decode_list_hot_keyword(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -4356,6 +4432,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <HotKeyword>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_hot_keyword(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<List<String>> sse_decode_list_list_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <List<String>>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_list_String(deserializer));
     }
     return ans_;
   }
@@ -4479,6 +4567,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <RecommendSection>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_recommend_section(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<SearchDirect> sse_decode_list_search_direct(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <SearchDirect>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_search_direct(deserializer));
     }
     return ans_;
   }
@@ -4971,6 +5073,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  SearchDirect sse_decode_search_direct(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_kind = sse_decode_search_direct_kind(deserializer);
+    var var_id = sse_decode_String(deserializer);
+    var var_title = sse_decode_String(deserializer);
+    var var_subtitle = sse_decode_String(deserializer);
+    var var_coverUrl = sse_decode_String(deserializer);
+    var var_tag = sse_decode_String(deserializer);
+    return SearchDirect(
+      kind: var_kind,
+      id: var_id,
+      title: var_title,
+      subtitle: var_subtitle,
+      coverUrl: var_coverUrl,
+      tag: var_tag,
+    );
+  }
+
+  @protected
+  SearchDirectKind sse_decode_search_direct_kind(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return SearchDirectKind.values[inner];
+  }
+
+  @protected
   SearchKind sse_decode_search_kind(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_i_32(deserializer);
@@ -4981,22 +5109,28 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   SearchResult sse_decode_search_result(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_songs = sse_decode_list_song(deserializer);
+    var var_songTags = sse_decode_list_list_String(deserializer);
     var var_lyricSnippets = sse_decode_list_String(deserializer);
     var var_singers = sse_decode_list_singer_brief(deserializer);
     var var_albums = sse_decode_list_album_brief(deserializer);
     var var_playlists = sse_decode_list_playlist_brief(deserializer);
     var var_videos = sse_decode_list_video_brief(deserializer);
     var var_users = sse_decode_list_user_brief(deserializer);
+    var var_direct = sse_decode_list_search_direct(deserializer);
+    var var_related = sse_decode_list_String(deserializer);
     var var_total = sse_decode_u_32(deserializer);
     var var_hasMore = sse_decode_bool(deserializer);
     return SearchResult(
       songs: var_songs,
+      songTags: var_songTags,
       lyricSnippets: var_lyricSnippets,
       singers: var_singers,
       albums: var_albums,
       playlists: var_playlists,
       videos: var_videos,
       users: var_users,
+      direct: var_direct,
+      related: var_related,
       total: var_total,
       hasMore: var_hasMore,
     );
@@ -5007,11 +5141,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_kind = sse_decode_suggestion_kind(deserializer);
     var var_title = sse_decode_String(deserializer);
-    var var_subtitle = sse_decode_String(deserializer);
+    var var_mid = sse_decode_String(deserializer);
+    var var_coverUrl = sse_decode_String(deserializer);
     return SearchSuggestion(
       kind: var_kind,
       title: var_title,
-      subtitle: var_subtitle,
+      mid: var_mid,
+      coverUrl: var_coverUrl,
     );
   }
 
@@ -5693,6 +5829,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_hot_board(HotBoard self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.name, serializer);
+    sse_encode_list_hot_keyword(self.keywords, serializer);
+  }
+
+  @protected
   void sse_encode_hot_keyword(HotKeyword self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.title, serializer);
@@ -5703,7 +5846,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   void sse_encode_hot_search(HotSearch self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_list_hot_keyword(self.hot, serializer);
+    sse_encode_list_hot_board(self.boards, serializer);
     sse_encode_list_hot_keyword(self.recommended, serializer);
   }
 
@@ -5774,6 +5917,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_hot_board(
+    List<HotBoard> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_hot_board(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_hot_keyword(
     List<HotKeyword> self,
     SseSerializer serializer,
@@ -5782,6 +5937,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_hot_keyword(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_list_String(
+    List<List<String>> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_list_String(item, serializer);
     }
   }
 
@@ -5910,6 +6077,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_recommend_section(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_search_direct(
+    List<SearchDirect> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_search_direct(item, serializer);
     }
   }
 
@@ -6322,6 +6501,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_search_direct(SearchDirect self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_search_direct_kind(self.kind, serializer);
+    sse_encode_String(self.id, serializer);
+    sse_encode_String(self.title, serializer);
+    sse_encode_String(self.subtitle, serializer);
+    sse_encode_String(self.coverUrl, serializer);
+    sse_encode_String(self.tag, serializer);
+  }
+
+  @protected
+  void sse_encode_search_direct_kind(
+    SearchDirectKind self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
   void sse_encode_search_kind(SearchKind self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.index, serializer);
@@ -6331,12 +6530,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_search_result(SearchResult self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_song(self.songs, serializer);
+    sse_encode_list_list_String(self.songTags, serializer);
     sse_encode_list_String(self.lyricSnippets, serializer);
     sse_encode_list_singer_brief(self.singers, serializer);
     sse_encode_list_album_brief(self.albums, serializer);
     sse_encode_list_playlist_brief(self.playlists, serializer);
     sse_encode_list_video_brief(self.videos, serializer);
     sse_encode_list_user_brief(self.users, serializer);
+    sse_encode_list_search_direct(self.direct, serializer);
+    sse_encode_list_String(self.related, serializer);
     sse_encode_u_32(self.total, serializer);
     sse_encode_bool(self.hasMore, serializer);
   }
@@ -6349,7 +6551,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_suggestion_kind(self.kind, serializer);
     sse_encode_String(self.title, serializer);
-    sse_encode_String(self.subtitle, serializer);
+    sse_encode_String(self.mid, serializer);
+    sse_encode_String(self.coverUrl, serializer);
   }
 
   @protected

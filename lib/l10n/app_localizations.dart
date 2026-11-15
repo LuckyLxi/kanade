@@ -333,11 +333,23 @@ abstract class AppLocalizations {
   /// **'输入关键词后回车搜索'**
   String get searchPrompt;
 
-  /// No description provided for @searchHot.
+  /// No description provided for @searchKindAll.
   ///
   /// In zh, this message translates to:
-  /// **'热搜榜'**
-  String get searchHot;
+  /// **'综合'**
+  String get searchKindAll;
+
+  /// No description provided for @searchMoreSongs.
+  ///
+  /// In zh, this message translates to:
+  /// **'更多单曲'**
+  String get searchMoreSongs;
+
+  /// No description provided for @searchRelated.
+  ///
+  /// In zh, this message translates to:
+  /// **'相关搜索'**
+  String get searchRelated;
 
   /// No description provided for @searchRecommended.
   ///

@@ -10,7 +10,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'types.freezed.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 class AlbumBrief {
   final String mid;
@@ -360,6 +360,25 @@ class ForyouItem {
           chosen == other.chosen;
 }
 
+/// 搜索页的一个榜单，比如“热门搜索”“微博热搜”。
+class HotBoard {
+  final String name;
+  final List<HotKeyword> keywords;
+
+  const HotBoard({required this.name, required this.keywords});
+
+  @override
+  int get hashCode => name.hashCode ^ keywords.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HotBoard &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          keywords == other.keywords;
+}
+
 class HotKeyword {
   final String title;
 
@@ -389,22 +408,23 @@ class HotKeyword {
 }
 
 class HotSearch {
-  final List<HotKeyword> hot;
+  /// 按官方顺序排列，第一个是“热门搜索”。
+  final List<HotBoard> boards;
 
-  /// 个性化的“猜你想搜”，只有登录后才有。
+  /// “搜索发现”，未登录也有；登录后按账号个性化。
   final List<HotKeyword> recommended;
 
-  const HotSearch({required this.hot, required this.recommended});
+  const HotSearch({required this.boards, required this.recommended});
 
   @override
-  int get hashCode => hot.hashCode ^ recommended.hashCode;
+  int get hashCode => boards.hashCode ^ recommended.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is HotSearch &&
           runtimeType == other.runtimeType &&
-          hot == other.hot &&
+          boards == other.boards &&
           recommended == other.recommended;
 }
 
@@ -941,8 +961,58 @@ class RelatedPlaylists {
           hasMore == other.hasMore;
 }
 
+/// 综合搜索顶部的直达卡片，只保留能打开的几种；活动、铃声、小游戏这类丢掉。
+class SearchDirect {
+  final SearchDirectKind kind;
+
+  /// 歌手/专辑是 mid，歌单是 dissid，视频是 vid。
+  final String id;
+  final String title;
+
+  /// 比如“歌曲:1013 专辑:43 视频:10428”。
+  final String subtitle;
+  final String coverUrl;
+
+  /// 角标，比如“新MV”，可能为空。
+  final String tag;
+
+  const SearchDirect({
+    required this.kind,
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.coverUrl,
+    required this.tag,
+  });
+
+  @override
+  int get hashCode =>
+      kind.hashCode ^
+      id.hashCode ^
+      title.hashCode ^
+      subtitle.hashCode ^
+      coverUrl.hashCode ^
+      tag.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SearchDirect &&
+          runtimeType == other.runtimeType &&
+          kind == other.kind &&
+          id == other.id &&
+          title == other.title &&
+          subtitle == other.subtitle &&
+          coverUrl == other.coverUrl &&
+          tag == other.tag;
+}
+
+enum SearchDirectKind { singer, playlist, album, video }
+
 /// 搜索分类，对应 Windows 客户端搜索结果页的标签。
 enum SearchKind {
+  /// 综合：顶部的直达卡片，加上单曲、歌手、歌单、专辑、视频各一小段和相关搜索。
+  all,
   song,
   singer,
   album,
@@ -956,9 +1026,12 @@ enum SearchKind {
   user,
 }
 
-/// 一页搜索结果，只有所搜分类对应的列表有内容。
+/// 一页搜索结果，只有所搜分类对应的列表有内容；综合搜索各列表都可能有。
 class SearchResult {
   final List<Song> songs;
+
+  /// 与 songs 一一对应的小标签，比如“飙升榜No.18”和一句热评，可能为空。
+  final List<List<String>> songTags;
 
   /// 歌词搜索时与 songs 一一对应的命中歌词，没找到命中行时为空字符串；其他分类为空列表。
   final List<String> lyricSnippets;
@@ -967,6 +1040,12 @@ class SearchResult {
   final List<PlaylistBrief> playlists;
   final List<VideoBrief> videos;
   final List<UserBrief> users;
+
+  /// 综合搜索第一页的直达卡片。
+  final List<SearchDirect> direct;
+
+  /// 综合搜索的“相关搜索”词。
+  final List<String> related;
   final int total;
 
   /// 还有下一页。返回条数可能多于请求的每页条数，不能用条数判断。
@@ -974,12 +1053,15 @@ class SearchResult {
 
   const SearchResult({
     required this.songs,
+    required this.songTags,
     required this.lyricSnippets,
     required this.singers,
     required this.albums,
     required this.playlists,
     required this.videos,
     required this.users,
+    required this.direct,
+    required this.related,
     required this.total,
     required this.hasMore,
   });
@@ -987,12 +1069,15 @@ class SearchResult {
   @override
   int get hashCode =>
       songs.hashCode ^
+      songTags.hashCode ^
       lyricSnippets.hashCode ^
       singers.hashCode ^
       albums.hashCode ^
       playlists.hashCode ^
       videos.hashCode ^
       users.hashCode ^
+      direct.hashCode ^
+      related.hashCode ^
       total.hashCode ^
       hasMore.hashCode;
 
@@ -1002,12 +1087,15 @@ class SearchResult {
       other is SearchResult &&
           runtimeType == other.runtimeType &&
           songs == other.songs &&
+          songTags == other.songTags &&
           lyricSnippets == other.lyricSnippets &&
           singers == other.singers &&
           albums == other.albums &&
           playlists == other.playlists &&
           videos == other.videos &&
           users == other.users &&
+          direct == other.direct &&
+          related == other.related &&
           total == other.total &&
           hasMore == other.hasMore;
 }
@@ -1016,17 +1104,20 @@ class SearchSuggestion {
   final SuggestionKind kind;
   final String title;
 
-  /// 歌手名；歌手条目为空。
-  final String subtitle;
+  /// 歌手卡片的 mid，打开歌手页用；联想词为空。
+  final String mid;
+  final String coverUrl;
 
   const SearchSuggestion({
     required this.kind,
     required this.title,
-    required this.subtitle,
+    required this.mid,
+    required this.coverUrl,
   });
 
   @override
-  int get hashCode => kind.hashCode ^ title.hashCode ^ subtitle.hashCode;
+  int get hashCode =>
+      kind.hashCode ^ title.hashCode ^ mid.hashCode ^ coverUrl.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1035,7 +1126,8 @@ class SearchSuggestion {
           runtimeType == other.runtimeType &&
           kind == other.kind &&
           title == other.title &&
-          subtitle == other.subtitle;
+          mid == other.mid &&
+          coverUrl == other.coverUrl;
 }
 
 /// 登录态被服务器拒绝、已自动退出的原因。服务器只回 1000，原因按凭证有效期推断。
@@ -1382,7 +1474,13 @@ class SongUrl {
           ekey == other.ekey;
 }
 
-enum SuggestionKind { song, singer, album }
+enum SuggestionKind {
+  /// 联想词，比如“晴天 周杰伦”，点了直接拿去搜。
+  keyword,
+
+  /// 顶部的歌手卡片，带 mid 和头像。
+  singer,
+}
 
 class TopList {
   final PlatformInt64 topId;

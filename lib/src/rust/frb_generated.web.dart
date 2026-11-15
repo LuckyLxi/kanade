@@ -113,6 +113,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ForyouItem dco_decode_foryou_item(dynamic raw);
 
   @protected
+  HotBoard dco_decode_hot_board(dynamic raw);
+
+  @protected
   HotKeyword dco_decode_hot_keyword(dynamic raw);
 
   @protected
@@ -140,7 +143,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ForyouItem> dco_decode_list_foryou_item(dynamic raw);
 
   @protected
+  List<HotBoard> dco_decode_list_hot_board(dynamic raw);
+
+  @protected
   List<HotKeyword> dco_decode_list_hot_keyword(dynamic raw);
+
+  @protected
+  List<List<String>> dco_decode_list_list_String(dynamic raw);
 
   @protected
   List<LyricLine> dco_decode_list_lyric_line(dynamic raw);
@@ -174,6 +183,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<RecommendSection> dco_decode_list_recommend_section(dynamic raw);
+
+  @protected
+  List<SearchDirect> dco_decode_list_search_direct(dynamic raw);
 
   @protected
   List<SearchSuggestion> dco_decode_list_search_suggestion(dynamic raw);
@@ -289,6 +301,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RelatedPlaylists dco_decode_related_playlists(dynamic raw);
+
+  @protected
+  SearchDirect dco_decode_search_direct(dynamic raw);
+
+  @protected
+  SearchDirectKind dco_decode_search_direct_kind(dynamic raw);
 
   @protected
   SearchKind dco_decode_search_kind(dynamic raw);
@@ -476,6 +494,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ForyouItem sse_decode_foryou_item(SseDeserializer deserializer);
 
   @protected
+  HotBoard sse_decode_hot_board(SseDeserializer deserializer);
+
+  @protected
   HotKeyword sse_decode_hot_keyword(SseDeserializer deserializer);
 
   @protected
@@ -503,7 +524,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ForyouItem> sse_decode_list_foryou_item(SseDeserializer deserializer);
 
   @protected
+  List<HotBoard> sse_decode_list_hot_board(SseDeserializer deserializer);
+
+  @protected
   List<HotKeyword> sse_decode_list_hot_keyword(SseDeserializer deserializer);
+
+  @protected
+  List<List<String>> sse_decode_list_list_String(SseDeserializer deserializer);
 
   @protected
   List<LyricLine> sse_decode_list_lyric_line(SseDeserializer deserializer);
@@ -541,6 +568,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<RecommendSection> sse_decode_list_recommend_section(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<SearchDirect> sse_decode_list_search_direct(
     SseDeserializer deserializer,
   );
 
@@ -672,6 +704,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RelatedPlaylists sse_decode_related_playlists(SseDeserializer deserializer);
+
+  @protected
+  SearchDirect sse_decode_search_direct(SseDeserializer deserializer);
+
+  @protected
+  SearchDirectKind sse_decode_search_direct_kind(SseDeserializer deserializer);
 
   @protected
   SearchKind sse_decode_search_kind(SseDeserializer deserializer);
@@ -884,6 +922,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_foryou_item(ForyouItem self, SseSerializer serializer);
 
   @protected
+  void sse_encode_hot_board(HotBoard self, SseSerializer serializer);
+
+  @protected
   void sse_encode_hot_keyword(HotKeyword self, SseSerializer serializer);
 
   @protected
@@ -917,8 +958,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_hot_board(List<HotBoard> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_hot_keyword(
     List<HotKeyword> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_list_String(
+    List<List<String>> self,
     SseSerializer serializer,
   );
 
@@ -979,6 +1029,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_recommend_section(
     List<RecommendSection> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_search_direct(
+    List<SearchDirect> self,
     SseSerializer serializer,
   );
 
@@ -1144,6 +1200,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_related_playlists(
     RelatedPlaylists self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_search_direct(SearchDirect self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_search_direct_kind(
+    SearchDirectKind self,
     SseSerializer serializer,
   );
 

@@ -3199,6 +3199,18 @@ impl SseDecode for crate::api::types::ForyouItem {
     }
 }
 
+impl SseDecode for crate::api::types::HotBoard {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_keywords = <Vec<crate::api::types::HotKeyword>>::sse_decode(deserializer);
+        return crate::api::types::HotBoard {
+            name: var_name,
+            keywords: var_keywords,
+        };
+    }
+}
+
 impl SseDecode for crate::api::types::HotKeyword {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3216,10 +3228,10 @@ impl SseDecode for crate::api::types::HotKeyword {
 impl SseDecode for crate::api::types::HotSearch {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_hot = <Vec<crate::api::types::HotKeyword>>::sse_decode(deserializer);
+        let mut var_boards = <Vec<crate::api::types::HotBoard>>::sse_decode(deserializer);
         let mut var_recommended = <Vec<crate::api::types::HotKeyword>>::sse_decode(deserializer);
         return crate::api::types::HotSearch {
-            hot: var_hot,
+            boards: var_boards,
             recommended: var_recommended,
         };
     }
@@ -3299,6 +3311,18 @@ impl SseDecode for Vec<crate::api::types::ForyouItem> {
     }
 }
 
+impl SseDecode for Vec<crate::api::types::HotBoard> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::types::HotBoard>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::api::types::HotKeyword> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3306,6 +3330,18 @@ impl SseDecode for Vec<crate::api::types::HotKeyword> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<crate::api::types::HotKeyword>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<Vec<String>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<Vec<String>>::sse_decode(deserializer));
         }
         return ans_;
     }
@@ -3428,6 +3464,18 @@ impl SseDecode for Vec<crate::api::types::RecommendSection> {
             ans_.push(<crate::api::types::RecommendSection>::sse_decode(
                 deserializer,
             ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::types::SearchDirect> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::types::SearchDirect>::sse_decode(deserializer));
         }
         return ans_;
     }
@@ -3987,18 +4035,53 @@ impl SseDecode for crate::api::types::RelatedPlaylists {
     }
 }
 
+impl SseDecode for crate::api::types::SearchDirect {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_kind = <crate::api::types::SearchDirectKind>::sse_decode(deserializer);
+        let mut var_id = <String>::sse_decode(deserializer);
+        let mut var_title = <String>::sse_decode(deserializer);
+        let mut var_subtitle = <String>::sse_decode(deserializer);
+        let mut var_coverUrl = <String>::sse_decode(deserializer);
+        let mut var_tag = <String>::sse_decode(deserializer);
+        return crate::api::types::SearchDirect {
+            kind: var_kind,
+            id: var_id,
+            title: var_title,
+            subtitle: var_subtitle,
+            cover_url: var_coverUrl,
+            tag: var_tag,
+        };
+    }
+}
+
+impl SseDecode for crate::api::types::SearchDirectKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::api::types::SearchDirectKind::Singer,
+            1 => crate::api::types::SearchDirectKind::Playlist,
+            2 => crate::api::types::SearchDirectKind::Album,
+            3 => crate::api::types::SearchDirectKind::Video,
+            _ => unreachable!("Invalid variant for SearchDirectKind: {}", inner),
+        };
+    }
+}
+
 impl SseDecode for crate::api::types::SearchKind {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <i32>::sse_decode(deserializer);
         return match inner {
-            0 => crate::api::types::SearchKind::Song,
-            1 => crate::api::types::SearchKind::Singer,
-            2 => crate::api::types::SearchKind::Album,
-            3 => crate::api::types::SearchKind::Playlist,
-            4 => crate::api::types::SearchKind::Video,
-            5 => crate::api::types::SearchKind::Lyric,
-            6 => crate::api::types::SearchKind::User,
+            0 => crate::api::types::SearchKind::All,
+            1 => crate::api::types::SearchKind::Song,
+            2 => crate::api::types::SearchKind::Singer,
+            3 => crate::api::types::SearchKind::Album,
+            4 => crate::api::types::SearchKind::Playlist,
+            5 => crate::api::types::SearchKind::Video,
+            6 => crate::api::types::SearchKind::Lyric,
+            7 => crate::api::types::SearchKind::User,
             _ => unreachable!("Invalid variant for SearchKind: {}", inner),
         };
     }
@@ -4008,22 +4091,28 @@ impl SseDecode for crate::api::types::SearchResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_songs = <Vec<crate::api::types::Song>>::sse_decode(deserializer);
+        let mut var_songTags = <Vec<Vec<String>>>::sse_decode(deserializer);
         let mut var_lyricSnippets = <Vec<String>>::sse_decode(deserializer);
         let mut var_singers = <Vec<crate::api::types::SingerBrief>>::sse_decode(deserializer);
         let mut var_albums = <Vec<crate::api::types::AlbumBrief>>::sse_decode(deserializer);
         let mut var_playlists = <Vec<crate::api::types::PlaylistBrief>>::sse_decode(deserializer);
         let mut var_videos = <Vec<crate::api::types::VideoBrief>>::sse_decode(deserializer);
         let mut var_users = <Vec<crate::api::types::UserBrief>>::sse_decode(deserializer);
+        let mut var_direct = <Vec<crate::api::types::SearchDirect>>::sse_decode(deserializer);
+        let mut var_related = <Vec<String>>::sse_decode(deserializer);
         let mut var_total = <u32>::sse_decode(deserializer);
         let mut var_hasMore = <bool>::sse_decode(deserializer);
         return crate::api::types::SearchResult {
             songs: var_songs,
+            song_tags: var_songTags,
             lyric_snippets: var_lyricSnippets,
             singers: var_singers,
             albums: var_albums,
             playlists: var_playlists,
             videos: var_videos,
             users: var_users,
+            direct: var_direct,
+            related: var_related,
             total: var_total,
             has_more: var_hasMore,
         };
@@ -4035,11 +4124,13 @@ impl SseDecode for crate::api::types::SearchSuggestion {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_kind = <crate::api::types::SuggestionKind>::sse_decode(deserializer);
         let mut var_title = <String>::sse_decode(deserializer);
-        let mut var_subtitle = <String>::sse_decode(deserializer);
+        let mut var_mid = <String>::sse_decode(deserializer);
+        let mut var_coverUrl = <String>::sse_decode(deserializer);
         return crate::api::types::SearchSuggestion {
             kind: var_kind,
             title: var_title,
-            subtitle: var_subtitle,
+            mid: var_mid,
+            cover_url: var_coverUrl,
         };
     }
 }
@@ -4230,9 +4321,8 @@ impl SseDecode for crate::api::types::SuggestionKind {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <i32>::sse_decode(deserializer);
         return match inner {
-            0 => crate::api::types::SuggestionKind::Song,
+            0 => crate::api::types::SuggestionKind::Keyword,
             1 => crate::api::types::SuggestionKind::Singer,
-            2 => crate::api::types::SuggestionKind::Album,
             _ => unreachable!("Invalid variant for SuggestionKind: {}", inner),
         };
     }
@@ -4969,6 +5059,24 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::ForyouItem>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::types::HotBoard {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.name.into_into_dart().into_dart(),
+            self.keywords.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::types::HotBoard {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::types::HotBoard>
+    for crate::api::types::HotBoard
+{
+    fn into_into_dart(self) -> crate::api::types::HotBoard {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::types::HotKeyword {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -4991,7 +5099,7 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::HotKeyword>
 impl flutter_rust_bridge::IntoDart for crate::api::types::HotSearch {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.hot.into_into_dart().into_dart(),
+            self.boards.into_into_dart().into_dart(),
             self.recommended.into_into_dart().into_dart(),
         ]
         .into_dart()
@@ -5430,16 +5538,65 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::RelatedPlaylists>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::types::SearchDirect {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.kind.into_into_dart().into_dart(),
+            self.id.into_into_dart().into_dart(),
+            self.title.into_into_dart().into_dart(),
+            self.subtitle.into_into_dart().into_dart(),
+            self.cover_url.into_into_dart().into_dart(),
+            self.tag.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::types::SearchDirect
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::types::SearchDirect>
+    for crate::api::types::SearchDirect
+{
+    fn into_into_dart(self) -> crate::api::types::SearchDirect {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::types::SearchDirectKind {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Singer => 0.into_dart(),
+            Self::Playlist => 1.into_dart(),
+            Self::Album => 2.into_dart(),
+            Self::Video => 3.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::types::SearchDirectKind
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::types::SearchDirectKind>
+    for crate::api::types::SearchDirectKind
+{
+    fn into_into_dart(self) -> crate::api::types::SearchDirectKind {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::types::SearchKind {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
-            Self::Song => 0.into_dart(),
-            Self::Singer => 1.into_dart(),
-            Self::Album => 2.into_dart(),
-            Self::Playlist => 3.into_dart(),
-            Self::Video => 4.into_dart(),
-            Self::Lyric => 5.into_dart(),
-            Self::User => 6.into_dart(),
+            Self::All => 0.into_dart(),
+            Self::Song => 1.into_dart(),
+            Self::Singer => 2.into_dart(),
+            Self::Album => 3.into_dart(),
+            Self::Playlist => 4.into_dart(),
+            Self::Video => 5.into_dart(),
+            Self::Lyric => 6.into_dart(),
+            Self::User => 7.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -5457,12 +5614,15 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::SearchResult {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
             self.songs.into_into_dart().into_dart(),
+            self.song_tags.into_into_dart().into_dart(),
             self.lyric_snippets.into_into_dart().into_dart(),
             self.singers.into_into_dart().into_dart(),
             self.albums.into_into_dart().into_dart(),
             self.playlists.into_into_dart().into_dart(),
             self.videos.into_into_dart().into_dart(),
             self.users.into_into_dart().into_dart(),
+            self.direct.into_into_dart().into_dart(),
+            self.related.into_into_dart().into_dart(),
             self.total.into_into_dart().into_dart(),
             self.has_more.into_into_dart().into_dart(),
         ]
@@ -5486,7 +5646,8 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::SearchSuggestion {
         [
             self.kind.into_into_dart().into_dart(),
             self.title.into_into_dart().into_dart(),
-            self.subtitle.into_into_dart().into_dart(),
+            self.mid.into_into_dart().into_dart(),
+            self.cover_url.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -5724,9 +5885,8 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::SongUrl> for crate::ap
 impl flutter_rust_bridge::IntoDart for crate::api::types::SuggestionKind {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
-            Self::Song => 0.into_dart(),
+            Self::Keyword => 0.into_dart(),
             Self::Singer => 1.into_dart(),
-            Self::Album => 2.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -6306,6 +6466,14 @@ impl SseEncode for crate::api::types::ForyouItem {
     }
 }
 
+impl SseEncode for crate::api::types::HotBoard {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.name, serializer);
+        <Vec<crate::api::types::HotKeyword>>::sse_encode(self.keywords, serializer);
+    }
+}
+
 impl SseEncode for crate::api::types::HotKeyword {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -6318,7 +6486,7 @@ impl SseEncode for crate::api::types::HotKeyword {
 impl SseEncode for crate::api::types::HotSearch {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <Vec<crate::api::types::HotKeyword>>::sse_encode(self.hot, serializer);
+        <Vec<crate::api::types::HotBoard>>::sse_encode(self.boards, serializer);
         <Vec<crate::api::types::HotKeyword>>::sse_encode(self.recommended, serializer);
     }
 }
@@ -6387,12 +6555,32 @@ impl SseEncode for Vec<crate::api::types::ForyouItem> {
     }
 }
 
+impl SseEncode for Vec<crate::api::types::HotBoard> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::types::HotBoard>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::api::types::HotKeyword> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::api::types::HotKeyword>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<Vec<String>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <Vec<String>>::sse_encode(item, serializer);
         }
     }
 }
@@ -6493,6 +6681,16 @@ impl SseEncode for Vec<crate::api::types::RecommendSection> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::api::types::RecommendSection>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::types::SearchDirect> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::types::SearchDirect>::sse_encode(item, serializer);
         }
     }
 }
@@ -6936,18 +7134,49 @@ impl SseEncode for crate::api::types::RelatedPlaylists {
     }
 }
 
+impl SseEncode for crate::api::types::SearchDirect {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <crate::api::types::SearchDirectKind>::sse_encode(self.kind, serializer);
+        <String>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.title, serializer);
+        <String>::sse_encode(self.subtitle, serializer);
+        <String>::sse_encode(self.cover_url, serializer);
+        <String>::sse_encode(self.tag, serializer);
+    }
+}
+
+impl SseEncode for crate::api::types::SearchDirectKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::api::types::SearchDirectKind::Singer => 0,
+                crate::api::types::SearchDirectKind::Playlist => 1,
+                crate::api::types::SearchDirectKind::Album => 2,
+                crate::api::types::SearchDirectKind::Video => 3,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
 impl SseEncode for crate::api::types::SearchKind {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(
             match self {
-                crate::api::types::SearchKind::Song => 0,
-                crate::api::types::SearchKind::Singer => 1,
-                crate::api::types::SearchKind::Album => 2,
-                crate::api::types::SearchKind::Playlist => 3,
-                crate::api::types::SearchKind::Video => 4,
-                crate::api::types::SearchKind::Lyric => 5,
-                crate::api::types::SearchKind::User => 6,
+                crate::api::types::SearchKind::All => 0,
+                crate::api::types::SearchKind::Song => 1,
+                crate::api::types::SearchKind::Singer => 2,
+                crate::api::types::SearchKind::Album => 3,
+                crate::api::types::SearchKind::Playlist => 4,
+                crate::api::types::SearchKind::Video => 5,
+                crate::api::types::SearchKind::Lyric => 6,
+                crate::api::types::SearchKind::User => 7,
                 _ => {
                     unimplemented!("");
                 }
@@ -6961,12 +7190,15 @@ impl SseEncode for crate::api::types::SearchResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <Vec<crate::api::types::Song>>::sse_encode(self.songs, serializer);
+        <Vec<Vec<String>>>::sse_encode(self.song_tags, serializer);
         <Vec<String>>::sse_encode(self.lyric_snippets, serializer);
         <Vec<crate::api::types::SingerBrief>>::sse_encode(self.singers, serializer);
         <Vec<crate::api::types::AlbumBrief>>::sse_encode(self.albums, serializer);
         <Vec<crate::api::types::PlaylistBrief>>::sse_encode(self.playlists, serializer);
         <Vec<crate::api::types::VideoBrief>>::sse_encode(self.videos, serializer);
         <Vec<crate::api::types::UserBrief>>::sse_encode(self.users, serializer);
+        <Vec<crate::api::types::SearchDirect>>::sse_encode(self.direct, serializer);
+        <Vec<String>>::sse_encode(self.related, serializer);
         <u32>::sse_encode(self.total, serializer);
         <bool>::sse_encode(self.has_more, serializer);
     }
@@ -6977,7 +7209,8 @@ impl SseEncode for crate::api::types::SearchSuggestion {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <crate::api::types::SuggestionKind>::sse_encode(self.kind, serializer);
         <String>::sse_encode(self.title, serializer);
-        <String>::sse_encode(self.subtitle, serializer);
+        <String>::sse_encode(self.mid, serializer);
+        <String>::sse_encode(self.cover_url, serializer);
     }
 }
 
@@ -7105,9 +7338,8 @@ impl SseEncode for crate::api::types::SuggestionKind {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(
             match self {
-                crate::api::types::SuggestionKind::Song => 0,
+                crate::api::types::SuggestionKind::Keyword => 0,
                 crate::api::types::SuggestionKind::Singer => 1,
-                crate::api::types::SuggestionKind::Album => 2,
                 _ => {
                     unimplemented!("");
                 }

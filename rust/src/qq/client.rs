@@ -331,6 +331,20 @@ impl Core {
         self.desktop_request(DESKTOP_MUSICU, self.desktop_comm(), module, module, method, param, false).await
     }
 
+    /// Android 客户端的搜索接口，同样走免签名的 musicu 网关。
+    /// 没有 `QIMEI36` 时结果为空，取值不校验，用本机的 PC GUID。
+    pub async fn mobile_public(&self, module: &str, method: &str, param: Value) -> Result<Value> {
+        let mut comm = json!({
+            "ct": "11", "cv": ANDROID_VERSION.to_string(), "tmeAppID": "qqmusic", "QIMEI36": self.desktop_guid,
+        });
+        if let Some(s) = self.session() {
+            comm["qq"] = json!(s.uin);
+            comm["authst"] = json!(s.musickey);
+            comm["tmeLoginType"] = json!(s.login_type.to_string());
+        }
+        self.desktop_request(DESKTOP_MUSICU, comm, "req_0", module, method, param, false).await
+    }
+
     /// 以未登录的 PC 客户端身份登录或续期（`uin="0"`、`authst=""`、不带 Cookie），与官方 PC 客户端抓包一致。
     pub async fn desktop_login(&self, key: &str, method: &str, param: Value, login_type: i32) -> Result<Value> {
         let mut comm = self.desktop_comm_for(None);

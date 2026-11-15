@@ -145,7 +145,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchPrompt => '输入关键词后回车搜索';
 
   @override
-  String get searchHot => '热搜榜';
+  String get searchKindAll => '综合';
+
+  @override
+  String get searchMoreSongs => '更多单曲';
+
+  @override
+  String get searchRelated => '相关搜索';
 
   @override
   String get searchRecommended => '猜你想搜';

@@ -178,6 +178,8 @@ pub struct TopListDetail {
 /// 搜索分类，对应 Windows 客户端搜索结果页的标签。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SearchKind {
+    /// 综合：顶部的直达卡片，加上单曲、歌手、歌单、专辑、视频各一小段和相关搜索。
+    All,
     Song,
     Singer,
     Album,
@@ -323,10 +325,34 @@ pub struct SingerBrief {
     pub album_count: u32,
 }
 
-/// 一页搜索结果，只有所搜分类对应的列表有内容。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SearchDirectKind {
+    Singer,
+    Playlist,
+    Album,
+    Video,
+}
+
+/// 综合搜索顶部的直达卡片，只保留能打开的几种；活动、铃声、小游戏这类丢掉。
+#[derive(Debug, Clone)]
+pub struct SearchDirect {
+    pub kind: SearchDirectKind,
+    /// 歌手/专辑是 mid，歌单是 dissid，视频是 vid。
+    pub id: String,
+    pub title: String,
+    /// 比如“歌曲:1013 专辑:43 视频:10428”。
+    pub subtitle: String,
+    pub cover_url: String,
+    /// 角标，比如“新MV”，可能为空。
+    pub tag: String,
+}
+
+/// 一页搜索结果，只有所搜分类对应的列表有内容；综合搜索各列表都可能有。
 #[derive(Debug, Clone)]
 pub struct SearchResult {
     pub songs: Vec<Song>,
+    /// 与 songs 一一对应的小标签，比如“飙升榜No.18”和一句热评，可能为空。
+    pub song_tags: Vec<Vec<String>>,
     /// 歌词搜索时与 songs 一一对应的命中歌词，没找到命中行时为空字符串；其他分类为空列表。
     pub lyric_snippets: Vec<String>,
     pub singers: Vec<SingerBrief>,
@@ -334,6 +360,10 @@ pub struct SearchResult {
     pub playlists: Vec<PlaylistBrief>,
     pub videos: Vec<VideoBrief>,
     pub users: Vec<UserBrief>,
+    /// 综合搜索第一页的直达卡片。
+    pub direct: Vec<SearchDirect>,
+    /// 综合搜索的“相关搜索”词。
+    pub related: Vec<String>,
     pub total: u32,
     /// 还有下一页。返回条数可能多于请求的每页条数，不能用条数判断。
     pub has_more: bool,
@@ -404,26 +434,36 @@ pub struct HotKeyword {
     pub description: String,
 }
 
+/// 搜索页的一个榜单，比如“热门搜索”“微博热搜”。
+#[derive(Debug, Clone)]
+pub struct HotBoard {
+    pub name: String,
+    pub keywords: Vec<HotKeyword>,
+}
+
 #[derive(Debug, Clone)]
 pub struct HotSearch {
-    pub hot: Vec<HotKeyword>,
-    /// 个性化的“猜你想搜”，只有登录后才有。
+    /// 按官方顺序排列，第一个是“热门搜索”。
+    pub boards: Vec<HotBoard>,
+    /// “搜索发现”，未登录也有；登录后按账号个性化。
     pub recommended: Vec<HotKeyword>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SuggestionKind {
-    Song,
+    /// 联想词，比如“晴天 周杰伦”，点了直接拿去搜。
+    Keyword,
+    /// 顶部的歌手卡片，带 mid 和头像。
     Singer,
-    Album,
 }
 
 #[derive(Debug, Clone)]
 pub struct SearchSuggestion {
     pub kind: SuggestionKind,
     pub title: String,
-    /// 歌手名；歌手条目为空。
-    pub subtitle: String,
+    /// 歌手卡片的 mid，打开歌手页用；联想词为空。
+    pub mid: String,
+    pub cover_url: String,
 }
 
 #[derive(Debug, Clone)]

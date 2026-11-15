@@ -16,7 +16,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'harness.dart';
 
-/// 依次切换搜索结果的六个分类并截图，存到系统临时目录的 kanade_search_frames 里。
+/// 搜索首页的各个榜单、联想顶部的歌手卡片、综合页，再依次切换各分类并截图，存到系统临时目录的 kanade_search_frames 里。
 /// flutter drive -d windows --driver=test_driver/integration_test.dart --target=integration_test/search_categories_test.dart
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -45,13 +45,34 @@ void main() {
     await settle();
 
     await tester.tap(find.byIcon(Icons.search).first);
-    await settle(800);
+    await settle(3000);
+    final failures = <String>[];
+    for (final board in ['热门搜索', '微博热搜', '抖音热搜']) {
+      final pill = find.widgetWithText(Pill, board);
+      if (pill.evaluate().isEmpty) {
+        failures.add(board);
+        continue;
+      }
+      await tester.tap(pill);
+      await settle(500);
+      await shoot('hot_$board');
+    }
+
     final field = find.descendant(of: find.byType(SearchPage), matching: find.byType(TextField));
     await tester.enterText(field, '周杰伦');
+    await settle(2000);
+    await shoot('suggest');
+    if (find.byIcon(Icons.chevron_right).evaluate().isEmpty) failures.add('联想歌手卡片');
     await tester.testTextInput.receiveAction(TextInputAction.search);
-    await settle(4000);
+    await settle(5000);
+    await shoot('all_0');
+    final allList = find.descendant(of: find.byType(SearchPage), matching: find.byType(ListView)).first;
+    for (var i = 1; i <= 4; i++) {
+      await tester.drag(allList, const Offset(0, -1500));
+      await settle(1500);
+      await shoot('all_$i');
+    }
 
-    final failures = <String>[];
     for (final (i, label) in ['歌曲', '歌手', '专辑', '歌单', '视频', '歌词', '用户'].indexed) {
       await tester.tap(find.widgetWithText(Pill, label));
       await settle(4000);

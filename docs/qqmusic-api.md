@@ -42,6 +42,7 @@ Dart 只调用 [api/music.rs](../rust/src/api/music.rs)，它把请求转给 `ru
 | PC 公共 | `desktop_musicu` | `u6.y.qq.com/cgi-bin/musicu.fcg` | `module` 原文 | 不带 | 公参里仍带账号 |
 | PC 私有 | `desktop_private` | 同上 | `module.method` | 带 | 读写自己的数据 |
 | PC 登录 | `desktop_login` | 同上 | 调用方给 | 不带 | 以未登录的 PC 客户端身份登录或续期 |
+| Android 搜索 | `mobile_public` | 同上 | `req_0` | 不带 | 请求头同 PC 通道，公参换成 Android 搜索公参 |
 | Android 写入 | `mobile_write` | `u.y.qq.com/cgi-bin/musicu.fcg` | `req_0` | 必须登录 | UA `QQMusic 14090008(android 10)`，只发一次 |
 | App 授权 | `TmeClient::call`（[login.rs](../rust/src/qq/login.rs)） | 同上 | `req_0` | 显式为空 | 独立的 Android 设备会话，不借用当前账号 |
 | 旧 CGI | `get_json` | 各 `c.y.qq.com` / `c6.y.qq.com` 地址 | — | 已登录就带 | `GET`，自动剥掉 JSONP 外壳 |
@@ -73,6 +74,7 @@ PC 通道把 `req_0` 换成 `module` 或 `module.method`，响应里的结果也
 | PC | PC 通道 | `ct="19"`、`cv="2276"`、`_channelid="20"`、`_os_version="6.2.9200-2"`、`patch="118"`、`tmeAppID="qqmusic"`、`guid=<32 位大写十六进制>`；登录后加 `uin`、`authst`、`tmeLoginType=1/2`（数字） |
 | PC 登录 | `desktop_login` | PC 公参，但 `uin="0"`、`authst=""`、`tmeLoginType=<调用方给>`，另加空的 `psrf_access_token_expiresAt/psrf_qqaccess_token/psrf_qqopenid/psrf_qqunionid` |
 | Android 写入 | `mobile_write` | `ct=11`、`cv=v=14090008`、`chid="10003505"`、`tmeAppID`、`tmeLoginType`（字符串）、`qq`、`authst`、`format="json"` |
+| Android 搜索 | `mobile_public` | `ct="11"`、`cv="14090008"`、`tmeAppID="qqmusic"`、`QIMEI36=<desktop_guid>`；登录后加 `qq`、`authst`、`tmeLoginType`（字符串）。缺 `QIMEI36` 时结果为空，取值不校验；`cv` 用 PC 的 `2276` 或 `ct=19` 时没有歌手直达和歌曲标签 |
 | App 授权 | `TmeClient` | `ct=11`、`cv=v=14090008`、`chid="10003505"`、`tmeAppID`、`tmeLoginType=2`、`qq="0"`、`authst=""`、`uid`/`sid`（来自 `GetSession`）、`OpenUDID=OpenUDID2=udid=<安装 ID>`；Android 上另加 `os_ver/phonetype/devicelevel/newdevicelevel/rom`，取自系统属性 |
 
 两个设备标识都存在数据库的 kv 表里，生成一次后不再变：`guid`（10 位数字）给通用通道用，`desktop_guid`（32 位十六进制）给 PC 通道用。App 授权用另一个 `mobile_login_device_id`。
@@ -99,22 +101,35 @@ uin=<musicid>; qqmusic_uin=<musicid>; qqmusic_key=<musickey>; qm_keyst=<musickey
 
 | 功能 | 接口 | 通道 | 参数 | 返回 |
 | --- | --- | --- | --- | --- |
-| 分类搜索 | `music.search.SearchCgiService.DoSearchForQQMusicDesktop` | PC 公共 | `query`、`search_type`、`num_per_page`、`page_num`（从 1 开始）、`remoteplace`、`searchid`、`grp=1` | `body.<分类>.list`，总数 `meta.sum`，`meta.nextpage > 0` 表示还有下一页（最后一页是 `-1`） |
-| 未登录搜歌 | GET `https://c.y.qq.com/soso/fcgi-bin/client_search_cp` | 旧 CGI | `w`、`p`、`n`、`format=json` | `data.song.list`、`data.song.totalnum`；没有 `nextpage`，按总数估算是否还有下一页 |
-| 热搜 | `tencent_musicsoso_hotkey.HotkeyService.GetHotkeyForQQMusicPC` | PC 公共 | `search_id=""`、`uin=<musicid 数字，未登录 0>` | `vec_hotkey`（热搜）、`vec_reckey`（登录后的“猜你想搜”），读 `title/query/description`，丢掉空 `query` |
-| 联想 | `music.smartboxCgi.SmartBoxCgi.GetSmartBoxResultForPc` | PC 公共 | `num_per_page=4`、`query`、`search_id` | `data.song.song_list`、`data.singer.singer_list`、`data.album.album_list`，读 `name` 和 `singer`；支持拼音和首字母 |
+| 分类搜索 | `music.search.SearchCgiService.DoSearchForQQMusicMobile` | Android 搜索 | `query`、`highlight=0`、`searchid`、`sub_searchid=0`、`search_type`、`nqc_flag=0`、`sin/ein`（本页起止序号）、`page_num`（从 1 开始）、`num_per_page`、`cat=2`、`grp=1`、`remoteplace`（第 1 页 `search.android.smart`，之后 `more.android.smart`）、`from="8,"`、`multi_zhida=1`、`sem=0` | `body.<列表>` 直接是数组，总数 `meta.sum`，`meta.nextpage > 0` 表示还有下一页（最后一页是 `-1`）。用户搜索的条数可能多于 `num_per_page` |
+| 热搜 | `music.musicsearch.HotkeyService.GetHotkeyAllBusinessForQQMusicMobile` | Android 搜索 | `searchid`、`remote_place=""`、`from="8,"`、`start="0"`、`need_reckey=1`、`need_allhotkey=1`、`need_track_info=1` | 榜单的顺序和名字在 `business_en_cn[].tabname_cn/tabname_en`，`tabname_en` 是 `map_business_hotkey` 的键（`hotkey` 热门搜索、`weibo` 微博热搜、`collect` 收藏人气榜、`tiktok` 抖音热搜、`audiobook` 听书热搜），各读 `vec_hotkey`；“搜索发现”读 `vec_reckey`（未登录也有），读 `title/query/description`，`description` 为空时取 `description_param.description`（“昨日热播”这种），丢掉空 `query` |
+| 综合搜索 | `music.adaptor.SearchAdaptor.do_search_v2`（`search_type=100`） | Android 搜索 | `ver=0`、`searchid`、`sub_searchid=0`、`query`、`page_id`（从 1 开始）、`page_num=15`、`remoteplace`（同分类搜索）、`highlight=1`、`nqc_flag=0`、`grp=1`、`multi_zhida=1`、`auto_page=1`、`related_data=""`、`ambi_data=""`、`from="8,"`、`seqno=1`；第 2 页起把上一页的 `meta.nextpage_start` 原样放进 `page_start` | 见下文“综合搜索” |
+| 联想 | `music.smartboxCgi.SmartBoxCgi.GetSmartBoxResult` | Android 搜索 | `query`、`search_id`、`num_per_page=20` | 抓包里是 JCE，用这个 comm 发 JSON 也回 JSON。`items[]` 里 `res_type="search"` 的读 `hint`（十几到二十条，支持拼音和首字母），其他 `res_type`（AI 助手）丢掉；`vec_direct_items` 里 `restype="singer"` 的是歌手卡片，读 `title`（“歌手: 周杰伦”）、`custom_info.mid`、`cover_url`。PC 的 `GetSmartBoxResultForPc` 每类只给 4 条，不用了 |
 
-只有“未登录 + 搜歌曲”走旧 CGI，其余情况都走 PC 接口（旧 CGI 没有其他分类）。`searchid` 每次随机生成，37 位大写十六进制。
+`searchid` 每次随机生成：Android 接口是 18 位数字加逗号，联想用的也是这种。`highlight=0` 时部分名字（歌单名、用户名、视频和专辑的歌手名）仍带 `<em>`，解析时去掉。
 
-| `SearchKind` | `search_type` | `remoteplace` | 列表 | 读取的字段 |
-| --- | --- | --- | --- | --- |
-| `Song` | 0 | `txt.newclient.top` | `body.song.list` | 统一歌曲解析 |
-| `Singer` | 1 | `sizer.newclient.singer` | `body.singer.list` | `singerMID/singerName/songNum/albumNum` |
-| `Album` | 2 | `sizer.newclient.album` | `body.album.list` | `albumMID/albumName/publicTime`，歌手取 `singer_list[].name` |
-| `Playlist` | 3 | `sizer.newclient.playlist` | `body.songlist.list` | `dissid/dissname/imgurl/song_count/listennum/creator.name` |
-| `Video` | 4 | `sizer.newclient.mv` | `body.mv.list` | `v_id`（字符串 VID）、`mv_name/mv_pic_url/duration/play_count`；`singer_name` 为空且有 `uploader_nick` 时是用户上传的视频 |
-| `Lyric` | 7 | `txt.newclient.top` | `body.song.list` | 歌曲对象。`lyric` / `lyric_hilight` 常为空，歌词在 `content` 里，第一行是“歌名 - 歌手”；取包含关键词的前两行，优先非署名行（“词：xxx”这种） |
-| `User` | 8 | `sizer.newclient.users` | `body.user.list` | `encrypt_uin/title/pic/fans_num/diss_num/identify_title`；`iconurl` 是认证角标，不是头像；结果里没有明文账号 |
+| `SearchKind` | `search_type` | 列表 | 读取的字段 |
+| --- | --- | --- | --- |
+| `Song` | 0 | `body.item_song` | 统一歌曲解析 |
+| `Singer` | 1 | `body.singer` | `singerMID/singerName/songNum/albumNum` |
+| `Album` | 2 | `body.item_album` | `albummid/name/publish_date`，歌手取 `singer_list[].name`，没有就用 `singer` |
+| `Playlist` | 3 | `body.item_songlist` | `dissid/dissname/logo/songnum/listennum/nickname` |
+| `Video` | 4 | `body.item_mv` | `vid`（字符串 VID）、`mvname/pic/duration/play_count`；`singername` 为空且有 `uploader_nick` 时是用户上传的视频 |
+| `Lyric` | 7 | `body.item_song` | 歌曲对象。`lyric` 常为空，歌词在 `content` 里，换行是字面的 `\n` 两个字符，第一行是“歌名 - 歌手”；取包含关键词的前两行，优先非署名行（“词：xxx”这种） |
+| `User` | 8 | `body.item_user` | `encrypt_uin/title/pic/subtitle`；没有单独的粉丝数和歌单数，`subtitle` 是“2.2万人关注  歌单达人”这样的整句，放进 `description`；`iconurl` 是认证角标，不是头像；结果里没有明文账号 |
+
+### 综合搜索
+
+- 上游第 1 页是 `body.direct_result.direct_group[].direct_list`（顶部卡片）加 `body.item_song.items`（单曲），第 2 页是 `singer/item_songlist/item_album/item_audio/item_mv/item_related` 的 `items`，第 3 页起只有“更多单曲”。Kanade 的第 1 页合并上游前两页，第 n 页对应上游第 n+1 页；`meta.sum` 一直是 0，没有总数。
+- 卡片按 `restype` 区分，只留能打开的：`singer`（mid 在 `custom_info.mid`，`id` 是数字歌手 id）、`songlist`（`id` 是 dissid）、`album`、`mv`（`vid`）。活动 `fenlei`、铃声、猜歌、小游戏等丢掉。副标题字段名是拼错的 `desciption`，角标是 `custom_info.subscript_text`。
+- 歌曲标签在 `vec_hotness[].desc`，比如“飙升榜No.18”和带引号的一句热评；分类搜索的单曲也有。
+- 相关搜索读 `item_related.items[].search_word`。
+
+Android 客户端还有这些接口，Kanade 还没接：
+
+| 功能 | 接口 | 说明 |
+| --- | --- | --- |
+| 其他分类 | `DoSearchForQQMusicMobile` | `search_type`：节目 15、铃声 10、AI 唱 24；扑通用 `DoSearchForPutong`（`search_type=101`） |
 
 ## 歌曲信息与音质
 
@@ -495,7 +510,7 @@ GET https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=<mid>&form
 
 官方客户端用 `request_type=10003`、`format=265`，只返回相对路径和 HLS 分片，缺 CDN 地址，所以 Kanade 改用 `10001` + H.264，直接拿完整的 MP4 地址。地址有效期 86400 秒，每次打开播放页都重新取。付费 MV 和 `play_forbid_reason≠0` 的情况没处理，没有可用地址时播放页显示无法播放。
 
-VID 是字符串：搜索结果的 `v_id`、歌曲的 `mv.vid`（`mv.id=0` 时也可能有效）、各列表的 `vid`。`Song.mv_vid` 会随播放队列一起保存。
+VID 是字符串：搜索结果的 `vid`、歌曲的 `mv.vid`（`mv.id=0` 时也可能有效）、各列表的 `vid`。`Song.mv_vid` 会随播放队列一起保存。
 
 ## 评论
 
