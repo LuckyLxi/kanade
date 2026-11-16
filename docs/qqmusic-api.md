@@ -534,6 +534,8 @@ VID 是字符串：搜索结果的 `vid`、歌曲的 `mv.vid`（`mv.id=0` 时也
 
 评论总数取顶层 `TotalCmNum`。字段映射：`CmId → id`、`SeqNo → seq_no`、`Nick → nick`、`Avatar → avatar_url`、`Content → content`、`PubTime → time_secs`、`PraiseNum → praise_count`、`ReplyCnt → reply_count`、`RepliedComments[0].Nick → reply_to`、`Pic → pic_url`、`PicSize`（`"宽x高"`）→ `pic_width/pic_height`。正文去掉 `[em]…[/em]` 表情代码，把字面的 `\n` 还原成换行。评论图片的地址不带 Cookie 和参数就能直接下载。
 
+
+只要歌曲评论数时（歌曲更多操作弹窗）用 PC 客户端的 `GlobalComment.GlobalCommentReadServer.GetCommentCount`（[detail.rs](../rust/src/qq/detail.rs) `song_comment_count`），参数 `request_list: [{ biz_id: 歌曲数字 id 字符串, biz_type: 1, biz_sub_type: 1 }]`，读 `response_list[0].count`。可以一次查多个，目前只查一首；专辑没抓到过，没接。
 ## 用户主页与关注
 
 实现：[user.rs](../rust/src/qq/user.rs)、[social.rs](../rust/src/qq/social.rs)。
@@ -791,7 +793,7 @@ HTTP 200 不代表成功。各通道的检查力度不同：
 | 专辑 | `get_album_detail(mid)` | `AlbumDetail` |
 | 播放页信息页 | `get_song_page(song_id, song_mid)` / `get_related_playlists(song_id, exclude)` / `get_similar_songs(song_id)` | `SongPage` / `RelatedPlaylists` / `Vec<Song>` |
 | MV | `get_mv_detail(vid)` | `MvDetail` |
-| 评论 | `get_comment_feed(target, id, sort, cursor)` / `get_reply_feed(root_id, cursor)` | `CommentFeed` |
+| 评论 | `get_comment_feed(target, id, sort, cursor)` / `get_reply_feed(root_id, cursor)` / `get_song_comment_count(id)` | `CommentFeed` / `u32` |
 | 用户 | `get_user_profile(euin)` / `get_user_public_playlists(euin, creator, page, page_size)` / `get_user_assets(euin, kind, page, page_size)` | `UserProfile` / `UserPlaylistPage` / `UserAssetPage` |
 | 关注 | `set_singer_followed(mid, followed)` / `set_user_followed(euin, followed)` | 空 |
 | 听歌识曲 | `recognize_song(session_id, pcm)` | `Option<Song>` |

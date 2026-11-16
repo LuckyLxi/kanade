@@ -329,22 +329,8 @@
   "loginRequired": "请先在「我的」页登录",
   "noMyPlaylists": "没有可加入的歌单",
   "more": "更多",
-  "singerNamed": "歌手：{name}",
-  "@singerNamed": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "albumNamed": "专辑：{name}",
-  "@albumNamed": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
+  "singerLabel": "歌手",
+  "albumLabel": "专辑",
   "comments": "评论",
   "commentsRecommended": "推荐",
   "noComments": "还没有评论",

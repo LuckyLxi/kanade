@@ -388,6 +388,18 @@ pub async fn reply_feed(root_id: &str, cursor: &str) -> Result<CommentFeed> {
     Ok(cur.advance(&data).feed(replies, has_more))
 }
 
+/// 歌曲评论总数，PC 客户端播放条上的数字就是它，比拉一页评论轻。
+pub async fn song_comment_count(id: i64) -> Result<u32> {
+    let data = core()
+        .musicu(
+            "GlobalComment.GlobalCommentReadServer",
+            "GetCommentCount",
+            json!({ "request_list": [{ "biz_id": id.to_string(), "biz_type": 1, "biz_sub_type": 1 }] }),
+        )
+        .await?;
+    Ok(n(&data["response_list"][0]["count"]) as u32)
+}
+
 /// 播放页右滑的歌曲信息页，参数照抄 Android 客户端，见 docs/qqmusic-api.md「播放页信息页」。
 /// 各栏目分开请求，某一栏失败只让它为空，全部失败才报错。
 pub async fn song_page(id: i64, mid: &str) -> Result<SongPage> {

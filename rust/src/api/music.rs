@@ -346,6 +346,11 @@ pub async fn get_comment_feed(
         .map_err(api_error)?)
 }
 
+/// 歌曲评论总数。
+pub async fn get_song_comment_count(id: i64) -> Result<u32, ApiError> {
+    Ok(detail::song_comment_count(id).await.map_err(api_error)?)
+}
+
 /// 某条评论下的回复，翻页方式同 `get_comment_feed`。
 pub async fn get_reply_feed(root_id: String, cursor: String) -> Result<CommentFeed, ApiError> {
     Ok(detail::reply_feed(&root_id, &cursor)

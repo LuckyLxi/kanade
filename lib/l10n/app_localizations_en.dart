@@ -531,14 +531,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get more => 'More';
 
   @override
-  String singerNamed(String name) {
-    return 'Artist: $name';
-  }
+  String get singerLabel => 'Artist';
 
   @override
-  String albumNamed(String name) {
-    return 'Album: $name';
-  }
+  String get albumLabel => 'Album';
 
   @override
   String get comments => 'Comments';

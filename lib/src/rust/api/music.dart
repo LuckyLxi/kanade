@@ -312,6 +312,10 @@ Future<CommentFeed> getCommentFeed({
   cursor: cursor,
 );
 
+/// 歌曲评论总数。
+Future<int> getSongCommentCount({required PlatformInt64 id}) =>
+    RustLib.instance.api.crateApiMusicGetSongCommentCount(id: id);
+
 /// 某条评论下的回复，翻页方式同 `get_comment_feed`。
 Future<CommentFeed> getReplyFeed({
   required String rootId,

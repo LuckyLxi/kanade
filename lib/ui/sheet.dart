@@ -483,17 +483,21 @@ class SheetHeader extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.leading,
+    this.trailing,
+    this.padding = const EdgeInsets.fromLTRB(6, 0, 6, 12),
   });
 
   final String title;
   final String? subtitle;
   final Widget? leading;
+  final Widget? trailing;
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 0, 6, 12),
+      padding: padding,
       child: Row(
         children: [
           if (leading != null) ...[leading!, const SizedBox(width: 12)],
@@ -527,70 +531,72 @@ class SheetHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (trailing != null) ...[const SizedBox(width: 12), trailing!],
         ],
       ),
     );
   }
 }
 
-/// 一排大方块，放最常用的几个操作。
-class SheetQuickActions extends StatelessWidget {
-  const SheetQuickActions({super.key, required this.children});
+/// 一排胶囊按钮，第一个是主操作（反色）。
+class SheetPills extends StatelessWidget {
+  const SheetPills({super.key, required this.children, this.padding});
 
-  final List<SheetQuickAction> children;
+  final List<SheetPill> children;
+  final EdgeInsets? padding;
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
+    padding: padding ?? EdgeInsets.zero,
     child: Row(
       children: [
         for (var i = 0; i < children.length; i++) ...[
           if (i > 0) const SizedBox(width: 8),
-          Expanded(child: children[i]),
+          Expanded(child: children[i]._build(context, primary: i == 0)),
         ],
       ],
     ),
   );
 }
 
-class SheetQuickAction extends StatelessWidget {
-  const SheetQuickAction({
-    super.key,
+class SheetPill {
+  const SheetPill({
     required this.icon,
     required this.label,
     required this.onTap,
-    this.iconColor,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  final Color? iconColor;
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _build(BuildContext context, {required bool primary}) {
     final scheme = Theme.of(context).colorScheme;
     final (_, group) = sheetColors(scheme);
+    final fg = primary ? scheme.surface : scheme.onSurface;
     return Material(
-      color: group,
-      borderRadius: BorderRadius.circular(16),
+      color: primary ? scheme.onSurface : group,
+      shape: const StadiumBorder(),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
-          child: Column(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 24, color: iconColor ?? scheme.onSurface),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: scheme.onSurface,
+              Icon(icon, size: 20, color: fg),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: fg,
+                  ),
                 ),
               ),
             ],

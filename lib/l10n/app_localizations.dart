@@ -987,17 +987,17 @@ abstract class AppLocalizations {
   /// **'更多'**
   String get more;
 
-  /// No description provided for @singerNamed.
+  /// No description provided for @singerLabel.
   ///
   /// In zh, this message translates to:
-  /// **'歌手：{name}'**
-  String singerNamed(String name);
+  /// **'歌手'**
+  String get singerLabel;
 
-  /// No description provided for @albumNamed.
+  /// No description provided for @albumLabel.
   ///
   /// In zh, this message translates to:
-  /// **'专辑：{name}'**
-  String albumNamed(String name);
+  /// **'专辑'**
+  String get albumLabel;
 
   /// No description provided for @comments.
   ///

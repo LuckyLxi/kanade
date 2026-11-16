@@ -5,6 +5,7 @@ import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
 import '../player/player_controller.dart';
+import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'album_page.dart';
 import 'comments_page.dart';
@@ -52,6 +53,10 @@ Future<void> showSongActions(
   VoidCallback? onRemove,
 }) {
   final l = AppLocalizations.of(context);
+  // 拿不到评论数就不显示
+  final commentTotal = api
+      .getSongCommentCount(id: song.id)
+      .then<int?>((n) => n, onError: (_) => null);
   return showKanadeSheet<void>(
     context: context,
     builder: (sheet) {
@@ -66,99 +71,153 @@ Future<void> showSongActions(
         action();
       }
 
-      final hasSinger = song.singers.any((s) => s.mid.isNotEmpty);
+      final scheme = Theme.of(sheet).colorScheme;
+      final singers = song.singers.where((s) => s.mid.isNotEmpty).toList();
+      Widget label(String text) => Text(
+        text,
+        style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+      );
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           SheetHeader(
-            leading: Cover(song.coverUrl, size: 48, radius: 10),
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            leading: Cover(song.coverUrl, size: 56, radius: 12),
             title: song.name,
-            subtitle: singerNames(song),
+            subtitle: [
+              singerNames(song),
+              if (song.albumName.isNotEmpty) song.albumName,
+            ].join(' · '),
+            trailing: _LikeButton(
+              liked: liked,
+              tooltip: liked ? l.likedShort : l.likeShort,
+              onTap: () => run(() => toggleLike(context, song)),
+            ),
           ),
-          SheetQuickActions(
+          SheetPills(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
             children: [
               if (!isCurrent)
-                SheetQuickAction(
+                SheetPill(
                   icon: Icons.queue_play_next_rounded,
                   label: l.playNext,
                   onTap: () => run(() => playNext(context, song)),
                 ),
-              SheetQuickAction(
-                icon: liked
-                    ? Icons.favorite_rounded
-                    : Icons.favorite_border_rounded,
-                iconColor: liked ? Theme.of(sheet).colorScheme.primary : null,
-                label: liked ? l.likedShort : l.likeShort,
-                onTap: () => run(() => toggleLike(context, song)),
-              ),
-              SheetQuickAction(
+              SheetPill(
                 icon: Icons.playlist_add_rounded,
                 label: l.addToPlaylist,
                 onTap: () => run(() => addToPlaylist(context, song)),
               ),
-              SheetQuickAction(
-                icon: Icons.chat_bubble_outline_rounded,
-                label: l.comments,
-                onTap: () => run(
-                  () => Navigator.of(context).push(CommentsPage.song(song)),
-                ),
-              ),
             ],
           ),
-          SheetGroup(
-            children: [
-              if (song.mvVid.isNotEmpty)
-                SheetRow(
-                  leading: const Icon(Icons.music_video_rounded),
-                  title: l.watchMv,
-                  chevron: true,
-                  onTap: () => run(
-                    () =>
-                        Navigator.of(context)
-                            .push(MvPage.route(song.mvVid, song.name)),
-                  ),
-                ),
-              SheetRow(
-                leading: const Icon(Icons.manage_search_rounded),
-                title: l.findSimilarSongs,
-                chevron: true,
-                onTap: () => run(
-                  () => pushFromPlayer(
-                    context,
-                    SongListPage.similar(song, l.similarSongsTitle(song.name)),
-                  ),
+          Divider(
+            height: 9,
+            thickness: 0.5,
+            indent: 14,
+            endIndent: 14,
+            color: scheme.outlineVariant,
+          ),
+          SheetRow(
+            leading: const Icon(Icons.chat_bubble_outline_rounded),
+            title: l.comments,
+            trailing: FutureBuilder(
+              future: commentTotal,
+              builder: (_, snap) => switch (snap.data) {
+                final n? when n > 0 => label(formatCount(l, n)),
+                _ => const SizedBox.shrink(),
+              },
+            ),
+            onTap: () =>
+                run(() => Navigator.of(context).push(CommentsPage.song(song))),
+          ),
+          if (song.mvVid.isNotEmpty)
+            SheetRow(
+              leading: const Icon(Icons.music_video_rounded),
+              title: l.watchMv,
+              onTap: () => run(
+                () =>
+                    Navigator.of(context)
+                        .push(MvPage.route(song.mvVid, song.name)),
+              ),
+            ),
+          SheetRow(
+            leading: const Icon(Icons.manage_search_rounded),
+            title: l.findSimilarSongs,
+            onTap: () => run(
+              () => pushFromPlayer(
+                context,
+                SongListPage.similar(song, l.similarSongsTitle(song.name)),
+              ),
+            ),
+          ),
+          if (singers.isNotEmpty)
+            SheetRow(
+              // 多位歌手时没有哪张头像能代表全部
+              leading: singers.length == 1
+                  ? Cover(singerAvatar(singers.first.mid), size: 22, radius: 11)
+                  : const Icon(Icons.person_outline_rounded),
+              title: singerNames(song),
+              trailing: label(l.singerLabel),
+              onTap: () => run(() => openSinger(context, song)),
+            ),
+          if (song.albumMid.isNotEmpty)
+            SheetRow(
+              leading: Cover(song.coverUrl, size: 22, radius: 5),
+              title: song.albumName,
+              trailing: label(l.albumLabel),
+              onTap: () => run(
+                () => pushFromPlayer(
+                  context,
+                  AlbumPage.route(song.albumMid, song.albumName),
                 ),
               ),
-              if (hasSinger)
-                SheetRow(
-                  leading: const Icon(Icons.person_outline_rounded),
-                  title: l.singerNamed(singerNames(song)),
-                  chevron: true,
-                  onTap: () => run(() => openSinger(context, song)),
-                ),
-              if (song.albumMid.isNotEmpty)
-                SheetRow(
-                  leading: const Icon(Icons.album_outlined),
-                  title: l.albumNamed(song.albumName),
-                  chevron: true,
-                  onTap: () => run(
-                    () => pushFromPlayer(
-                      context,
-                      AlbumPage.route(song.albumMid, song.albumName),
-                    ),
-                  ),
-                ),
-              if (onRemove != null)
-                SheetRow(
-                  leading: const Icon(Icons.playlist_remove_rounded),
-                  title: l.removeFromPlaylist,
-                  destructive: true,
-                  onTap: () => run(onRemove),
-                ),
-            ],
-          ),
+            ),
+          if (onRemove != null)
+            SheetRow(
+              leading: const Icon(Icons.playlist_remove_rounded),
+              title: l.removeFromPlaylist,
+              destructive: true,
+              onTap: () => run(onRemove),
+            ),
         ],
       );
     },
   );
+}
+
+class _LikeButton extends StatelessWidget {
+  const _LikeButton({
+    required this.liked,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final bool liked;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final (_, group) = sheetColors(scheme);
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: liked ? scheme.primaryContainer : group,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox.square(
+            dimension: 40,
+            child: Icon(
+              liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              size: 22,
+              color: liked ? scheme.onPrimaryContainer : scheme.onSurface,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

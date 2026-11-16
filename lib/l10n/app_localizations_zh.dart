@@ -508,14 +508,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get more => '更多';
 
   @override
-  String singerNamed(String name) {
-    return '歌手：$name';
-  }
+  String get singerLabel => '歌手';
 
   @override
-  String albumNamed(String name) {
-    return '专辑：$name';
-  }
+  String get albumLabel => '专辑';
 
   @override
   String get comments => '评论';
