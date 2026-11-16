@@ -292,30 +292,34 @@ class _NowPlayingBarsState extends State<NowPlayingBars>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _c,
-      builder: (_, _) => Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (var i = 0; i < 4; i++)
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 1.2),
-              width: 3,
-              height: widget.playing
-                  ? 5 +
-                        11 *
-                            (0.5 +
-                                0.5 *
-                                    sin(
-                                      _c.value * 2 * pi * (i.isEven ? 2 : 3) +
-                                          i * 1.3,
-                                    ))
-                  : 4,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(2),
+      // 固定高度，否则行高随最高的柱子变化，居中后底边会上下跳。
+      builder: (_, _) => SizedBox(
+        height: 16,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            for (var i = 0; i < 4; i++)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 1.2),
+                width: 3,
+                height: widget.playing
+                    ? 5 +
+                          11 *
+                              (0.5 +
+                                  0.5 *
+                                      sin(
+                                        _c.value * 2 * pi * (i.isEven ? 2 : 3) +
+                                            i * 1.3,
+                                      ))
+                    : 4,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
