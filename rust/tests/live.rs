@@ -181,6 +181,7 @@ async fn desktop_category_search_pagination() {
             SearchKind::Playlist => r.playlists.iter().map(|x| x.id.clone()).collect(),
             SearchKind::Video => r.videos.iter().map(|x| x.vid.clone()).collect(),
             SearchKind::User => r.users.iter().map(|x| x.euin.clone()).collect(),
+            SearchKind::All => unreachable!("综合结果不分页"),
         }
     }
     use_desktop_test_login();
