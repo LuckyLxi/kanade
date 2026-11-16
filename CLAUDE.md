@@ -10,7 +10,7 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 
 ### Dart ↔ Rust boundary
 
-- `rust/src/api/music.rs` is the only Rust surface Dart calls (via flutter_rust_bridge 2.12.0, configured in `flutter_rust_bridge.yaml`: `rust_input: crate::api`, output `lib/src/rust`). Each function is a thin wrapper around `crate::qq::*` (or `crate::update` for app updates). Shared data types live in `rust/src/api/types.rs`.
+- `rust/src/api/music.rs` is the only Rust surface Dart calls (via flutter_rust_bridge 2.13.0, configured in `flutter_rust_bridge.yaml`: `rust_input: crate::api`, output `lib/src/rust`). Each function is a thin wrapper around `crate::qq::*` (or `crate::update` for app updates). Shared data types live in `rust/src/api/types.rs`.
 - Every API error passes through `api_error()`, which maps it to an `ApiError` code that Dart translates, and calls `client::suspect_session()` when the server rejects auth. New API functions should use the same `.map_err(api_error)` pattern.
 - After changing anything in `rust/src/api/`, run `flutter_rust_bridge_codegen generate`. Dart imports the generated code as `src/rust/api/music.dart as api`.
 - `rust/src/qq/client.rs` is the single place for the network client, login session (`Session`: uin/musickey/login_type) and request signing (`sign.rs`). `store.rs` is one SQLite DB (`kanade.db` in the app support dir) that holds API response cache, song cache index and key-value prefs, login included.
@@ -60,7 +60,7 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 ### Patched dependencies (`third_party/`)
 
 - `audio_service`: notification artwork cache capped at 4 MB.
-- `smtc_windows`: bindings regenerated with frb 2.12.0 to match the project.
+- `smtc_windows`: bindings regenerated with frb 2.13.0 to match the project.
 - `liquid_glass_widgets`: arc lens plus Windows background refraction.
 
 ## Reference material

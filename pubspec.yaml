@@ -39,7 +39,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   rust_lib_kanade:
     path: rust_builder
-  flutter_rust_bridge: 2.12.0
+  flutter_rust_bridge: 2.13.0
   freezed_annotation: ^3.1.0
   media_kit: ^1.2.6
   media_kit_libs_video: ^1.0.7
@@ -52,8 +52,8 @@ dependencies:
   # 0.18.19 打了补丁：通知栏封面缓存上限从 1/8 Java 堆改成 4MB，后台不再越播越多
   audio_service:
     path: third_party/audio_service
-  # 1.1.0 是用 flutter_rust_bridge 2.11.1 生成的，跟项目的 2.12.0 对不上会直接不工作，
-  # 拷过来用 2.12.0 重新生成了绑定
+  # 1.1.0 是用 flutter_rust_bridge 2.11.1 生成的，跟项目的版本对不上会直接不工作，
+  # 拷过来用 2.13.0 重新生成了绑定
   smtc_windows:
     path: third_party/smtc_windows
   # Hazuki 打过补丁的 1.13.0：圆弧透镜 + Windows 背景折射

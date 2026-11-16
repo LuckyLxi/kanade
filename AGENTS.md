@@ -22,7 +22,7 @@ Run from the root unless specified:
 - `flutter test test/audio_source_test.dart`: run a focused test.
 - `flutter test integration_test/simple_test.dart -d windows`: run an integration test.
 - `cargo test --manifest-path rust/Cargo.toml --lib`: run Rust unit tests.
-- `flutter_rust_bridge_codegen generate`: regenerate bindings after API changes; use codegen version **2.12.0**.
+- `flutter_rust_bridge_codegen generate`: regenerate bindings after API changes; use codegen version **2.13.0**.
 - `flutter gen-l10n`: regenerate localization after editing ARB files.
 
 ## Capture Scripts
