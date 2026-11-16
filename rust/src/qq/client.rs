@@ -44,6 +44,9 @@ pub struct Session {
     /// QQ 音乐 App 扫码登录。这种登录没有 refresh_token，照官方 PC 客户端只凭 refresh_key 续期。
     #[serde(default, alias = "desktop")]
     pub tme: bool,
+    /// 由 PC 登录通道签发（Windows 上的扫码登录），续期和退出也要走 PC 通道，设备管理里才是这台 Windows PC。
+    #[serde(default)]
+    pub pc: bool,
     /// Android 身份 App 扫码登录时用的整套设备公参（含 GetSession 的 uid/sid）。
     /// 退出时原样带上，服务器才会从登录设备管理里删掉这台设备。
     #[serde(default)]
@@ -72,6 +75,7 @@ impl Session {
             refresh_key: String::new(),
             refresh_token: String::new(),
             tme: false,
+            pc: false,
             login_comm: None,
             access_token: String::new(),
             openid: String::new(),
@@ -322,6 +326,10 @@ impl Core {
             comm["uin"] = json!(s.uin);
             comm["authst"] = json!(s.musickey);
             comm["tmeLoginType"] = json!(s.login_type);
+            comm["psrf_access_token_expiresAt"] = json!(s.access_expires_at);
+            comm["psrf_qqaccess_token"] = json!(s.access_token);
+            comm["psrf_qqopenid"] = json!(s.openid);
+            comm["psrf_qqunionid"] = json!("");
         }
         comm
     }

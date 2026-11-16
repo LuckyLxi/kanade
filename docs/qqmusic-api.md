@@ -71,7 +71,7 @@ PC 通道把 `req_0` 换成 `module` 或 `module.method`，响应里的结果也
 | 内嵌页 `webkit_comm` | 歌手、专辑、评论、电台、用户主页等，合并在通用公参上 | `ct=20`、`cv=2276`、`platform="wk_v17"`、`uin=<musicid 或 "0">`、`g_tk=g_tk_new_20200303=hash33(musickey, 5381)`（未登录为 `5381`）、`needNewCode=1`、`notice=0` |
 | Android 推荐 `android_feed_comm` | 首页推荐、专属乐流、自定义推荐页 | 合并 `cv=v="20090808"`、`chid="73387"` |
 | Android 版本号 `android_comm` | 360RA 的歌曲信息和取链接 | 合并 `cv=v=14090008` |
-| PC | PC 通道 | `ct="19"`、`cv="2276"`、`_channelid="20"`、`_os_version="6.2.9200-2"`、`patch="118"`、`tmeAppID="qqmusic"`、`guid=<32 位大写十六进制>`；登录后加 `uin`、`authst`、`tmeLoginType=1/2`（数字） |
+| PC | PC 通道 | `ct="19"`、`cv="2276"`、`_channelid="20"`、`_os_version="6.2.9200-2"`、`patch="118"`、`tmeAppID="qqmusic"`、`guid=<32 位大写十六进制>`；登录后加 `uin`、`authst`、`tmeLoginType=1/2`（数字）和 `psrf_access_token_expiresAt`、`psrf_qqaccess_token`、`psrf_qqopenid`（取自登录响应，没有就是空）、`psrf_qqunionid=""` |
 | PC 登录 | `desktop_login` | PC 公参，但 `uin="0"`、`authst=""`、`tmeLoginType=<调用方给>`，另加空的 `psrf_access_token_expiresAt/psrf_qqaccess_token/psrf_qqopenid/psrf_qqunionid` |
 | Android 写入 | `mobile_write` | `ct=11`、`cv=v=14090008`、`chid="10003505"`、`tmeAppID`、`tmeLoginType`（字符串）、`qq`、`authst`、`format="json"` |
 | Android 搜索 | `mobile_public` | `ct="11"`、`cv="14090008"`、`tmeAppID="qqmusic"`、`QIMEI36=<desktop_guid>`；登录后加 `qq`、`authst`、`tmeLoginType`（字符串）。缺 `QIMEI36` 时结果为空，取值不校验；`cv` 用 PC 的 `2276` 或 `ct=19` 时没有歌手直达和歌曲标签 |
@@ -632,8 +632,8 @@ Content-Type: application/x-www-form-urlencoded
 | 1. 二维码 | GET `https://ssl.ptlogin2.qq.com/ptqrshow` | 公共参数加 `e=2&l=M&s=3&d=72&v=4&t=<随机>`；响应是图片，从 Cookie 取 `qrsig` |
 | 2. 轮询 | GET `https://ssl.ptlogin2.qq.com/ptqrlogin` | `ptqrtoken=hash33(qrsig, 0)`，Cookie 带 `qrsig`，完整参数见 `poll_qr` |
 | 3. 建立 OAuth Cookie | GET `https://ssl.ptlogin2.graph.qq.com/check_sig` | 用成功回调 URL 里的 `uin`、`ptsigx`，拿到 `graph.qq.com` 的 `p_skey` |
-| 4. 换 OAuth code | POST 表单 `https://graph.qq.com/oauth2.0/authorize` | `response_type=code`、`client_id=100497308`、`g_tk=hash33(p_skey, 5381)`、`redirect_uri=https://y.qq.com/portal/wx_redirect.html?login_type=1&surl=https://y.qq.com/` 等；不跟随重定向，从 `Location` 取 `code` |
-| 5. 换 musickey | `QQConnectLogin.LoginServer.QQLogin`，通用 | `param={"code":"<code>"}`，公参覆盖 `tmeLoginType="2"` |
+| 4. 换 OAuth code | POST 表单 `https://graph.qq.com/oauth2.0/authorize` | `response_type=code`、`client_id=100497308`、`g_tk=hash33(p_skey, 5381)`、`redirect_uri`（Windows 用 PC 登录页 `https://y.qq.com/wk_v17/common_login.html?type=QQ&&redirect=`，其他平台 `https://y.qq.com/portal/wx_redirect.html?login_type=1&surl=https://y.qq.com/`）等；不跟随重定向，从 `Location` 取 `code` |
+| 5. 换 musickey | Windows：PC 登录，请求键 `music.login.LoginServer.Login`，`tmeLoginType=2`；其他：`QQConnectLogin.LoginServer.QQLogin`，用 `TmeClient` 的 Android 设备公参 | Windows `param={"appid":100497308,"code":"<code>","deviceName":"<计算机名>","forceRefreshToken":0,"onlyNeedAccessToken":0}`（照 PC 客户端 22.76 抓包）；其他 `param={"code":"<code>"}`，公参覆盖 `tmeLoginType=2`，整套公参存进 `login_comm` |
 
 轮询返回 `ptuiCB('状态', …)`：`66` 等待、`67` 已扫、`65` 过期、`68` 拒绝、`0` 成功（第三个参数是回调 URL），其他把第五个参数当错误信息。
 
@@ -643,10 +643,10 @@ Content-Type: application/x-www-form-urlencoded
 
 | 步骤 | 请求 | 要点 |
 | --- | --- | --- |
-| 1. 二维码页 | GET `https://open.weixin.qq.com/connect/qrconnect` | `appid=wx48db31d50e334801`、`redirect_uri=https://y.qq.com/portal/wx_redirect.html?login_type=2&surl=https://y.qq.com/`、`response_type=code`、`scope=snsapi_login`、`state=STATE`、`href=<QQ 音乐的弹窗样式>`；从页面里找 `/connect/qrcode/<UUID>` 或 `uuid=<UUID>` |
+| 1. 二维码页 | GET `https://open.weixin.qq.com/connect/qrconnect` | `appid=wx48db31d50e334801`、`redirect_uri`（Windows `https://y.qq.com/wk_v17/common_login.html?type=WX&&redirect=`，其他 `https://y.qq.com/portal/wx_redirect.html?login_type=2&surl=https://y.qq.com/`）、`response_type=code`、`scope=snsapi_login`、`state=STATE`、`href=<QQ 音乐的弹窗样式>`；从页面里找 `/connect/qrcode/<UUID>` 或 `uuid=<UUID>` |
 | 2. 二维码图片 | GET `https://open.weixin.qq.com/connect/qrcode/<UUID>` | UUID 放在 `QrCode.qrsig` |
 | 3. 长轮询 | GET `https://lp.open.weixin.qq.com/connect/l/qrconnect` | `uuid`、`_=<毫秒时间>`；服务端最长挂起约 25 秒，超时设 35 秒 |
-| 4. 换 musickey | `music.login.LoginServer.Login`，通用 | `param={"code":"<wx_code>","strAppid":"wx48db31d50e334801"}`，公参覆盖 `tmeLoginType="1"` |
+| 4. 换 musickey | Windows：PC 登录，请求键 `music.login.LoginServer.Login`，`tmeLoginType=1`；其他：`music.login.LoginServer.Login`，用 `TmeClient` 的 Android 设备公参 | Windows `param={"code":"<wx_code>","strAppid":"wx48db31d50e334801","deviceName":"<计算机名>","forceRefreshToken":0,"onlyNeedAccessToken":0}`（没有 PC 微信登录抓包，照 QQ 那一步写）；其他 `param={"code":"<wx_code>","strAppid":"wx48db31d50e334801"}`，公参覆盖 `tmeLoginType=1`，整套公参存进 `login_comm` |
 
 轮询返回 `window.wx_errcode=…;window.wx_code='…';`：`408` 等待、`404` 已扫、`403` 拒绝、`402` 过期、`405` 且 `wx_code` 非空为成功。
 
@@ -662,7 +662,7 @@ Content-Type: application/x-www-form-urlencoded
    - CONNECT：认证方法 `pass`，User Properties `tmeAppID=qqmusic`、`business=management`、`hashTag=<qrcodeID>`、`clientTag=management.user`、`userID=<qrcodeID>`。keep alive 初始 45 秒，服务器给了新值就用新值，按一半周期发心跳。服务器用 `0x9C` / `0x9D` 重定向时跟过去。
    - SUBSCRIBE：User Properties `authorization=tmelogin`、`pubsub=unicast`。
 4. 推送的 User Property `type`：`scanned` 已扫、`canceled` 拒绝、`timeout` 过期、`loginFailed` 失败、`cookies` 授权成功。后台最多等 120 秒。
-5. `cookies` 消息里的 `cookies.qqmusic_uin.value` 和 `cookies.qqmusic_key.value` 只是临时凭证，再调一次 `music.login.LoginServer.Login` 换正式 musickey，参数 `musicid=<临时账号，数字>`、`qrCodeID`、`token=<临时 key>`，`tmeLoginType=6`。Windows 走 PC 登录通道（登录设备管理里显示为 Windows PC），其他平台用同一个 `TmeClient`（显示为 Android）。
+5. `cookies` 消息里的 `cookies.qqmusic_uin.value` 和 `cookies.qqmusic_key.value` 只是临时凭证，再调一次 `music.login.LoginServer.Login` 换正式 musickey，参数 `musicid=<临时账号，数字>`、`qrCodeID`、`token=<临时 key>`，`tmeLoginType=6`。Windows 走 PC 登录通道（登录设备管理里显示为 Windows PC），并在 `param` 里补上 `deviceName=<计算机名>`（抓包里没有这个字段），其他平台用同一个 `TmeClient`（显示为 Android）。
 
 结果不能靠轮询 `CheckQRCode` 拿（授权后它仍返回 `40000`）。`poll_login_qr(QqMusic, …)` 读的是本地记下的推送状态，终态读一次就清掉，找不到按过期处理。
 
@@ -694,9 +694,9 @@ QQ 和微信扫码在换 musickey 前会先清掉旧会话；App 授权只在换
 
 | 账号 | 条件 | 通道与请求键 | `param` |
 | --- | --- | --- | --- |
-| App 授权（`tme`）的微信账号 | 有 `refresh_key` | PC 登录，请求键 `WXLoginByToken`，`tmeLoginType=1` | `access_token=""`、`deviceName="L"`、`deviceType="Widnows"`（原文拼写）、`expired_in=0`、`forceRefreshToken=0`、`musicid`、`musickey`、`onlyNeedAccessToken=0`、`openid=""`、`refresh_key`、`refresh_token`（可以为空）、`strAppid="wx48db31d50e334801"` |
-| 网页 QQ 扫码 | 有 `refresh_key`、`refresh_token`、`access_token` | PC 登录，请求键 `music.login.LoginServer.Login`，`tmeLoginType=2` | `access_token`、`appid=100497308`、`deviceName="L"`、`deviceType="Widnows"`、`expired_in=<登录响应的 expired_at>`、`forceRefreshToken=0`、`musicid`、`musickey`、`onlyNeedAccessToken=0`、`openid`、`refresh_key`、`refresh_token` |
-| 网页微信扫码 | 有 `refresh_key`、`refresh_token` | 通用 `music.login.LoginServer.Login`，公参覆盖 `tmeLoginType` | `musicid`、`musickey`、`refresh_key`、`refresh_token`、`strAppid="wx48db31d50e334801"` |
+| App 授权（`tme`）或 Windows 扫码（`pc`）的微信账号 | 有 `refresh_key` | PC 登录，请求键 `WXLoginByToken`，`tmeLoginType=1` | `access_token`（App 授权为空）、`deviceName=<计算机名>`、`deviceType="Widnows"`（原文拼写）、`expired_in`（登录响应的 `expired_at`，App 授权为 0）、`forceRefreshToken=0`、`musicid`、`musickey`、`onlyNeedAccessToken=0`、`openid`（App 授权为空）、`refresh_key`、`refresh_token`（可以为空）、`strAppid="wx48db31d50e334801"` |
+| 网页 QQ 扫码 | 有 `refresh_key`、`refresh_token`、`access_token` | PC 登录，请求键 `music.login.LoginServer.Login`，`tmeLoginType=2` | `access_token`、`appid=100497308`、`deviceName=<计算机名>`、`deviceType="Widnows"`、`expired_in=<登录响应的 expired_at>`、`forceRefreshToken=0`、`musicid`、`musickey`、`onlyNeedAccessToken=0`、`openid`、`refresh_key`、`refresh_token` |
+| 非 Windows 的网页微信扫码 | 有 `refresh_key`、`refresh_token` | 通用 `music.login.LoginServer.Login`，公参覆盖 `tmeLoginType` | `musicid`、`musickey`、`refresh_key`、`refresh_token`、`strAppid="wx48db31d50e334801"` |
 
 - App 授权登录只给 `refresh_key`，没有 `refresh_token`。这时如果走网页微信那一行的写法，服务端返回 `1000`，**而且当前 musickey 会跟着失效**。必须用第一行带 `deviceName` 等字段的写法，第一次续期的响应会补发 `refresh_token`。
 - App 授权的 QQ 账号还没验证过，不续期。Cookie 登录和旧版本保存的会话缺少续期凭证，要重新登录一次。
@@ -706,9 +706,9 @@ QQ 和微信扫码在换 musickey 前会先清掉旧会话；App 授权只在换
 
 `logout()` 先通知服务器下线这台设备，再删本地会话。通知最多等 5 秒，失败也照常退出。
 
-- Windows 上的 App 授权登录：PC 私有 `music.login.LoginServer.Logout`，`param={}`。
-- Android 身份的 App 授权登录（有 `login_comm`）：用 `TmeClient` 和登录时存下的那套公参（换上当前 `qq`/`authst`/`tmeLoginType`），`param={"dummy":0,"scene":"user_logout"}`。必须带上登录时 `GetSession` 给的 `uid/sid`，设备才会从登录设备管理里消失；只发 `{}` 虽然返回 `code=0`，但设备不删、旧 key 照样能用。
-- 其他：Android 写入 `music.login.LoginServer.Logout`，`param={}`。旧版本保存的 Android 身份会话没有 `login_comm`，退出时删不掉设备，重新登录一次后就可以。
+- Windows 上的扫码登录（`pc`）和 App 授权登录：PC 私有 `music.login.LoginServer.Logout`，`param={}`；PC 公参登录后带 `psrf_access_token_expiresAt/psrf_qqaccess_token/psrf_qqopenid/psrf_qqunionid`。旧版本在 Windows 上用 QQ/微信扫码保存的会话走的是通用通道，退出删不掉设备，重新登录一次后就可以。
+- 有 `login_comm` 的会话（Android 上的 QQ / 微信扫码和 App 授权登录）：用 `TmeClient` 和登录时存下的那套公参（换上当前 `qq`/`authst`/`tmeLoginType`），`param={"dummy":0,"scene":"user_logout"}`。必须带上登录时 `GetSession` 给的 `uid/sid`，设备才会从登录设备管理里消失；只发 `{}` 虽然返回 `code=0`，但设备不删、旧 key 照样能用。
+- 其他：Android 写入 `music.login.LoginServer.Logout`，`param={}`。旧版本在 Android 上保存的会话没有 `login_comm`，退出时删不掉设备，重新登录一次后就可以。
 
 ## 缓存
 

@@ -21,6 +21,21 @@ const THIRD_AID: &str = "100497308";
 const U1: &str = "https://graph.qq.com/oauth2.0/login_jump";
 const XUI: &str = "https://xui.ptlogin2.qq.com/";
 
+/// QQ / 微信 OAuth 回调地址。Windows 照 PC 客户端登录页，换票也走 PC 通道。
+fn oauth_redirect(kind: &str) -> String {
+    if cfg!(windows) {
+        format!("https://y.qq.com/wk_v17/common_login.html?type={kind}&&redirect=")
+    } else {
+        let login_type = if kind == "QQ" { 1 } else { 2 };
+        format!("https://y.qq.com/portal/wx_redirect.html?login_type={login_type}&surl=https://y.qq.com/")
+    }
+}
+
+/// PC 客户端登录和续期参数里的 `deviceName` 是计算机名，登录设备管理里显示的就是它。
+fn device_name() -> String {
+    std::env::var("COMPUTERNAME").ok().filter(|n| !n.is_empty()).unwrap_or_else(|| "PC".into())
+}
+
 fn login_client(jar: Arc<Jar>) -> Result<reqwest::Client> {
     Ok(reqwest::Client::builder()
         .user_agent(UA)
@@ -194,7 +209,7 @@ async fn finish_login(check_sig_url: &str) -> Result<UserInfo> {
         .form(&[
             ("response_type", "code".to_string()),
             ("client_id", THIRD_AID.into()),
-            ("redirect_uri", "https://y.qq.com/portal/wx_redirect.html?login_type=1&surl=https://y.qq.com/".into()),
+            ("redirect_uri", oauth_redirect("QQ")),
             ("scope", "get_user_info,get_app_friends".into()),
             ("state", "state".into()),
             ("switch", "".into()),
@@ -214,9 +229,33 @@ async fn finish_login(check_sig_url: &str) -> Result<UserInfo> {
 
     let c = core();
     c.set_session(None)?;
-    let data = c.musicu_with_comm("QQConnectLogin.LoginServer", "QQLogin", json!({ "code": code }), json!({ "tmeLoginType": "2" })).await?;
-    c.set_session(Some(login_session(&data, Some(2))?))?;
+    let session = if cfg!(windows) {
+        // 照抄 PC 客户端 22.76 的 QQ 登录（2026-11-14 抓包）。
+        let param = json!({
+            "appid": THIRD_AID.parse::<i64>()?, "code": code, "deviceName": device_name(),
+            "forceRefreshToken": 0, "onlyNeedAccessToken": 0,
+        });
+        pc_session(c.desktop_login("music.login.LoginServer.Login", "Login", param, 2).await?, Some(2))?
+    } else {
+        mobile_session("QQConnectLogin.LoginServer", "QQLogin", json!({ "code": code }), 2).await?
+    };
+    c.set_session(Some(session))?;
     refresh_user_info().await
+}
+
+/// 用和 App 授权同一套 Android 设备公参换票并存进 `login_comm`，退出时才能从登录设备管理里删掉这台设备。
+async fn mobile_session(module: &str, method: &str, param: Value, login_type: i32) -> Result<Session> {
+    let client = TmeClient::new().await?;
+    let data = client.call(module, method, param, json!({ "tmeLoginType": login_type })).await?;
+    let mut session = login_session(&data, Some(login_type))?;
+    session.login_comm = Some(client.comm);
+    Ok(session)
+}
+
+fn pc_session(data: Value, login_type: Option<i32>) -> Result<Session> {
+    let mut session = login_session(&data, login_type)?;
+    session.pc = true;
+    Ok(session)
 }
 
 /// 手动粘贴 y.qq.com 的 Cookie 登录（备用方案）。
@@ -266,18 +305,19 @@ pub async fn refresh_session() -> Result<Session> {
         bail!(ApiError::login("session has no refresh credentials"));
     }
     let musicid: i64 = old.uin.parse().context(ApiError::login("invalid musicid"))?;
-    let data = if old.tme {
-        // 照抄 PC 客户端 22.76 的 WXLoginByToken；App 扫码登录没有 refresh_token 时也这样发。
+    let data = if old.tme || (old.pc && old.login_type == 1) {
+        // 照抄 PC 客户端 22.76 的 WXLoginByToken；App 扫码登录没有 refresh_token、access_token 时也这样发。
         let param = json!({
-            "access_token": "", "deviceName": "L", "deviceType": "Widnows", "expired_in": 0,
-            "forceRefreshToken": 0, "musicid": musicid, "musickey": old.musickey, "onlyNeedAccessToken": 0,
-            "openid": "", "refresh_key": old.refresh_key, "refresh_token": old.refresh_token, "strAppid": WX_APPID,
+            "access_token": old.access_token, "deviceName": device_name(), "deviceType": "Widnows",
+            "expired_in": old.access_expires_at, "forceRefreshToken": 0, "musicid": musicid, "musickey": old.musickey,
+            "onlyNeedAccessToken": 0, "openid": old.openid, "refresh_key": old.refresh_key,
+            "refresh_token": old.refresh_token, "strAppid": WX_APPID,
         });
         c.desktop_login("WXLoginByToken", "Login", param, 1).await?
     } else if old.login_type == 2 {
         // 照抄 PC 客户端 22.76 重启时的 QQ 账号续期（2026-11-14 抓包）；expired_in 是登录响应的 expired_at。
         let param = json!({
-            "access_token": old.access_token, "appid": THIRD_AID.parse::<i64>()?, "deviceName": "L", "deviceType": "Widnows",
+            "access_token": old.access_token, "appid": THIRD_AID.parse::<i64>()?, "deviceName": device_name(), "deviceType": "Widnows",
             "expired_in": old.access_expires_at, "forceRefreshToken": 0, "musicid": musicid, "musickey": old.musickey,
             "onlyNeedAccessToken": 0, "openid": old.openid, "refresh_key": old.refresh_key, "refresh_token": old.refresh_token,
         });
@@ -292,6 +332,7 @@ pub async fn refresh_session() -> Result<Session> {
     };
     let mut renewed = login_session(&data, Some(old.login_type))?;
     renewed.tme = old.tme;
+    renewed.pc = old.pc;
     renewed.login_comm = old.login_comm.clone();
     if renewed.uin != old.uin || c.session().is_none_or(|s| s.musickey != old.musickey) {
         bail!(ApiError::login("session changed during refresh"));
@@ -353,7 +394,7 @@ pub async fn create_wx_qr() -> Result<QrCode> {
         .get("https://open.weixin.qq.com/connect/qrconnect")
         .query(&[
             ("appid", WX_APPID),
-            ("redirect_uri", "https://y.qq.com/portal/wx_redirect.html?login_type=2&surl=https://y.qq.com/"),
+            ("redirect_uri", &oauth_redirect("WX")),
             ("response_type", "code"),
             ("scope", "snsapi_login"),
             ("state", "STATE"),
@@ -422,15 +463,17 @@ pub async fn poll_wx_qr(uuid: &str) -> Result<QrStatus> {
 async fn finish_wx_login(wx_code: &str) -> Result<UserInfo> {
     let c = core();
     c.set_session(None)?;
-    let data = c
-        .musicu_with_comm(
-            "music.login.LoginServer",
-            "Login",
-            json!({ "code": wx_code, "strAppid": WX_APPID }),
-            json!({ "tmeLoginType": "1" }),
-        )
-        .await?;
-    c.set_session(Some(login_session(&data, Some(1))?))?;
+    let session = if cfg!(windows) {
+        // 没有 PC 微信登录的抓包，参数照 PC 的 QQ 登录写，appid 换成 strAppid。
+        let param = json!({
+            "code": wx_code, "strAppid": WX_APPID, "deviceName": device_name(),
+            "forceRefreshToken": 0, "onlyNeedAccessToken": 0,
+        });
+        pc_session(c.desktop_login("music.login.LoginServer.Login", "Login", param, 1).await?, Some(1))?
+    } else {
+        mobile_session(TME_LOGIN_MODULE, "Login", json!({ "code": wx_code, "strAppid": WX_APPID }), 1).await?
+    };
+    c.set_session(Some(session))?;
     refresh_user_info().await
 }
 
@@ -662,18 +705,19 @@ async fn finish_tme_login(client: &TmeClient, qrcode_id: &str, payload: &[u8]) -
         bail!(ApiError::login("MQTT cookies message is missing credentials"));
     }
     let c = core();
-    let param = json!({ "musicid": uin, "qrCodeID": qrcode_id, "token": token });
     // Windows 以 PC 客户端身份换票，设备管理里记成 Windows PC；Android 保持 Android 身份。
-    let data = if cfg!(windows) {
-        c.desktop_login("music.login.LoginServer.Login", "Login", param, 6).await?
+    let mut session = if cfg!(windows) {
+        // 抓包里这一步没有 deviceName，补上计算机名让设备管理显示名称。
+        let param = json!({ "musicid": uin, "qrCodeID": qrcode_id, "token": token, "deviceName": device_name() });
+        pc_session(c.desktop_login("music.login.LoginServer.Login", "Login", param, 6).await?, None)?
     } else {
-        client.call("music.login.LoginServer", "Login", param, json!({ "tmeLoginType": 6 })).await?
-    };
-    let mut session = login_session(&data, None)?;
-    session.tme = true;
-    if !cfg!(windows) {
+        let param = json!({ "musicid": uin, "qrCodeID": qrcode_id, "token": token });
+        let data = client.call("music.login.LoginServer", "Login", param, json!({ "tmeLoginType": 6 })).await?;
+        let mut session = login_session(&data, None)?;
         session.login_comm = Some(client.comm.clone());
-    }
+        session
+    };
+    session.tme = true;
     c.set_session(Some(session))?;
     refresh_user_info().await
 }
@@ -684,7 +728,7 @@ pub async fn logout() -> Result<()> {
     let c = core();
     if let Some(s) = c.session() {
         let notify = async {
-            if s.tme && cfg!(windows) {
+            if s.pc || (s.tme && cfg!(windows)) {
                 c.desktop_private("music.login.LoginServer", "Logout", json!({})).await
             } else if let Some(mut comm) = s.login_comm.clone() {
                 // 2026-11-14 实测：只有带上登录时的 uid/sid 等设备公参，Android 设备才会从列表里删掉。
