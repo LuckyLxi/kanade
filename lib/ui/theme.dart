@@ -145,8 +145,46 @@ ThemeData buildTheme(Brightness b) {
     pageTransitionsTheme: PageTransitionsTheme(
       builders: {
         for (final p in TargetPlatform.values)
-          p: const CupertinoPageTransitionsBuilder(),
+          p: p == TargetPlatform.android
+              ? const _RoundedCupertinoPageTransitionsBuilder()
+              : const CupertinoPageTransitionsBuilder(),
       },
     ),
   );
+}
+
+/// 滑动中的页面左侧两角做成屏幕圆角，贴满屏幕后换回直角（那时被屏幕本身的圆角挡住，看不出切换）。
+class _RoundedCupertinoPageTransitionsBuilder
+    extends CupertinoPageTransitionsBuilder {
+  const _RoundedCupertinoPageTransitionsBuilder();
+
+  // Flutter 拿不到屏幕圆角，取常见手机的大小。
+  static const _radius = Radius.circular(40);
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final clipped = AnimatedBuilder(
+      animation: animation,
+      child: child,
+      // 只切换裁剪开关，不增删组件，否则动画结束时页面状态会被重建。
+      builder: (_, child) => ClipRRect(
+        borderRadius: const BorderRadius.horizontal(left: _radius),
+        clipBehavior: animation.value < 1 ? Clip.antiAlias : Clip.none,
+        child: child,
+      ),
+    );
+    return super.buildTransitions(
+      route,
+      context,
+      animation,
+      secondaryAnimation,
+      clipped,
+    );
+  }
 }
