@@ -13,13 +13,14 @@ import 'feed_column.dart';
 import 'foryou_settings_page.dart';
 import 'keyed_route.dart';
 import 'ring_refresh.dart';
+import 'sliding_segments.dart';
 import 'smooth_scroll.dart';
 import 'song_list_page.dart';
 import 'toast.dart';
 import 'song_tile.dart';
 import 'widgets.dart';
 
-/// 发现页：顶上固定两颗胶囊切换“推荐”和“排行榜”，也可以左右滑。
+/// 发现页：顶上固定一条滑块切换“推荐”和“排行榜”，也可以左右滑。
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
 
@@ -64,18 +65,13 @@ class _DiscoverPageState extends State<DiscoverPage> {
                 );
                 return Row(
                   children: [
-                    Pill(
-                      label: l.discoverRecommend,
-                      selected: at == 0,
-                      large: true,
-                      onTap: () => go(0),
-                    ),
-                    const SizedBox(width: 8),
-                    Pill(
-                      label: l.discoverToplists,
-                      selected: at == 1,
-                      large: true,
-                      onTap: () => go(1),
+                    Flexible(
+                      child: SlidingSegments(
+                        labels: [l.discoverRecommend, l.discoverToplists],
+                        selected: at,
+                        onSelect: go,
+                        expand: false,
+                      ),
                     ),
                     // Windows 上鼠标拉不动下拉刷新，改在这里放刷新键；只在推荐页显示，占位不变免得这排跳动
                     if (Platform.isWindows) ...[

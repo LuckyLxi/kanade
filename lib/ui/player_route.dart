@@ -318,6 +318,8 @@ class PlayerRoute extends ModalRoute<void> with PlayerMorph {
     // 接着拖动预览的进度往下展开
     if (startAt case final start?) controller!.value = start;
     syncGrowing();
+    // 收起播放页时路由会把焦点还给原来的控件，搜索框拿回焦点就会弹出键盘
+    FocusManager.instance.primaryFocus?.unfocus();
     return super.didPush();
   }
 

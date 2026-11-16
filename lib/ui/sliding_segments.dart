@@ -8,11 +8,15 @@ class SlidingSegments extends StatefulWidget {
     required this.labels,
     required this.selected,
     required this.onSelect,
+    this.expand = true,
   });
 
   final List<String> labels;
   final int selected;
   final ValueChanged<int> onSelect;
+
+  /// 为 false 时不撑满一行，只按文字宽度。
+  final bool expand;
 
   @override
   State<SlidingSegments> createState() => _SlidingSegmentsState();
@@ -84,7 +88,9 @@ class _SlidingSegmentsState extends State<SlidingSegments> {
         ];
         final inner = constraints.maxWidth - _inset * 2;
         final total = natural.fold(0.0, (a, b) => a + b);
-        final extra = total < inner ? (inner - total) / natural.length : 0.0;
+        final extra = widget.expand && total < inner
+            ? (inner - total) / natural.length
+            : 0.0;
         _widths = [for (final w in natural) w + extra];
         final i = widget.selected.clamp(0, widget.labels.length - 1);
         final track = Stack(
