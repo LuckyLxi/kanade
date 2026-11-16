@@ -81,7 +81,7 @@ class AndroidPlaybackConnection {
     }
   }
 
-  Future<Object?> call(String method, [Object? argument]) async {
+  Future<Object?> call(PlaybackOp op, [Object? argument]) async {
     final socket = await connect();
     final id = _nextId++;
     final response = Completer<Object?>();
@@ -89,7 +89,7 @@ class AndroidPlaybackConnection {
     try {
       sendPlaybackMessage(socket, {
         'id': id,
-        'method': method,
+        'method': op.name,
         'argument': argument,
       });
       return await response.future;

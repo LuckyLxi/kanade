@@ -93,21 +93,7 @@ class _PlaybackServer {
   PlaybackMessage _snapshot({required bool includeQueue}) {
     final song = player.current;
     return {
-      if (includeQueue) 'queue': player.queue.map(songToJson).toList(),
-      'index': player.index,
-      'playing': player.playing,
-      'loading': player.loading,
-      'buffering': player.buffering,
-      'duration': player.duration.inMilliseconds,
-      'defaultQuality': player.defaultQuality.name,
-      'quality': player.quality.name,
-      'actualQuality': player.actualQuality?.name,
-      'mode': player.mode.name,
-      'volume': player.volume,
-      'fade': player.fade.inSeconds,
-      'sleepAt': player.sleepAt?.millisecondsSinceEpoch,
-      'sleepAfterSong': player.sleepAfterSong,
-      'error': encodePlayerError(player.error),
+      ...encodePlayerState(player, includeQueue: includeQueue),
       if (song != null && library.canLike) 'liked': library.isLiked(song),
     };
   }
@@ -156,11 +142,11 @@ class _PlaybackServer {
       .toList();
 
   Future<Object?> _command(String method, Object? argument) async {
-    switch (method) {
-      case 'playList':
+    switch (PlaybackOp.values.byName(method)) {
+      case PlaybackOp.playList:
         final args = argument as List<Object?>;
         await player.playList(_songs(args[0]), args[1] as int);
-      case 'playRadio':
+      case PlaybackOp.playRadio:
         final args = argument as List<Object?>;
         await player.playRadio(
           RadioSource.fromMessage(
@@ -170,62 +156,60 @@ class _PlaybackServer {
           ),
           first: args[3] == null ? null : _songs(args[3]),
         );
-      case 'playNext':
+      case PlaybackOp.playNext:
         player.playNext(songFromJson(argument as Map<String, dynamic>));
-      case 'playAt':
+      case PlaybackOp.playAt:
         await player.playAt(argument as int);
-      case 'removeAt':
+      case PlaybackOp.removeAt:
         await player.removeAt(argument as int);
-      case 'moveQueue':
+      case PlaybackOp.moveQueue:
         final args = argument as List<Object?>;
         player.moveQueue(args[0] as int, args[1] as int);
-      case 'next':
+      case PlaybackOp.next:
         await player.next();
-      case 'previous':
+      case PlaybackOp.previous:
         await player.previous();
-      case 'play':
+      case PlaybackOp.play:
         await player.play();
-      case 'pause':
+      case PlaybackOp.pause:
         await player.pause();
-      case 'toggle':
+      case PlaybackOp.toggle:
         await player.toggle();
-      case 'seek':
+      case PlaybackOp.seek:
         await player.seek(Duration(milliseconds: argument as int));
-      case 'mode':
+      case PlaybackOp.mode:
         player.setMode(PlayMode.values.byName(argument as String));
-      case 'defaultQuality':
+      case PlaybackOp.defaultQuality:
         player.setDefaultQuality(Quality.values.byName(argument as String));
-      case 'fade':
+      case PlaybackOp.fade:
         player.setFade(Duration(seconds: argument as int));
-      case 'sleep':
+      case PlaybackOp.sleep:
         player.setSleepTimer(
           argument == null ? null : Duration(seconds: argument as int),
         );
-      case 'sleepAfterSong':
+      case PlaybackOp.sleepAfterSong:
         player.setSleepAfterSong(argument as bool);
-      case 'volume':
+      case PlaybackOp.volume:
         await player.setVolume((argument as num).toDouble());
-      case 'quality':
+      case PlaybackOp.quality:
         await player.setQuality(Quality.values.byName(argument as String));
-      case 'auth':
+      case PlaybackOp.auth:
         auth.reloadSession();
-      case 'locale':
+      case PlaybackOp.locale:
         locale.reloadLocale();
-      case 'like':
+      case PlaybackOp.like:
         final args = argument as List<Object?>;
         library.updateLiked(
           songFromJson(args[0] as Map<String, dynamic>),
           args[1] as bool,
         );
-      case 'cacheInfo':
+      case PlaybackOp.cacheInfo:
         final info = await player.audioCacheInfo();
         return [info.limitMb, info.bytes];
-      case 'cacheLimit':
+      case PlaybackOp.cacheLimit:
         await player.setAudioCacheLimit(argument as int);
-      case 'clearAudioCache':
+      case PlaybackOp.clearAudioCache:
         await player.clearAudioCache();
-      default:
-        throw UnsupportedError('Unknown playback operation $method');
     }
     return null;
   }

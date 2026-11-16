@@ -18,6 +18,7 @@ const VIDEO_TYPE: i64 = 6;
 /// 个性电台；官方「音乐雷达」只显示其中 radioType=2 的。
 const RADIO_TYPE: i64 = 5;
 const SHOWN_RADIO: i64 = 2;
+const RECENT_PLAYS_KEY: &str = "recent_plays";
 
 /// 最近播放的歌曲，按最后播放时间从新到旧。
 pub async fn recent_plays() -> Result<Vec<Song>> {
@@ -26,7 +27,7 @@ pub async fn recent_plays() -> Result<Vec<Song>> {
         bail!(ApiError::NotLoggedIn);
     }
     let tracks = c
-        .cached("recent_plays", 300, || async {
+        .cached(RECENT_PLAYS_KEY, 300, || async {
             let data = c
                 .desktop_private(
                     "music.musicasset.PlayRecentlyRead",
@@ -153,7 +154,7 @@ pub async fn report_play(song_id: i64) -> Result<()> {
     if data["ret"].as_i64() != Some(0) {
         bail!(ApiError::ServerError { api: "PlayRecentlyWrite".into(), code: format!("{:?}", data["ret"].as_i64()) });
     }
-    c.uncache("recent_plays");
+    c.uncache(RECENT_PLAYS_KEY);
     Ok(())
 }
 

@@ -1,6 +1,87 @@
 import '../data/song_json.dart';
 import '../src/rust/api/error.dart';
+import '../src/rust/api/types.dart';
+import 'android_playback_connection.dart';
+import 'player_controller.dart';
 import 'player_error.dart';
+
+/// 界面发给播放服务的命令；名字就是线上的 method。
+enum PlaybackOp {
+  playList,
+  playRadio,
+  playNext,
+  playAt,
+  removeAt,
+  moveQueue,
+  next,
+  previous,
+  play,
+  pause,
+  toggle,
+  seek,
+  mode,
+  defaultQuality,
+  fade,
+  sleep,
+  sleepAfterSong,
+  volume,
+  quality,
+  auth,
+  locale,
+  like,
+  cacheInfo,
+  cacheLimit,
+  clearAudioCache,
+}
+
+PlaybackMessage encodePlayerState(
+  PlayerController player, {
+  required bool includeQueue,
+}) => {
+  if (includeQueue) 'queue': player.queue.map(songToJson).toList(),
+  'index': player.index,
+  'playing': player.playing,
+  'loading': player.loading,
+  'buffering': player.buffering,
+  'duration': player.duration.inMilliseconds,
+  'defaultQuality': player.defaultQuality.name,
+  'quality': player.quality.name,
+  'actualQuality': player.actualQuality?.name,
+  'mode': player.mode.name,
+  'volume': player.volume,
+  'fade': player.fade.inSeconds,
+  'sleepAt': player.sleepAt?.millisecondsSinceEpoch,
+  'sleepAfterSong': player.sleepAfterSong,
+  'error': encodePlayerError(player.error),
+};
+
+void decodePlayerState(PlayerController player, PlaybackMessage message) {
+  if (message['queue'] case final List<Object?> items) {
+    player.queue = items
+        .cast<Map<String, dynamic>>()
+        .map(songFromJson)
+        .toList();
+  }
+  player.index = message['index'] as int;
+  player.playing = message['playing'] as bool;
+  player.loading = message['loading'] as bool;
+  player.buffering = message['buffering'] as bool;
+  player.duration = Duration(milliseconds: message['duration'] as int);
+  player.defaultQuality = Quality.values.byName(
+    message['defaultQuality'] as String,
+  );
+  player.quality = Quality.values.byName(message['quality'] as String);
+  player.actualQuality = Quality.values.asNameMap()[message['actualQuality']];
+  player.mode = PlayMode.values.byName(message['mode'] as String);
+  player.volume = (message['volume'] as num).toDouble();
+  player.fade = Duration(seconds: message['fade'] as int);
+  player.sleepAt = switch (message['sleepAt']) {
+    final int ms => DateTime.fromMillisecondsSinceEpoch(ms),
+    _ => null,
+  };
+  player.sleepAfterSong = message['sleepAfterSong'] as bool;
+  player.error = decodePlayerError(message['error']);
+}
 
 List<Object?> encodePlaybackException(Object error) => switch (error) {
   ApiError_NotLoggedIn() => ['notLoggedIn'],

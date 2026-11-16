@@ -3,7 +3,7 @@
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 
-use super::{client::core, error::ApiError, music::webkit_comm};
+use super::{client::core, error::ApiError, music::webkit_comm, user::profile_cache_key};
 
 const MODULE: &str = "Concern.ConcernSystemServer";
 
@@ -22,7 +22,7 @@ pub async fn singer_followed(mid: &str) -> Result<bool> {
 pub async fn set_followed(target: &str, singer: bool, followed: bool) -> Result<()> {
     let data = core().musicu_write_with_comm(MODULE, "cgi_concern_user_v2", follow_param(target, singer, followed), webkit_comm()).await?;
     check_follow_result(&data)?;
-    core().uncache(&format!("user:profile:{target}"));
+    core().uncache(&profile_cache_key(target));
     Ok(())
 }
 

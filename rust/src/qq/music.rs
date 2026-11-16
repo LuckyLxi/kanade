@@ -1162,12 +1162,17 @@ fn cards(feed: &Value) -> impl Iterator<Item = &Value> {
     shelves(feed).flat_map(shelf_cards)
 }
 
+/// 歌单详情的缓存键；改歌单后清缓存也用它。
+pub(super) fn playlist_cache_key(id: impl std::fmt::Display) -> String {
+    format!("playlist:{}:{id}", core().uin())
+}
+
 pub async fn playlist_detail(id: &str) -> Result<PlaylistDetail> {
     let c = core();
     let disstid: i64 = id.parse().unwrap_or(0);
     let data = c
         // “每日30首”这类歌单因人而异，缓存按账号区分
-        .cached(&format!("playlist:{}:{id}", c.uin()), 600, || {
+        .cached(&playlist_cache_key(id), 600, || {
             c.musicu(
                 "music.srfDissInfo.aiDissInfo",
                 "uniform_get_Dissinfo",

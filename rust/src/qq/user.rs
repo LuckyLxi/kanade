@@ -18,11 +18,16 @@ pub async fn user_profile(euin: &str) -> Result<UserProfile> {
     profile(&profile_data(euin).await?)
 }
 
+/// 用户资料的缓存键；关注状态变了清缓存也用它。
+pub(super) fn profile_cache_key(euin: &str) -> String {
+    format!("user:profile:{euin}")
+}
+
 async fn profile_data(euin: &str) -> Result<Value> {
     let c = core();
     c.session().context(ApiError::NotLoggedIn)?;
     let data = c
-        .cached(&format!("user:profile:{euin}"), 600, || async {
+        .cached(&profile_cache_key(euin), 600, || async {
             let comm = webkit_comm();
             let data = c.get_json("https://c6.y.qq.com/rsc/fcgi-bin/fcg_get_profile_homepage.fcg", &[
                 ("userid", euin.into()), ("cid", "205360838".into()), ("ct", "20".into()), ("cv", "2276".into()),

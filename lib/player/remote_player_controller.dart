@@ -50,10 +50,10 @@ class _RemotePlayerController extends PlayerController {
 
   void _syncAuth() {
     _lastLike = null;
-    _ignore(_connection.call('auth'));
+    _ignore(_connection.call(PlaybackOp.auth));
   }
 
-  void _syncLocale() => _ignore(_connection.call('locale'));
+  void _syncLocale() => _ignore(_connection.call(PlaybackOp.locale));
 
   void _syncLiked() {
     final song = current;
@@ -62,7 +62,7 @@ class _RemotePlayerController extends PlayerController {
     final key = (song.mid, liked);
     if (_lastLike == key) return;
     _lastLike = key;
-    _ignore(_connection.call('like', [songToJson(song), liked]));
+    _ignore(_connection.call(PlaybackOp.like, [songToJson(song), liked]));
   }
 
   void _applyUpdate(PlaybackMessage message) {
@@ -72,26 +72,7 @@ class _RemotePlayerController extends PlayerController {
       return;
     }
     final before = current?.mid;
-    if (message['queue'] case final List<Object?> items) {
-      queue = items.cast<Map<String, dynamic>>().map(songFromJson).toList();
-    }
-    index = message['index'] as int;
-    playing = message['playing'] as bool;
-    loading = message['loading'] as bool;
-    buffering = message['buffering'] as bool;
-    duration = Duration(milliseconds: message['duration'] as int);
-    defaultQuality = Quality.values.byName(message['defaultQuality'] as String);
-    quality = Quality.values.byName(message['quality'] as String);
-    actualQuality = Quality.values.asNameMap()[message['actualQuality']];
-    mode = PlayMode.values.byName(message['mode'] as String);
-    volume = (message['volume'] as num).toDouble();
-    fade = Duration(seconds: message['fade'] as int);
-    sleepAt = switch (message['sleepAt']) {
-      final int ms => DateTime.fromMillisecondsSinceEpoch(ms),
-      _ => null,
-    };
-    sleepAfterSong = message['sleepAfterSong'] as bool;
-    error = decodePlayerError(message['error']);
+    decodePlayerState(this, message);
     if (before != current?.mid) _refreshDisplayMetadata();
     if (current case final song?) {
       if (message['liked'] case final bool liked) {
@@ -102,8 +83,8 @@ class _RemotePlayerController extends PlayerController {
     notifyListeners();
   }
 
-  Future<void> _send(String method, [Object? arguments]) async {
-    await _connection.call(method, arguments);
+  Future<void> _send(PlaybackOp op, [Object? arguments]) async {
+    await _connection.call(op, arguments);
   }
 
   static List<Map<String, Object?>> _songs(List<Song> songs) =>
@@ -111,23 +92,23 @@ class _RemotePlayerController extends PlayerController {
 
   @override
   Future<void> playList(List<Song> songs, int start) =>
-      _send('playList', [_songs(songs), start]);
+      _send(PlaybackOp.playList, [_songs(songs), start]);
 
   @override
   Future<void> playRadio(RadioSource source, {List<Song>? first}) => _send(
-    'playRadio',
+    PlaybackOp.playRadio,
     [source.kind, source.seed, source.id, first == null ? null : _songs(first)],
   );
 
   @override
   PlayNextResult playNext(Song song) {
     if (current?.mid == song.mid) return PlayNextResult.current;
-    _ignore(_send('playNext', songToJson(song)));
+    _ignore(_send(PlaybackOp.playNext, songToJson(song)));
     return current == null ? PlayNextResult.started : PlayNextResult.queued;
   }
 
   @override
-  Future<void> playAt(int i) => _send('playAt', i);
+  Future<void> playAt(int i) => _send(PlaybackOp.playAt, i);
 
   // 删除和挪动先改界面这边的队列，拖完松手列表不会先弹回原位再等播放服务的快照
   @override
@@ -139,7 +120,7 @@ class _RemotePlayerController extends PlayerController {
     index = n;
     if (before != current?.mid) _refreshDisplayMetadata();
     notifyListeners();
-    return _send('removeAt', i);
+    return _send(PlaybackOp.removeAt, i);
   }
 
   @override
@@ -155,46 +136,46 @@ class _RemotePlayerController extends PlayerController {
     queue = q;
     index = n;
     notifyListeners();
-    _ignore(_send('moveQueue', [from, to]));
+    _ignore(_send(PlaybackOp.moveQueue, [from, to]));
   }
 
   @override
-  Future<void> next() => _send('next');
+  Future<void> next() => _send(PlaybackOp.next);
 
   @override
-  Future<void> previous() => _send('previous');
+  Future<void> previous() => _send(PlaybackOp.previous);
 
   @override
-  Future<void> play() => _send('play');
+  Future<void> play() => _send(PlaybackOp.play);
 
   @override
-  Future<void> pause() => _send('pause');
+  Future<void> pause() => _send(PlaybackOp.pause);
 
   @override
-  Future<void> toggle() => _send('toggle');
+  Future<void> toggle() => _send(PlaybackOp.toggle);
 
   @override
-  Future<void> seek(Duration d) => _send('seek', d.inMilliseconds);
+  Future<void> seek(Duration d) => _send(PlaybackOp.seek, d.inMilliseconds);
 
   @override
   void setMode(PlayMode m) {
     mode = m;
     notifyListeners();
-    _ignore(_send('mode', m.name));
+    _ignore(_send(PlaybackOp.mode, m.name));
   }
 
   @override
   void setDefaultQuality(Quality q) {
     defaultQuality = quality = q;
     notifyListeners();
-    _ignore(_send('defaultQuality', q.name));
+    _ignore(_send(PlaybackOp.defaultQuality, q.name));
   }
 
   @override
   void setFade(Duration d) {
     fade = d;
     notifyListeners();
-    _ignore(_send('fade', d.inSeconds));
+    _ignore(_send(PlaybackOp.fade, d.inSeconds));
   }
 
   // 定时在播放服务里走，界面退到后台或被回收也照样到点停
@@ -202,37 +183,37 @@ class _RemotePlayerController extends PlayerController {
   void setSleepTimer(Duration? d) {
     sleepAt = d == null ? null : DateTime.now().add(d);
     notifyListeners();
-    _ignore(_send('sleep', d?.inSeconds));
+    _ignore(_send(PlaybackOp.sleep, d?.inSeconds));
   }
 
   @override
   void setSleepAfterSong(bool v) {
     sleepAfterSong = v;
     notifyListeners();
-    _ignore(_send('sleepAfterSong', v));
+    _ignore(_send(PlaybackOp.sleepAfterSong, v));
   }
 
   @override
   Future<void> setVolume(double v) {
     volume = v.clamp(0, 100);
     notifyListeners();
-    return _send('volume', volume);
+    return _send(PlaybackOp.volume, volume);
   }
 
   @override
-  Future<void> setQuality(Quality q) => _send('quality', q.name);
+  Future<void> setQuality(Quality q) => _send(PlaybackOp.quality, q.name);
 
   @override
   Future<({int limitMb, int bytes})> audioCacheInfo() async {
-    final value = await _connection.call('cacheInfo') as List<Object?>;
+    final value = await _connection.call(PlaybackOp.cacheInfo) as List<Object?>;
     return (limitMb: value[0] as int, bytes: value[1] as int);
   }
 
   @override
-  Future<void> setAudioCacheLimit(int mb) => _send('cacheLimit', mb);
+  Future<void> setAudioCacheLimit(int mb) => _send(PlaybackOp.cacheLimit, mb);
 
   @override
-  Future<void> clearAudioCache() => _send('clearAudioCache');
+  Future<void> clearAudioCache() => _send(PlaybackOp.clearAudioCache);
 
   @override
   void dispose() {

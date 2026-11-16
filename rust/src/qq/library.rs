@@ -5,19 +5,20 @@ use serde_json::{json, Value};
 
 use super::client::core;
 use super::error::ApiError;
-use super::music::playlist_detail;
+use super::music::{playlist_cache_key, playlist_detail};
 use super::parse::{n, s};
 use crate::api::types::MyPlaylist;
 
 /// “我喜欢”在每个账号下的目录编号都是 201，tid 则因人而异。
 pub const LIKED_DIR_ID: i64 = 201;
+const MY_PLAYLISTS_KEY: &str = "my_playlists";
 
 /// 当前账号自己创建的歌单（含“我喜欢”），不含收藏的别人的歌单。
 pub async fn my_playlists() -> Result<Vec<MyPlaylist>> {
     let c = core();
     let Some(sess) = c.session() else { bail!(ApiError::NotLoggedIn) };
     let data = c
-        .cached("my_playlists", 600, || async {
+        .cached(MY_PLAYLISTS_KEY, 600, || async {
             c.get_json(
                 "https://c.y.qq.com/rsc/fcgi-bin/fcg_user_created_diss",
                 &[("hostuin", sess.uin.clone()), ("sin", "0".into()), ("size", "200".into()), ("format", "json".into())],
@@ -72,8 +73,8 @@ async fn write(dir: &MyPlaylist, song_id: i64, add: bool) -> Result<()> {
 /// 写入成功后丢掉这个歌单和歌单列表的缓存。
 fn forget(dir: &MyPlaylist) {
     let c = core();
-    c.uncache(&format!("playlist:{}:{}", c.uin(), dir.tid));
-    c.uncache("my_playlists");
+    c.uncache(&playlist_cache_key(dir.tid));
+    c.uncache(MY_PLAYLISTS_KEY);
 }
 
 fn write_param(dir: &MyPlaylist, song_id: i64) -> Value {
@@ -113,7 +114,7 @@ pub async fn create_playlist(name: &str) -> Result<MyPlaylist> {
     let data = c.desktop_private("music.musicasset.PlaylistBaseWrite", "AddPlaylist",
         json!({"bFmtUtf8": true, "dirName": name})).await?;
     let playlist = created_playlist(&data)?;
-    c.uncache("my_playlists");
+    c.uncache(MY_PLAYLISTS_KEY);
     Ok(playlist)
 }
 

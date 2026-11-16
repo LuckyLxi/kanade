@@ -6,6 +6,7 @@ import 'package:kanade/auth/auth_controller.dart';
 import 'package:kanade/data/song_json.dart';
 import 'package:kanade/library/library_controller.dart';
 import 'package:kanade/player/android_playback_connection.dart';
+import 'package:kanade/player/playback_messages.dart';
 import 'package:kanade/player/player_controller.dart';
 import 'package:kanade/player/player_error.dart';
 import 'package:kanade/player/player_session_store.dart';
@@ -158,8 +159,8 @@ class _Connection implements AndroidPlaybackConnection {
   @override
   void setWatching(bool watching) {}
   @override
-  Future<Object?> call(String method, [Object? argument]) async {
-    calls.add((method, argument));
+  Future<Object?> call(PlaybackOp op, [Object? argument]) async {
+    calls.add((op.name, argument));
     return null;
   }
 
@@ -377,6 +378,57 @@ void main() {
     ]);
     expect(player.volume, 25);
     player.dispose();
+    library.dispose();
+    locale.dispose();
+    auth.dispose();
+  });
+
+  testWidgets('player state survives the snapshot round trip', (tester) async {
+    final auth = AuthController(watchSession: false);
+    final library = LibraryController(auth);
+    final locale = LocaleController();
+    final source = PlayerController(auth, player: _Engine())
+      ..queue = [_song(1), _song(2)]
+      ..index = 1
+      ..playing = true
+      ..loading = true
+      ..buffering = true
+      ..duration = const Duration(seconds: 200)
+      ..defaultQuality = Quality.lossless
+      ..quality = Quality.high
+      ..actualQuality = Quality.standard
+      ..mode = PlayMode.shuffle
+      ..volume = 40
+      ..fade = const Duration(seconds: 3)
+      ..sleepAt = DateTime.fromMillisecondsSinceEpoch(1700000000000)
+      ..sleepAfterSong = true
+      ..error = const StreamFailed('boom');
+    late _Connection connection;
+    final remote = PlayerController.android(
+      auth,
+      library,
+      locale,
+      'test',
+      connectionFactory: (_, update) => connection = _Connection(update),
+    );
+    connection.update(encodePlayerState(source, includeQueue: true));
+    expect(remote.queue.map((s) => s.mid), ['m1', 'm2']);
+    expect(remote.index, 1);
+    expect(remote.playing, true);
+    expect(remote.loading, true);
+    expect(remote.buffering, true);
+    expect(remote.duration, source.duration);
+    expect(remote.defaultQuality, Quality.lossless);
+    expect(remote.quality, Quality.high);
+    expect(remote.actualQuality, Quality.standard);
+    expect(remote.mode, PlayMode.shuffle);
+    expect(remote.volume, 40);
+    expect(remote.fade, source.fade);
+    expect(remote.sleepAt, source.sleepAt);
+    expect(remote.sleepAfterSong, true);
+    expect((remote.error as StreamFailed).message, 'boom');
+    remote.dispose();
+    source.dispose();
     library.dispose();
     locale.dispose();
     auth.dispose();
