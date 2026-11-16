@@ -69,6 +69,9 @@
       }
     }
   },
+  "playAllTitle": "播放全部",
+  "recentSearchHint": "在最近播放中搜索",
+  "recentNewestFirst": "从新到旧",
   "songCount": "{count} 首",
   "@songCount": {
     "placeholders": {

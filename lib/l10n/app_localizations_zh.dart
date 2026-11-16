@@ -108,6 +108,15 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get playAllTitle => '播放全部';
+
+  @override
+  String get recentSearchHint => '在最近播放中搜索';
+
+  @override
+  String get recentNewestFirst => '从新到旧';
+
+  @override
   String songCount(int count) {
     return '$count 首';
   }

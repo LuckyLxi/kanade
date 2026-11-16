@@ -267,6 +267,24 @@ abstract class AppLocalizations {
   /// **'播放全部 ({count})'**
   String playAll(int count);
 
+  /// No description provided for @playAllTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放全部'**
+  String get playAllTitle;
+
+  /// No description provided for @recentSearchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'在最近播放中搜索'**
+  String get recentSearchHint;
+
+  /// No description provided for @recentNewestFirst.
+  ///
+  /// In zh, this message translates to:
+  /// **'从新到旧'**
+  String get recentNewestFirst;
+
   /// No description provided for @songCount.
   ///
   /// In zh, this message translates to:

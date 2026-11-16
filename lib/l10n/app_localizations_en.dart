@@ -114,6 +114,15 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get playAllTitle => 'Play all';
+
+  @override
+  String get recentSearchHint => 'Search recently played';
+
+  @override
+  String get recentNewestFirst => 'Newest first';
+
+  @override
   String songCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
