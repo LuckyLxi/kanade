@@ -6,10 +6,12 @@ import 'package:provider/provider.dart';
 
 import '../l10n/l10n_ext.dart';
 import '../player/player_controller.dart';
-import '../recognition/recognition_controller.dart';
 import '../recognition/android_recognition_platform.dart';
+import '../recognition/device_capture.dart';
+import '../recognition/recognition_controller.dart';
 import '../src/rust/api/types.dart';
 import 'sheet.dart';
+import 'sliding_segments.dart';
 import 'song_tile.dart';
 
 Future<void> showRecognizeSheet(BuildContext context) => showKanadeSheet<void>(
@@ -37,6 +39,7 @@ class _RecognizeSheetState extends State<_RecognizeSheet> {
   bool? get _canOverlay => _platform?.canOverlay;
   String? get _error => switch (_controller.error) {
     RecognitionFailure.noMicrophone => _l.recognizeNoMic,
+    RecognitionFailure.silent => _l.recognizeSilent,
     final error? => errorText(_l, error),
     null => null,
   };
@@ -47,6 +50,11 @@ class _RecognizeSheetState extends State<_RecognizeSheet> {
     _controller = RecognitionController(context.read<PlayerController>());
     _controller.addListener(_onChanged);
     unawaited(_controller.start());
+    unawaited(
+      DeviceCapture.create(title: () => _l.recognizeSong).then((device) {
+        if (mounted) setState(() => _controller.device = device);
+      }),
+    );
   }
 
   @override
@@ -57,7 +65,9 @@ class _RecognizeSheetState extends State<_RecognizeSheet> {
       _platform ??= AndroidRecognitionPlatform(
         _controller,
         title: _l.recognizeSong,
-        message: () => _error ?? _l.recognizeNotFound,
+        message: () => _phase == RecognitionPhase.paused
+            ? _l.recognizePaused
+            : _error ?? _l.recognizeNotFound,
         onChanged: _onChanged,
         onClose: () {
           if (mounted) Navigator.of(context).pop();
@@ -84,6 +94,7 @@ class _RecognizeSheetState extends State<_RecognizeSheet> {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final muted = TextStyle(color: scheme.onSurfaceVariant);
+    final device = _controller.source == RecognitionSource.device;
     // 弹窗贴着底边，内容高度一变，顶边就平滑地落下或升起
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -95,10 +106,39 @@ class _RecognizeSheetState extends State<_RecognizeSheet> {
           alignment: Alignment.topCenter,
           child: SheetHeader(
             title: l.recognizeSong,
-            subtitle: _phase == RecognitionPhase.listening
+            subtitle:
+                _phase != RecognitionPhase.listening &&
+                    _phase != RecognitionPhase.paused
+                ? null
+                : _controller.captureDenied
+                ? l.recognizeCaptureDenied
+                : !device
                 ? l.recognizeHint
-                : null,
+                : Platform.isWindows
+                ? l.recognizeHintComputer
+                : l.recognizeHintPhone,
           ),
+        ),
+        AnimatedSize(
+          duration: _resize,
+          curve: _resizeCurve,
+          alignment: Alignment.topCenter,
+          child: _controller.device == null
+              ? const SizedBox(width: double.infinity)
+              : Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: SlidingSegments(
+                    labels: [
+                      l.recognizeSourceMic,
+                      Platform.isWindows
+                          ? l.recognizeSourceComputer
+                          : l.recognizeSourcePhone,
+                    ],
+                    selected: _controller.source.index,
+                    onSelect: (i) =>
+                        _controller.setSource(RecognitionSource.values[i]),
+                  ),
+                ),
         ),
         // 没有悬浮窗权限时提示去开，开了以后切回来这行就收起
         AnimatedSize(
@@ -141,24 +181,44 @@ class _RecognizeSheetState extends State<_RecognizeSheet> {
               ],
             ),
             child: KeyedSubtree(
-              key: ValueKey(_phase),
+              key: ValueKey((_phase, device)),
               child: switch (_phase) {
-                RecognitionPhase.listening => Padding(
+                RecognitionPhase.listening ||
+                RecognitionPhase.paused => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24),
                   child: Column(
                     children: [
-                      Icon(
-                        Icons.mic_rounded,
-                        size: 48,
+                      // 点图标暂停；暂停后再点从头开始听
+                      IconButton(
+                        iconSize: 48,
                         color: scheme.onSurface,
+                        onPressed: _phase == RecognitionPhase.listening
+                            ? _controller.pause
+                            : _controller.start,
+                        icon: Icon(
+                          _phase == RecognitionPhase.paused
+                              ? Icons.play_arrow_rounded
+                              : !device
+                              ? Icons.mic_rounded
+                              : Platform.isWindows
+                              ? Icons.computer_rounded
+                              : Icons.smartphone_rounded,
+                        ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 4),
                       Text(
-                        l.recognizeListening,
+                        _phase == RecognitionPhase.paused
+                            ? l.recognizePaused
+                            : l.recognizeListening,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 4),
-                      Text(l.recognizeElapsed(_seconds), style: muted),
+                      Text(
+                        _phase == RecognitionPhase.paused
+                            ? l.recognizeTapResume
+                            : l.recognizeElapsed(_seconds),
+                        style: muted,
+                      ),
                     ],
                   ),
                 ),
@@ -190,11 +250,13 @@ class _RecognizeSheetState extends State<_RecognizeSheet> {
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          onPressed: _phase == RecognitionPhase.listening
+          onPressed:
+              _phase == RecognitionPhase.listening ||
+                  _phase == RecognitionPhase.paused
               ? () => Navigator.of(context).pop()
               : _controller.start,
           child: Text(switch (_phase) {
-            RecognitionPhase.listening => l.cancel,
+            RecognitionPhase.listening || RecognitionPhase.paused => l.cancel,
             RecognitionPhase.failed => l.retry,
             _ => l.recognizeAgain,
           }),

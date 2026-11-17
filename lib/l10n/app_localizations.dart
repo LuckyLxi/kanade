@@ -351,6 +351,60 @@ abstract class AppLocalizations {
   /// **'切到别的软件也能接着识曲'**
   String get recognizeBubbleHint;
 
+  /// No description provided for @recognizeSourceMic.
+  ///
+  /// In zh, this message translates to:
+  /// **'麦克风'**
+  String get recognizeSourceMic;
+
+  /// No description provided for @recognizeSourcePhone.
+  ///
+  /// In zh, this message translates to:
+  /// **'手机内声音'**
+  String get recognizeSourcePhone;
+
+  /// No description provided for @recognizeSourceComputer.
+  ///
+  /// In zh, this message translates to:
+  /// **'电脑内声音'**
+  String get recognizeSourceComputer;
+
+  /// No description provided for @recognizeHintPhone.
+  ///
+  /// In zh, this message translates to:
+  /// **'识别这台手机正在播放的声音'**
+  String get recognizeHintPhone;
+
+  /// No description provided for @recognizeHintComputer.
+  ///
+  /// In zh, this message translates to:
+  /// **'识别这台电脑正在播放的声音'**
+  String get recognizeHintComputer;
+
+  /// No description provided for @recognizeCaptureDenied.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要授权才能录手机内声音，已改用麦克风'**
+  String get recognizeCaptureDenied;
+
+  /// No description provided for @recognizeSilent.
+  ///
+  /// In zh, this message translates to:
+  /// **'没录到声音，可能没在播放，或者该应用不允许录制'**
+  String get recognizeSilent;
+
+  /// No description provided for @recognizePaused.
+  ///
+  /// In zh, this message translates to:
+  /// **'已暂停'**
+  String get recognizePaused;
+
+  /// No description provided for @recognizeTapResume.
+  ///
+  /// In zh, this message translates to:
+  /// **'点图标重新开始听'**
+  String get recognizeTapResume;
+
   /// No description provided for @searchPrompt.
   ///
   /// In zh, this message translates to:

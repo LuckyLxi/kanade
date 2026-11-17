@@ -1,5 +1,7 @@
 package com.lxi.kanade
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
@@ -33,10 +35,11 @@ import kotlin.math.min
 
 /**
  * 听歌识曲时切到别的软件，屏幕边上浮着的按钮。正在听是圆按钮，外圈走 15 秒进度；
- * 认出来展开成胶囊（封面、歌名、播放键），没认出来是短胶囊带重新识别键。
+ * 认出来展开成胶囊（封面、歌名、再识别一次键、播放键），没认出来是短胶囊带重新识别键。
+ * 正在听时点一下暂停，变成「已暂停」短胶囊带继续键，继续即从头开始听。
  * 能拖到任意位置，松手贴到最近的左右边，拖到底部的 × 上结束识曲。
  *
- * 点击通过 [onAction] 告诉 Dart：open（回到 Kanade）、play、retry、close。
+ * 点击通过 [onAction] 告诉 Dart：open（回到 Kanade）、pause、play、retry、close。
  */
 class RecognizeBubble(private val context: Context, private val onAction: (String) -> Unit) {
     private val wm = context.getSystemService(WindowManager::class.java)
@@ -50,7 +53,11 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
 
     private val bubble = BubbleView()
     private val target = TargetView()
-    private val params = overlayParams()
+    private val params = overlayParams().apply {
+        // 默认窗口挪位置会先挪、新画面下一帧才到，贴右边变宽变窄时就左右跳一下；
+        // 关掉移动动画后，系统会把新位置和新大小的画面放在同一帧换上
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) setCanPlayMoveAnimation(false)
+    }
     private val targetParams = overlayParams().apply {
         flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
@@ -66,6 +73,7 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
     private var progressAnim: ValueAnimator? = null
 
     private var mode = "listening"
+    private var device = false
     private var title = ""
     private var artist = ""
     private var message = ""
@@ -78,6 +86,9 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
     /** 当前按钮宽度，动画中途也是这个值；[targetWidth] 是这次要变到的宽度。 */
     private var bubbleWidth = size
     private var targetWidth = size
+
+    /** 主窗口按这个宽度排，按钮在窗口里贴着停靠的那一边画。 */
+    private var windowWidth = size
 
     private val pulseAnim = ValueAnimator.ofFloat(0f, 1f).apply {
         duration = 1600
@@ -93,6 +104,7 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
         if (shown || !Settings.canDrawOverlays(context)) return
         shown = true
         bubbleWidth = targetWidth
+        windowWidth = targetWidth
         params.y = prefs.getInt("y", screenHeight() / 3)
         layout()
         // × 先加，叠在按钮下面；平时隐藏，拖动时才显示
@@ -114,6 +126,7 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
 
     fun update(args: Map<String, Any?>) {
         val nextMode = args["mode"] as String
+        device = args["device"] as Boolean? ?: false
         title = args["title"] as String? ?: ""
         artist = args["artist"] as String? ?: ""
         message = args["message"] as String? ?: ""
@@ -133,11 +146,12 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
     }
 
     private fun widthFor(mode: String): Float = when (mode) {
+        // 右边两个圆键：再识别一次、播放
         "found" -> min(
-            maxWidth,
-            max(dp(140f), dp(6f + 40f + 8f + 8f + 34f + 6f) + max(bubble.titlePaint.measureText(title), bubble.artistPaint.measureText(artist))),
+            maxWidth + dp(40f),
+            max(dp(180f), dp(6f + 40f + 8f + 8f + 34f + 6f + 34f + 6f) + max(bubble.titlePaint.measureText(title), bubble.artistPaint.measureText(artist))),
         )
-        "message" -> min(maxWidth, dp(14f + 8f + 34f + 6f) + bubble.messagePaint.measureText(message))
+        "message", "paused" -> min(maxWidth, dp(14f + 8f + 34f + 6f) + bubble.messagePaint.measureText(message))
         else -> size
     }
 
@@ -146,10 +160,13 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
         targetWidth = to
         if (!shown) {
             bubbleWidth = to
+            windowWidth = to
             fade = 1f
             return
         }
         val from = bubbleWidth
+        // 窗口只在开始和结束时各改一次大小：每帧改窗口会和画面错帧，看起来一抽一抽
+        setWindowWidth(max(windowWidth, to))
         resize = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 300
             interpolator = DecelerateInterpolator(2f)
@@ -157,12 +174,29 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
                 val f = it.animatedValue as Float
                 bubbleWidth = from + (to - from) * f
                 fade = f
-                layout()
-                wm.updateViewLayout(bubble, params)
                 bubble.invalidate()
             }
+            addListener(object : AnimatorListenerAdapter() {
+                private var canceled = false
+
+                override fun onAnimationCancel(animation: Animator) {
+                    canceled = true
+                }
+
+                override fun onAnimationEnd(animation: Animator) {
+                    if (!canceled && shown) setWindowWidth(to)
+                }
+            })
             start()
         }
+    }
+
+    private fun setWindowWidth(width: Float) {
+        if (width == windowWidth) return
+        windowWidth = width
+        layout()
+        wm.updateViewLayout(bubble, params)
+        bubble.invalidate()
     }
 
     private fun setProgress(to: Float) {
@@ -203,16 +237,22 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
 
     /** 按贴着的那一边算窗口位置：贴右边时变宽往左长，贴左边往右长。 */
     private fun layout() {
-        params.width = (bubbleWidth + pad * 2).toInt()
+        params.width = (windowWidth + pad * 2).toInt()
         params.height = (size + pad * 2).toInt()
-        params.x = if (dockRight) (screenWidth() - bubbleWidth - pad - edge).toInt() else (edge - pad).toInt()
+        params.x = dockedX(params.width)
+    }
+
+    /** 用取整后的窗口宽度算位置，两个窗口贴着的那条边才能落在同一个像素上。 */
+    private fun dockedX(width: Int): Int {
+        val margin = (edge - pad).toInt()
+        return if (dockRight) screenWidth() - width - margin else margin
     }
 
     private fun snap() {
         val center = params.x + params.width / 2
         dockRight = center > screenWidth() / 2
         val from = params.x
-        val to = if (dockRight) (screenWidth() - bubbleWidth - pad - edge).toInt() else (edge - pad).toInt()
+        val to = dockedX(params.width)
         params.y = params.y.coerceIn(0, screenHeight() - params.height)
         prefs.edit().putBoolean("right", dockRight).putInt("y", params.y).apply()
         slide = ValueAnimator.ofInt(from, to).apply {
@@ -276,9 +316,11 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
         val artistPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = sp(11f); color = 0xFF8A8A8A.toInt() }
         val messagePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = sp(13f); color = 0xFFBDBDBD.toInt() }
         private val mic = icon(R.drawable.ic_bubble_mic, lime)
+        private val phone = icon(R.drawable.ic_bubble_phone, lime)
         private val music = icon(R.drawable.ic_bubble_music, lime)
         private val play = icon(R.drawable.ic_bubble_play, Color.BLACK)
         private val refresh = icon(R.drawable.ic_bubble_refresh, 0xFFF2F2F2.toInt())
+        private val resume = icon(R.drawable.ic_bubble_play, 0xFFF2F2F2.toInt())
         private val rect = RectF()
         private val slop = ViewConfiguration.get(context).scaledTouchSlop
 
@@ -290,7 +332,7 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
 
         override fun onDraw(canvas: Canvas) {
             val top = pad
-            val left = pad
+            val left = if (dockRight) width - pad - bubbleWidth else pad
             val radius = size / 2
             // 内容按最终宽度排好，贴右边时从右往左露出来，贴左边时从左往右
             val origin = if (dockRight) left + bubbleWidth - targetWidth else left
@@ -335,7 +377,7 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
             canvas.drawArc(rect, -90f, 360f * progress, false, stroke)
             stroke.strokeCap = Paint.Cap.BUTT
             stroke.alpha = 255
-            drawIcon(canvas, mic, cx, cy, dp(22f), alpha)
+            drawIcon(canvas, if (device) phone else mic, cx, cy, dp(22f), alpha)
         }
 
         private fun drawFound(canvas: Canvas, origin: Float, cy: Float, alpha: Int) {
@@ -362,12 +404,18 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
 
             val button = dp(34f)
             val buttonCx = origin + targetWidth - dp(6f) - button / 2
+            val retryCx = buttonCx - button - dp(6f)
             val textX = coverX + coverSize + dp(8f)
-            val textWidth = buttonCx - button / 2 - dp(8f) - textX
+            val textWidth = retryCx - button / 2 - dp(8f) - textX
             titlePaint.alpha = alpha
             artistPaint.alpha = alpha
             canvas.drawText(ellipsize(title, titlePaint, textWidth), textX, cy - dp(2f), titlePaint)
             canvas.drawText(ellipsize(artist, artistPaint, textWidth), textX, cy + dp(13f), artistPaint)
+
+            fill.color = 0xFF262626.toInt()
+            fill.alpha = alpha
+            canvas.drawCircle(retryCx, cy, button / 2, fill)
+            drawIcon(canvas, refresh, retryCx, cy, dp(16f), alpha)
 
             fill.color = lime
             fill.alpha = alpha
@@ -386,7 +434,7 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
             fill.color = 0xFF262626.toInt()
             fill.alpha = alpha
             canvas.drawCircle(buttonCx, cy, button / 2, fill)
-            drawIcon(canvas, refresh, buttonCx, cy, dp(16f), alpha)
+            drawIcon(canvas, if (mode == "paused") resume else refresh, buttonCx, cy, dp(16f), alpha)
         }
 
         private fun ellipsize(text: String, paint: TextPaint, width: Float) =
@@ -402,6 +450,8 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
         override fun onTouchEvent(event: MotionEvent): Boolean {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    // 动画中途按下就直接跳到结束，免得结束时改窗口打断拖动
+                    resize?.end()
                     slide?.cancel()
                     downX = event.rawX
                     downY = event.rawY
@@ -442,13 +492,19 @@ class RecognizeBubble(private val context: Context, private val onAction: (Strin
             return true
         }
 
-        /** 胶囊右边的圆键是播放 / 重新识别，其余地方都是回到 Kanade。 */
+        /** 正在听时点圆球暂停；胶囊右边的圆键是播放 / 重新识别 / 继续，其余地方都是回到 Kanade。 */
         private fun actionAt(x: Float): String {
-            if (mode == "listening") return "open"
-            val origin = if (dockRight) pad + bubbleWidth - targetWidth else pad
+            if (mode == "listening") return "pause"
+            val origin = if (dockRight) width - pad - targetWidth else pad
             val buttonLeft = origin + targetWidth - dp(6f + 34f + 6f)
-            if (x < buttonLeft) return "open"
-            return if (mode == "found") "play" else "retry"
+            if (mode == "found") {
+                return when {
+                    x >= buttonLeft -> "play"
+                    x >= buttonLeft - dp(34f + 6f) -> "retry"
+                    else -> "open"
+                }
+            }
+            return if (x < buttonLeft) "open" else "retry"
         }
     }
 

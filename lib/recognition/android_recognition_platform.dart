@@ -33,6 +33,7 @@ class AndroidRecognitionPlatform {
   bool _away = false;
   bool _service = false;
   bool _micGranted = false;
+  bool _deviceUsed = false;
   bool _finished = false;
   Future<void>? _startingService;
   Future<void>? _finishing;
@@ -75,6 +76,7 @@ class AndroidRecognitionPlatform {
       return;
     }
     if (_finished) return;
+    if (controller.source == RecognitionSource.device) _deviceUsed = true;
     if (!_micGranted && controller.micGranted) {
       _micGranted = true;
       unawaited(_ensureService());
@@ -90,9 +92,11 @@ class AndroidRecognitionPlatform {
         'mode': switch (controller.phase) {
           RecognitionPhase.listening => 'listening',
           RecognitionPhase.found => 'found',
+          RecognitionPhase.paused => 'paused',
           _ => 'message',
         },
         'seconds': controller.seconds,
+        'device': controller.source == RecognitionSource.device,
         'title': song?.name,
         'artist': song == null ? null : singerNames(song),
         'cover': song == null ? null : httpsUrl(song.coverUrl),
@@ -122,6 +126,8 @@ class AndroidRecognitionPlatform {
     switch (call.arguments) {
       case 'play':
         unawaited(controller.playResult());
+      case 'pause':
+        controller.pause();
       case 'retry':
         unawaited(controller.start());
       case 'close':
@@ -136,7 +142,8 @@ class AndroidRecognitionPlatform {
     return _finishing = () async {
       await channel.invokeMethod('hide');
       await _startingService;
-      if (_service) {
+      // 录手机内声音时服务由授权流程启动，不经过 _service，也要停
+      if (_service || _deviceUsed) {
         _service = false;
         await channel.invokeMethod('stopService');
       }

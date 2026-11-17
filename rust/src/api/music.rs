@@ -501,6 +501,23 @@ pub async fn download_update(
     .await
 }
 
+/// Windows 听歌识曲录电脑内声音，推送 44.1 kHz 双声道 16 位小端 PCM，直到 `stop_device_capture`。
+pub fn start_device_capture(sink: StreamSink<Vec<u8>>) -> Result<(), ApiError> {
+    #[cfg(windows)]
+    return crate::device_audio::start(move |pcm| sink.add(pcm).is_ok()).map_err(api_error);
+    #[cfg(not(windows))]
+    {
+        let _ = sink;
+        Err(api_error(anyhow::anyhow!("device capture is Windows only")))
+    }
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn stop_device_capture() {
+    #[cfg(windows)]
+    crate::device_audio::stop()
+}
+
 #[flutter_rust_bridge::frb(sync)]
 pub fn cancel_update_download() {
     crate::update::cancel()

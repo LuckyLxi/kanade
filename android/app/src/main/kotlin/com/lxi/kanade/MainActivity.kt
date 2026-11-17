@@ -2,16 +2,23 @@ package com.lxi.kanade
 
 import android.content.Context
 import android.content.Intent
+import android.media.projection.MediaProjectionManager
 import android.net.Uri
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
 class MainActivity : AudioServiceActivity() {
     private var bubble: RecognizeBubble? = null
+    private var pendingCapture: MethodChannel.Result? = null
+    private var captureTitle = ""
 
     override fun provideFlutterEngine(context: Context): FlutterEngine? =
         if ((application as KanadeApplication).separateAndroidPlayback) null
@@ -21,6 +28,30 @@ class MainActivity : AudioServiceActivity() {
         bubble?.hide()
         stopService(Intent(this, RecognizeService::class.java))
         super.onDestroy()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQUEST_CAPTURE) return
+        val result = pendingCapture ?: return
+        pendingCapture = null
+        if (resultCode != RESULT_OK || data == null) {
+            result.success(false)
+            return
+        }
+        RecognizeService.onProjection = { ok -> result.success(ok) }
+        try {
+            startForegroundService(
+                Intent(this, RecognizeService::class.java)
+                    .putExtra(RecognizeService.EXTRA_TITLE, captureTitle)
+                    .putExtra(RecognizeService.EXTRA_RESULT_CODE, resultCode)
+                    .putExtra(RecognizeService.EXTRA_PROJECTION, data),
+            )
+        } catch (_: Exception) {
+            RecognizeService.onProjection = null
+            result.success(false)
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -59,6 +90,22 @@ class MainActivity : AudioServiceActivity() {
                         false
                     },
                 )
+                "canCaptureDevice" -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                // 已有录屏授权就直接复用；没有时弹系统授权框，同意后由服务拿授权
+                "requestCapture" -> when {
+                    Build.VERSION.SDK_INT < Build.VERSION_CODES.Q -> result.success(false)
+                    RecognizeService.projection != null -> result.success(true)
+                    else -> {
+                        pendingCapture?.success(false)
+                        pendingCapture = result
+                        captureTitle = call.argument<String>("title").orEmpty()
+                        @Suppress("DEPRECATION")
+                        startActivityForResult(
+                            getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent(),
+                            REQUEST_CAPTURE,
+                        )
+                    }
+                }
                 "stopService" -> {
                     stopService(Intent(this, RecognizeService::class.java))
                     result.success(null)
@@ -78,6 +125,23 @@ class MainActivity : AudioServiceActivity() {
                 else -> result.notImplemented()
             }
         }
+        val main = Handler(Looper.getMainLooper())
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, "kanade/recognize/pcm").setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
+                    val unavailable = { events.error("capture", "playback capture unavailable", null) }
+                    val started = RecognizeService.startCapture(
+                        onData = { pcm -> main.post { events.success(pcm) } },
+                        onError = { main.post(unavailable) },
+                    )
+                    if (!started) unavailable()
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    RecognizeService.stopCapture()
+                }
+            },
+        )
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "kanade/app_login").setMethodCallHandler { call, result ->
             when (call.method) {
                 // 必须指定包名：QQ 音乐也注册了 wtloginmqq://，不指定可能被它接走
@@ -120,5 +184,9 @@ class MainActivity : AudioServiceActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    companion object {
+        private const val REQUEST_CAPTURE = 7301
     }
 }

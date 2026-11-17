@@ -166,6 +166,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recognizeBubbleHint => 'Keep recognizing after switching apps';
 
   @override
+  String get recognizeSourceMic => 'Microphone';
+
+  @override
+  String get recognizeSourcePhone => 'Phone audio';
+
+  @override
+  String get recognizeSourceComputer => 'Computer audio';
+
+  @override
+  String get recognizeHintPhone => 'Recognize what\'s playing on this phone';
+
+  @override
+  String get recognizeHintComputer =>
+      'Recognize what\'s playing on this computer';
+
+  @override
+  String get recognizeCaptureDenied =>
+      'Permission is needed to record phone audio. Switched to the microphone';
+
+  @override
+  String get recognizeSilent =>
+      'No sound captured. Nothing may be playing, or the app doesn\'t allow recording';
+
+  @override
+  String get recognizePaused => 'Paused';
+
+  @override
+  String get recognizeTapResume => 'Tap the icon to listen again';
+
+  @override
   String get searchPrompt => 'Type a keyword and press Enter';
 
   @override

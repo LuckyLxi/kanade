@@ -8,10 +8,14 @@ import '../data/recognition_pcm.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'device_capture.dart';
 
-enum RecognitionPhase { listening, found, notFound, failed }
+enum RecognitionPhase { listening, paused, found, notFound, failed }
 
-enum RecognitionFailure { noMicrophone }
+enum RecognitionSource { microphone, device }
+
+/// silent：录设备内声音 15 秒全是静音，可能没在放，或者该应用禁止被录。
+enum RecognitionFailure { noMicrophone, silent }
 
 /// 一次识曲会话；不依赖页面、文案或 Android 悬浮窗。
 class RecognitionController extends ChangeNotifier {
@@ -37,6 +41,13 @@ class RecognitionController extends ChangeNotifier {
   Future<void> _recordingWork = Future.value();
   Future<void>? _finishing;
 
+  /// 为 null 时这台设备不能录内部声音。
+  DeviceCapture? device;
+  RecognitionSource source = RecognitionSource.microphone;
+
+  /// 用户拒绝了内录授权，已经退回麦克风。
+  bool captureDenied = false;
+
   RecognitionPhase phase = RecognitionPhase.listening;
   Song? song;
   Object? error;
@@ -45,6 +56,23 @@ class RecognitionController extends ChangeNotifier {
   bool finished = false;
 
   bool _stale(int generation) => finished || generation != _generation;
+
+  /// 换录音来源，正在听时立刻用新来源重新开始。
+  void setSource(RecognitionSource value) {
+    if (finished || value == source) return;
+    source = value;
+    captureDenied = false;
+    unawaited(start());
+  }
+
+  /// 暂停只停录音，Kanade 的歌仍等关掉弹窗再恢复；继续就是 [start]，从头开始听。
+  void pause() {
+    if (finished || phase != RecognitionPhase.listening) return;
+    ++_generation;
+    _stopCapture();
+    phase = RecognitionPhase.paused;
+    notifyListeners();
+  }
 
   Future<void> start() {
     if (finished) return Future.value();
@@ -63,10 +91,15 @@ class RecognitionController extends ChangeNotifier {
     return _recordingWork = _recordingWork.then((_) => _start(generation));
   }
 
+  Future<void> _stopRecording() async {
+    await _recorder.stop();
+    await device?.stop();
+  }
+
   Future<void> _start(int generation) async {
     if (_stale(generation)) return;
     try {
-      await _recorder.stop();
+      await _stopRecording();
       if (_stale(generation)) return;
       if (_player.playing) {
         _paused = true;
@@ -74,14 +107,33 @@ class RecognitionController extends ChangeNotifier {
         await _player.pause();
       }
       if (_stale(generation)) return;
-      final granted = await _recorder.hasPermission();
-      if (_stale(generation)) return;
-      if (!granted) {
-        _fail(RecognitionFailure.noMicrophone);
-        return;
+      final capture = source == RecognitionSource.device ? device : null;
+      if (capture == null || capture.needsMicrophone) {
+        final granted = await _recorder.hasPermission();
+        if (_stale(generation)) return;
+        if (!granted) {
+          _fail(RecognitionFailure.noMicrophone);
+          return;
+        }
+        micGranted = true;
+        notifyListeners();
       }
-      micGranted = true;
-      notifyListeners();
+      if (capture != null) {
+        final stream = await capture.start();
+        if (_stale(generation)) {
+          await capture.stop();
+          return;
+        }
+        if (stream != null) {
+          _sampleRate = capture.sampleRate;
+          _channels = capture.channels;
+          _listen(generation, stream);
+          return;
+        }
+        source = RecognitionSource.microphone;
+        captureDenied = true;
+        notifyListeners();
+      }
       _sampleRate = recognitionSampleRate;
       _channels = 1;
       await _recorder.setOnConfigChanged((config) {
@@ -99,17 +151,26 @@ class RecognitionController extends ChangeNotifier {
         ),
       );
       if (_stale(generation)) return;
-      _sub = stream.listen(_buffer.add);
-      _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-        seconds++;
-        notifyListeners();
-        if (_uploadAt.contains(seconds) && !_uploading) {
-          unawaited(_upload(generation));
-        }
-      });
+      _listen(generation, stream);
     } catch (e) {
       if (!_stale(generation)) _fail(e);
     }
+  }
+
+  void _listen(int generation, Stream<Uint8List> stream) {
+    _sub = stream.listen(
+      _buffer.add,
+      onError: (Object e) {
+        if (!_stale(generation)) _fail(e);
+      },
+    );
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      seconds++;
+      notifyListeners();
+      if (_uploadAt.contains(seconds) && !_uploading) {
+        unawaited(_upload(generation));
+      }
+    });
   }
 
   Future<void> _upload(int generation) async {
@@ -129,6 +190,10 @@ class RecognitionController extends ChangeNotifier {
         song = result;
         notifyListeners();
       } else if (seconds >= _maxSeconds) {
+        if (source == RecognitionSource.device && pcm.every((b) => b == 0)) {
+          _fail(RecognitionFailure.silent);
+          return;
+        }
         _stopCapture();
         phase = RecognitionPhase.notFound;
         notifyListeners();
@@ -156,9 +221,7 @@ class RecognitionController extends ChangeNotifier {
 
   void _stopCapture() {
     _cancelCapture();
-    _recordingWork = _recordingWork.then((_) async {
-      await _recorder.stop();
-    });
+    _recordingWork = _recordingWork.then((_) => _stopRecording());
   }
 
   Future<void> playResult() async {
@@ -176,7 +239,7 @@ class RecognitionController extends ChangeNotifier {
     _cancelCapture();
     notifyListeners();
     return _finishing = _recordingWork.then((_) async {
-      await _recorder.stop();
+      await _stopRecording();
       if (_paused && !_player.playing && _player.current?.mid == _pausedSong) {
         await _player.play();
       }

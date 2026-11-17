@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kanade/player/player_controller.dart';
 import 'package:kanade/recognition/android_recognition_platform.dart';
+import 'package:kanade/recognition/device_capture.dart';
 import 'package:kanade/recognition/recognition_controller.dart';
 import 'package:kanade/src/rust/api/types.dart';
 import 'package:kanade/src/rust/frb_generated.dart';
@@ -95,6 +96,26 @@ class _Recorder implements AudioRecorder {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Device implements DeviceCapture {
+  final audio = StreamController<Uint8List>.broadcast();
+  bool granted = true;
+  int starts = 0;
+  @override
+  int get sampleRate => 16000;
+  @override
+  int get channels => 1;
+  @override
+  bool get needsMicrophone => true;
+  @override
+  Future<Stream<Uint8List>?> start() async {
+    starts++;
+    return granted ? audio.stream : null;
+  }
+
+  @override
+  Future<void> stop() async {}
 }
 
 class _Api implements RustLibApi {
@@ -187,6 +208,72 @@ void main() {
     await controller.finish();
     await controller.finish();
     expect(player.plays, 1);
+  });
+
+  recognitionTest('switching source restarts with device audio', (
+    tester,
+  ) async {
+    final device = controller.device = _Device();
+    await controller.start();
+    await tester.pump(const Duration(seconds: 2));
+    controller.setSource(RecognitionSource.device);
+    await tester.pump();
+    expect(device.starts, 1);
+    expect(controller.seconds, 0);
+    expect(recorder.starts, 1);
+    final micRequests = api.requests.length;
+    device.audio.add(Uint8List.fromList([1, 0, 2, 0]));
+    await tester.pump(const Duration(seconds: 1));
+    // 换来源后是新的服务端会话
+    expect(api.requests, hasLength(micRequests + 1));
+    expect(api.requests.last, isNot(api.requests.first));
+  });
+
+  recognitionTest('pause stops listening and resume starts over', (
+    tester,
+  ) async {
+    await controller.start();
+    recorder.audio.add(Uint8List(16000));
+    await tester.pump(const Duration(seconds: 2));
+    final before = api.requests.length;
+    controller.pause();
+    await tester.pump(const Duration(seconds: 5));
+    expect(controller.phase, RecognitionPhase.paused);
+    expect(api.requests, hasLength(before));
+    expect(recorder.events.last, 'stop');
+    expect(player.playing, isFalse);
+    await controller.start();
+    expect(controller.phase, RecognitionPhase.listening);
+    expect(controller.seconds, 0);
+    expect(recorder.starts, 2);
+    await tester.pump(const Duration(seconds: 1));
+    expect(api.requests.last, isNot(api.requests.first));
+  });
+
+  recognitionTest('denied device capture falls back to microphone', (
+    tester,
+  ) async {
+    controller.device = _Device()..granted = false;
+    controller.setSource(RecognitionSource.device);
+    await tester.pump();
+    expect(controller.source, RecognitionSource.microphone);
+    expect(controller.captureDenied, isTrue);
+    expect(recorder.starts, 1);
+    expect(controller.phase, RecognitionPhase.listening);
+  });
+
+  recognitionTest('silent device audio reports silent instead of no match', (
+    tester,
+  ) async {
+    final device = controller.device = _Device();
+    controller.setSource(RecognitionSource.device);
+    await tester.pump();
+    device.audio.add(Uint8List(32000));
+    for (var second = 1; second <= 15; second++) {
+      await tester.pump(const Duration(seconds: 1));
+    }
+    expect(controller.phase, RecognitionPhase.failed);
+    expect(controller.error, RecognitionFailure.silent);
   });
 
   recognitionTest(

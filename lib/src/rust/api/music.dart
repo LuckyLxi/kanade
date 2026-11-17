@@ -441,5 +441,12 @@ Stream<UpdateEvent> downloadUpdate({
   mirror: mirror,
 );
 
+/// Windows 听歌识曲录电脑内声音，推送 44.1 kHz 双声道 16 位小端 PCM，直到 `stop_device_capture`。
+Stream<Uint8List> startDeviceCapture() =>
+    RustLib.instance.api.crateApiMusicStartDeviceCapture();
+
+void stopDeviceCapture() =>
+    RustLib.instance.api.crateApiMusicStopDeviceCapture();
+
 void cancelUpdateDownload() =>
     RustLib.instance.api.crateApiMusicCancelUpdateDownload();

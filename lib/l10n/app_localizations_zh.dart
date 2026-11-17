@@ -154,6 +154,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get recognizeBubbleHint => '切到别的软件也能接着识曲';
 
   @override
+  String get recognizeSourceMic => '麦克风';
+
+  @override
+  String get recognizeSourcePhone => '手机内声音';
+
+  @override
+  String get recognizeSourceComputer => '电脑内声音';
+
+  @override
+  String get recognizeHintPhone => '识别这台手机正在播放的声音';
+
+  @override
+  String get recognizeHintComputer => '识别这台电脑正在播放的声音';
+
+  @override
+  String get recognizeCaptureDenied => '需要授权才能录手机内声音，已改用麦克风';
+
+  @override
+  String get recognizeSilent => '没录到声音，可能没在播放，或者该应用不允许录制';
+
+  @override
+  String get recognizePaused => '已暂停';
+
+  @override
+  String get recognizeTapResume => '点图标重新开始听';
+
+  @override
   String get searchPrompt => '输入关键词后回车搜索';
 
   @override
