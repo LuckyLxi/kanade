@@ -456,6 +456,7 @@ void main() {
     // the line the lens and the body tint are switched off below, and the
     // darkening is applied last.
     vec2 lensDisplacement = displacement;
+    vec2 lineDisplacement = displacement;
     float hairline = 0.0;
     if (uRimConfig.x > 0.001) {
         hairline = 1.0 - smoothstep(0.75 * dprScale, 2.0 * dprScale, rimDist);
@@ -466,10 +467,11 @@ void main() {
         // it: the backdrop there has not been through the frost, which is
         // what the native line sits on (over text it reads page - 80, not
         // cloud - 80).
-        vec2 outward = normalXY / max(length(normalXY), 1e-4)
-                     * (2.5 * dprScale);
-        displacement = mix(displacement, outward, hairline);
+        lineDisplacement = normalXY / max(length(normalXY), 1e-4)
+                         * (2.5 * dprScale);
+        displacement = mix(displacement, lineDisplacement, hairline);
     }
+    vec2 lensSample = lensDisplacement;
     // On pre-3.46 OpenGL ES, screenUV.y is flipped to (1.0 - y) above to
     // compensate for the bottom-left texture-origin convention.  The
     // displacement is computed in Flutter's native Y-down space (outward normal
@@ -480,6 +482,8 @@ void main() {
     // 3.46+ the UV is not flipped, so negating here would invert refraction.
     #ifdef LGR_GLES_FLIP_SAMPLE_Y
         displacement.y = -displacement.y;
+        lineDisplacement.y = -lineDisplacement.y;
+        lensSample.y = -lensSample.y;
     #endif
 
     // ── Concave horizontal pinch ──────────────────────────────────────────────
@@ -570,17 +574,28 @@ void main() {
         // Flat interior — keep the original backdrop scale.
         refractColor = textureBilinear(screenUV, physTexSize, invTexSize);
     } else if (uChromaticAberration < 0.01) {
-        vec2 refractedUV = screenUV + displacement * invTexSize;
-        refractColor = textureBilinear(refractedUV, physTexSize, invTexSize);
         if (hairline > 0.0) {
             // The line runs along the edge, so average it along the edge:
             // three taps 1.5 px apart keep it a line over a busy backdrop.
+            vec2 lineUV = screenUV + lineDisplacement * invTexSize;
             vec2 tangent = vec2(-normalXY.y, normalXY.x)
                          / max(length(normalXY), 1e-4)
                          * (1.5 * dprScale) * invTexSize;
-            vec4 side = textureBilinear(refractedUV + tangent, physTexSize, invTexSize)
-                      + textureBilinear(refractedUV - tangent, physTexSize, invTexSize);
-            refractColor = mix(refractColor, (refractColor + side) / 3.0, hairline);
+            refractColor = (textureBilinear(lineUV, physTexSize, invTexSize)
+                          + textureBilinear(lineUV + tangent, physTexSize, invTexSize)
+                          + textureBilinear(lineUV - tangent, physTexSize, invTexSize)) / 3.0;
+            // Blend the line into the lens by colour. Blending the two sample
+            // offsets instead sweeps the sample across the whole bevel, which
+            // jumps from the backdrop outside to the lensed one in a pixel and
+            // stair-steps the outline.
+            if (hairline < 1.0 && uFrost.x <= 0.0) {
+                vec4 lens = textureBilinear(
+                    screenUV + lensSample * invTexSize, physTexSize, invTexSize);
+                refractColor = mix(lens, refractColor, hairline);
+            }
+        } else {
+            refractColor = textureBilinear(
+                screenUV + displacement * invTexSize, physTexSize, invTexSize);
         }
     } else {
         float dispersionStrength = uChromaticAberration * 0.5;

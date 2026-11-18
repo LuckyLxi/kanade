@@ -27,7 +27,18 @@ class CoverArt {
 
   final List<Color> palette;
   final ui.Image blurred;
+
+  /// 按主色生成的深色主题，歌曲信息页的加载动画这些跟着封面变色的地方用。fromSeed 要算色调，生成一次就留着。
+  late final ThemeData theme = coverTheme(palette[1]);
 }
+
+ThemeData coverTheme(Color seed) => ThemeData(
+  useMaterial3: true,
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: seed,
+    brightness: Brightness.dark,
+  ),
+);
 
 /// 解码封面用的尺寸（取色也用它）和预模糊图的尺寸。
 /// 预模糊图要够大，放大到全屏时才不会出现颗粒和色块。

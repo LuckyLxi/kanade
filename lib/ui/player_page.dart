@@ -38,6 +38,7 @@ const _curve = Curves.easeInOutCubicEmphasized;
 
 /// 播放页底色一直是深的，弹窗、菜单固定用深色主题，不跟着亮色模式或封面变。
 final _playerTheme = buildTheme(Brightness.dark);
+final _fallbackCoverTheme = coverTheme(fallbackPalette[1]);
 
 /// Apple Music 风格的全屏播放页：封面取色流动背景、下拉关闭，
 /// 窄屏下封面会收进左上角，给歌词 / 播放队列腾地方。
@@ -330,7 +331,12 @@ class _PlayerPageState extends State<PlayerPage>
         : RepaintBoundary(
             child: switch (_side) {
               _Panel.lyrics => const LyricView(key: ValueKey('lyrics')),
-              _Panel.detail => const SongDetailView(key: ValueKey('detail')),
+              // 歌曲信息页不弹窗，里面的加载动画照旧跟着封面变色
+              _Panel.detail => Theme(
+                key: const ValueKey('detail'),
+                data: _art?.theme ?? _fallbackCoverTheme,
+                child: const SongDetailView(),
+              ),
               _Panel.queue => _QueuePanel(
                 key: const ValueKey('queue'),
                 onPullStart: () {

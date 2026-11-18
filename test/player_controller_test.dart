@@ -271,6 +271,35 @@ void main() {
       },
     );
 
+    if (!remote) {
+      testWidgets('local: restored position waits for play', (tester) async {
+        PlayerSessionStore().write([_song(1)], 0, 'sequence');
+        create();
+        addTearDown(close);
+        await player.restorePosition(const Duration(seconds: 42));
+        expect(engine.opened, isEmpty);
+        expect(player.position.value, const Duration(seconds: 42));
+        await player.play();
+        expect(
+          (engine.opened.single as Media).start,
+          const Duration(seconds: 42),
+        );
+      });
+
+      testWidgets('local: seeking a restored song plays from there', (
+        tester,
+      ) async {
+        PlayerSessionStore().write([_song(1)], 0, 'sequence');
+        create();
+        addTearDown(close);
+        await player.seek(const Duration(seconds: 42));
+        expect(
+          (engine.opened.single as Media).start,
+          const Duration(seconds: 42),
+        );
+      });
+    }
+
     testWidgets(
       '${remote ? "remote" : "local"}: switching clears chorus and discards stale metadata',
       (tester) async {

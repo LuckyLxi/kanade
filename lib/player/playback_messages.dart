@@ -19,6 +19,7 @@ enum PlaybackOp {
   pause,
   toggle,
   seek,
+  restorePosition,
   mode,
   defaultQuality,
   fade,

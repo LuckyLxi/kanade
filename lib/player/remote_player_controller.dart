@@ -9,10 +9,13 @@ class _RemotePlayerController extends PlayerController {
     AndroidPlaybackConnection Function(String, void Function(PlaybackMessage))?
     connectionFactory,
   }) : super._() {
-    _connection = (connectionFactory ?? AndroidPlaybackConnection.new)(
-      directory,
-      _applyUpdate,
-    );
+    _connection =
+        (connectionFactory ??
+        (directory, onUpdate) => AndroidPlaybackConnection(
+          directory,
+          onUpdate,
+          onRestart: _resumePosition,
+        ))(directory, _applyUpdate);
     _lifecycle = AppLifecycleListener(
       onResume: _connect,
       onPause: () => _connection.setWatching(false),
@@ -29,10 +32,21 @@ class _RemotePlayerController extends PlayerController {
   late final AppLifecycleListener _lifecycle;
   (String, bool)? _lastLike;
   bool _disposed = false;
+  bool _resuming = false;
 
   void _connect() {
     _connection.setWatching(true);
     _ignore(_connection.connect());
+  }
+
+  // 新拉起的播放进程从会话里恢复了同一首歌，但进度归零：把界面记得的进度交给它，
+  // 按播放键时从这里接着放。只存在内存里，两个进程都重启时还是从头开始。
+  // 交回之前它报上来的 0 不显示，进度条不会闪回开头
+  void _resumePosition() {
+    final at = position.value;
+    if (current == null || at == Duration.zero) return;
+    _resuming = true;
+    _ignore(restorePosition(at).whenComplete(() => _resuming = false));
   }
 
   void _ignore(Future<Object?> future) {
@@ -68,6 +82,7 @@ class _RemotePlayerController extends PlayerController {
   void _applyUpdate(PlaybackMessage message) {
     if (_disposed) return;
     if (message['position'] case final int milliseconds) {
+      if (_resuming) return;
       position.value = Duration(milliseconds: milliseconds);
       return;
     }
@@ -156,6 +171,10 @@ class _RemotePlayerController extends PlayerController {
 
   @override
   Future<void> seek(Duration d) => _send(PlaybackOp.seek, d.inMilliseconds);
+
+  @override
+  Future<void> restorePosition(Duration d) =>
+      _send(PlaybackOp.restorePosition, d.inMilliseconds);
 
   @override
   void setMode(PlayMode m) {

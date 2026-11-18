@@ -204,6 +204,9 @@ class _LocalPlayerController extends PlayerController {
   /// 上次的队列是启动时恢复出来的，还没取过音源：按播放键时才真正打开。
   bool _restored = false;
 
+  /// 播放进程重启后交回的进度，按播放键时从这里开始。
+  Duration? _restoredStart;
+
   /// 正在把新音源交给播放器并接着播放，期间忽略它报的暂停。
   bool _opening = false;
 
@@ -371,7 +374,12 @@ class _LocalPlayerController extends PlayerController {
     notifyListeners();
   }
 
-  Future<void> _playAt(int i, {int skipped = 0, int pinnedNext = 0}) async {
+  Future<void> _playAt(
+    int i, {
+    int skipped = 0,
+    int pinnedNext = 0,
+    Duration? start,
+  }) async {
     if (i < 0 || i >= queue.length) return;
     // 手动点了别的歌，之前插的“下一首”就不再算数
     _pinnedNext = pinnedNext;
@@ -380,12 +388,13 @@ class _LocalPlayerController extends PlayerController {
     _attempt = null;
     _skipped = skipped;
     _restored = false;
+    _restoredStart = null;
     index = i;
     _saveSession();
     loading = true;
     error = null;
     actualQuality = null;
-    position.value = Duration.zero;
+    position.value = start ?? Duration.zero;
     duration = Duration(seconds: queue[i].durationSecs);
     _refreshDisplayMetadata();
     notifyListeners();
@@ -400,6 +409,7 @@ class _LocalPlayerController extends PlayerController {
         quality,
         token: token,
         urlToken: urlToken,
+        start: start,
         fadeOut: skipped == 0,
       );
     } catch (e) {
@@ -592,7 +602,7 @@ class _LocalPlayerController extends PlayerController {
 
   @override
   Future<void> play() async {
-    if (_restored) return playAt(index);
+    if (_restored) return _playAt(index, start: _restoredStart);
     if (!_player.state.playing) {
       // 从静音开始放，再慢慢升回原来的音量
       _pauseRamp++;
@@ -624,7 +634,17 @@ class _LocalPlayerController extends PlayerController {
   }
 
   @override
-  Future<void> seek(Duration d) => _player.seek(d);
+  Future<void> seek(Duration d) async {
+    if (_restored) return _playAt(index, start: d);
+    return _player.seek(d);
+  }
+
+  @override
+  Future<void> restorePosition(Duration d) async {
+    if (!_restored) return;
+    _restoredStart = d;
+    position.value = d;
+  }
 
   @override
   Future<({int limitMb, int bytes})> audioCacheInfo() async => (

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
+
 import 'playback_messages.dart';
 
 typedef PlaybackMessage = Map<String, Object?>;
@@ -20,17 +22,23 @@ void sendPlaybackMessage(Socket socket, PlaybackMessage message) {
 }
 
 class AndroidPlaybackConnection {
-  AndroidPlaybackConnection(String directory, this.onUpdate)
+  AndroidPlaybackConnection(String directory, this.onUpdate, {this.onRestart})
     : _address = playbackAddress(directory);
 
   final InternetAddress _address;
   final void Function(PlaybackMessage) onUpdate;
+
+  /// 断开后重新连上：原来的播放进程已经没了，连上的是新拉起的。
+  final void Function()? onRestart;
   final _pending = <int, Completer<Object?>>{};
   Socket? _socket;
   Future<Socket>? _connecting;
   int _nextId = 0;
   bool _watching = true;
   bool _disposed = false;
+  bool _lost = false;
+
+  static const _service = MethodChannel('kanade/playback');
 
   void setWatching(bool watching) {
     if (_watching == watching) return;
@@ -55,6 +63,7 @@ class AndroidPlaybackConnection {
 
   Future<Socket> _open() async {
     final wait = Stopwatch()..start();
+    var started = false;
     while (true) {
       if (_disposed) throw StateError('Playback connection has closed');
       try {
@@ -73,9 +82,18 @@ class AndroidPlaybackConnection {
           cancelOnError: true,
         );
         if (_watching) sendPlaybackMessage(socket, {'watch': true});
+        if (_lost) {
+          _lost = false;
+          onRestart?.call();
+        }
         return socket;
       } on SocketException {
         if (wait.elapsed >= const Duration(seconds: 8)) rethrow;
+        // 播放进程被系统杀掉后不会自己回来，要界面重新拉起；首次启动由 audio_service 绑定拉起
+        if (_lost && !started) {
+          started = true;
+          _service.invokeMethod<bool>('start').ignore();
+        }
         await Future<void>.delayed(const Duration(milliseconds: 150));
       }
     }
@@ -115,6 +133,7 @@ class AndroidPlaybackConnection {
   void _disconnect(Socket socket, Object error) {
     if (!identical(_socket, socket)) return;
     _socket = null;
+    _lost = true;
     socket.destroy();
     for (final pending in _pending.values) {
       pending.completeError(error);

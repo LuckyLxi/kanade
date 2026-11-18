@@ -177,6 +177,8 @@ class _PlaybackServer {
         await player.toggle();
       case PlaybackOp.seek:
         await player.seek(Duration(milliseconds: argument as int));
+      case PlaybackOp.restorePosition:
+        await player.restorePosition(Duration(milliseconds: argument as int));
       case PlaybackOp.mode:
         player.setMode(PlayMode.values.byName(argument as String));
       case PlaybackOp.defaultQuality:

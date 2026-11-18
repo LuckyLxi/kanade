@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import androidx.core.content.FileProvider
+import com.ryanheise.audioservice.AudioService
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -153,6 +154,20 @@ class MainActivity : AudioServiceActivity() {
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                 .setPackage(call.argument<String>("package")),
                         )
+                        true
+                    } catch (_: Exception) {
+                        false
+                    },
+                )
+                else -> result.notImplemented()
+            }
+        }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "kanade/playback").setMethodCallHandler { call, result ->
+            when (call.method) {
+                // 播放进程被系统单独杀掉时，绑定不会把它拉回来
+                "start" -> result.success(
+                    try {
+                        startService(Intent(this, AudioService::class.java))
                         true
                     } catch (_: Exception) {
                         false

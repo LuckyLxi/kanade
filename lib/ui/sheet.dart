@@ -66,12 +66,13 @@ Future<T?> _showSheet<T>(
 
 /// 默认进出场都是同一条减速曲线、200ms 出头，收起时一下就没了。
 /// 进场滑上来再慢慢停稳；退场先轻轻起步再加速滑出去。
-/// 进场不用 emphasizedDecelerate：它头两帧就走完一半，看着像突然冒出来。
+/// 进场起步要缓：K70 Pro 上点开后头 80~90ms GPU 还没升频，每帧 10~20ms、会掉帧，
+/// 起步陡的曲线（头 80ms 走一半多）配上掉帧就像突然冒出来。这条在头 80ms 只走两成多。
 /// 退场时动画值从 1 走到 0，曲线要翻过来才是“先慢后快”。
 final _sheetMotion = AnimationStyle(
   duration: const Duration(milliseconds: 450),
   reverseDuration: const Duration(milliseconds: 260),
-  curve: const Cubic(0.25, 0.8, 0.25, 1),
+  curve: const Cubic(0.4, 0.3, 0.2, 1),
   reverseCurve: Easing.emphasizedAccelerate.flipped,
 );
 

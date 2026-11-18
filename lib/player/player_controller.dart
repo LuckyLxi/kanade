@@ -181,6 +181,9 @@ abstract class PlayerController extends ChangeNotifier {
   Future<void> pause();
   Future<void> toggle() => playing ? pause() : play();
   Future<void> seek(Duration d);
+
+  /// 播放进程重启后交回原来的进度：只记下位置，不开始播放。
+  Future<void> restorePosition(Duration d);
   void setMode(PlayMode m);
   void cycleMode() =>
       setMode(PlayMode.values[(mode.index + 1) % PlayMode.values.length]);
