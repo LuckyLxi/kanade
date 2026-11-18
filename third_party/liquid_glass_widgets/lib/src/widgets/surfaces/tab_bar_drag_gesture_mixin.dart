@@ -112,7 +112,7 @@ mixin TabDragGestureMixin<T extends StatefulWidget> on State<T> {
 
   /// Lateral sway offset in logical pixels.
   ///
-  /// Driven by horizontal drag velocity — gives the bar body a subtle
+  /// Driven by horizontal drag distance — gives the bar body a
   /// physical response when the interactive pill is dragged left/right,
   /// mimicking iOS 26 bottom bar behaviour. Animated back to `0.0` via
   /// a spring when the drag ends or is cancelled.
@@ -121,14 +121,10 @@ mixin TabDragGestureMixin<T extends StatefulWidget> on State<T> {
   double barSwayOffset = 0.0;
 
   /// Maximum lateral sway in logical pixels — keeps the effect subtle.
-  static const double _maxSwayPx = 0.75;
+  static const double _maxSwayPx = 8.0;
 
-  /// Scale factor mapping instantaneous drag delta to sway offset.
-  static const double _swayScale = 0.08;
-
-  /// Minimum drag delta magnitude (px/frame) required to trigger sway.
-  /// Below this threshold the bar stays still — only fast flicks cause sway.
-  static const double _swayVelocityThreshold = 4.0;
+  /// Drag distance at which the sway reaches half of [_maxSwayPx].
+  static const double _swayTravelScale = 60.0;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -379,23 +375,20 @@ mixin TabDragGestureMixin<T extends StatefulWidget> on State<T> {
 
   /// `onHorizontalDragUpdate` — track pointer during drag.
   ///
-  /// Also updates [barSwayOffset] based on instantaneous drag velocity,
-  /// giving the bar a subtle lateral sway when the interactive pill is
-  /// flicked quickly — mimicking iOS 26 bottom bar physics.
-  ///
-  /// Slow drags (below [_swayVelocityThreshold]) produce zero sway;
-  /// only fast flicks cause the bar to shift.
+  /// Also updates [barSwayOffset] from the distance dragged, so the bar
+  /// follows the interactive pill with increasing resistance.
   void onBarDragUpdate(DragUpdateDetails d) {
     if (!mounted) return;
     setState(() {
       tabIsDragging = true;
       tabXAlign = _alignmentFromDragGlobalPosition(d.globalPosition);
-      // Velocity-gated lateral sway: only fast flicks cause movement.
-      final delta = tabAxis == Axis.horizontal ? d.delta.dx : d.delta.dy;
-      if (delta.abs() > _swayVelocityThreshold) {
-        barSwayOffset = (delta * _swayScale).clamp(-_maxSwayPx, _maxSwayPx);
-      } else {
-        barSwayOffset = 0.0;
+      // kanade：整条栏按拖动距离跟手，越远阻力越大，松手由 SpringBuilder 弹回
+      final start = _dragStartGlobalPosition;
+      if (start != null) {
+        final travel = d.globalPosition - start;
+        final t = (tabAxis == Axis.horizontal ? travel.dx : travel.dy) /
+            _swayTravelScale;
+        barSwayOffset = _maxSwayPx * t / (1 + t.abs());
       }
     });
   }

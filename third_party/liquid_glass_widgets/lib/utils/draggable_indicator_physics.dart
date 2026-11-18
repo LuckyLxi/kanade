@@ -21,6 +21,9 @@ import 'package:flutter/widgets.dart';
 class DraggableIndicatorPhysics {
   DraggableIndicatorPhysics._();
 
+  /// Upper bound of how far a dragged tab indicator travels past an edge.
+  static const double _maxOverdragPx = 10.0;
+
   // ===========================================================================
   // Rubber Band Physics
   // ===========================================================================
@@ -237,12 +240,14 @@ class DraggableIndicatorPhysics {
 
     final draggableRange = 1.0 - (1.0 / itemCount);
     final direction = isReversed ? -1.0 : 1.0;
-    final rawAlignment =
-        startAlignment + direction * 2 * delta / (extent * draggableRange);
-    final adjustedRelativeX = applyRubberBandResistance(
-      (rawAlignment + 1) / 2,
-    );
-    return (adjustedRelativeX * 2) - 1;
+    final travel = extent * draggableRange;
+    final rawAlignment = startAlignment + direction * 2 * delta / travel;
+    // kanade：越界按像素算，平滑收敛到 _maxOverdragPx，整条栏也会跟着挪
+    final over = rawAlignment.abs() - 1;
+    if (over <= 0) return rawAlignment;
+    final overPx = over * travel / 2;
+    final resisted = _maxOverdragPx * overPx / (overPx + _maxOverdragPx * 2);
+    return rawAlignment.sign * (1 + resisted * 2 / travel);
   }
 
   /// Converts a global tap position to a tab index using the raw (un-remapped)
