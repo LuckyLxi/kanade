@@ -15,6 +15,7 @@ import '../library/library_controller.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/types.dart';
 import 'comments_page.dart';
+import 'cover_shadow.dart';
 import 'play_pause_button.dart';
 import 'player_background.dart';
 import 'player_detail.dart';
@@ -55,24 +56,35 @@ class PlayerPage extends StatefulWidget {
   /// Windows 首次转场前准备背景和封面投影的 GPU 绘制程序。
   static Future<void> warmUp() async {
     await warmUpPlayerBackground();
+    await loadCoverShadow();
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     final pixelRatio =
         ui.PlatformDispatcher.instance.views.first.devicePixelRatio;
     canvas.scale(pixelRatio);
-    for (final lifted in [false, true]) {
-      for (final t in [0.1, 0.5, 1.0]) {
-        final painter = BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [albumArtShadow(lifted: lifted).scale(t)],
-        ).createBoxPainter();
-        painter.paint(
-          canvas,
-          const Offset(100, 100),
-          ImageConfiguration(size: Size.square(54 + 346 * t)),
+    // 转场里封面会被裁剪、半透明合成，这些组合在 Skia 上各编一次，一起预热
+    for (final layer in [false, true]) {
+      if (layer) {
+        canvas.clipRRect(
+          RRect.fromLTRBR(0, 0, 590, 590, const Radius.circular(20)),
         );
-        painter.dispose();
+        canvas.saveLayer(null, Paint()..color = const Color(0x80000000));
       }
+      for (final lifted in [false, true]) {
+        for (final t in [0.1, 0.5, 1.0]) {
+          final painter = CoverShadowDecoration(
+            radius: 14,
+            shadow: albumArtShadow(lifted: lifted).scale(t),
+          ).createBoxPainter();
+          painter.paint(
+            canvas,
+            const Offset(100, 100),
+            ImageConfiguration(size: Size.square(54 + 346 * t)),
+          );
+          painter.dispose();
+        }
+      }
+      if (layer) canvas.restore();
     }
     final picture = recorder.endRecording();
     try {
@@ -572,9 +584,9 @@ class _AlbumArt extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 650),
         curve: Curves.easeOutCubic,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(radius),
-          boxShadow: [albumArtShadow(lifted: lifted)],
+        decoration: CoverShadowDecoration(
+          radius: radius,
+          shadow: albumArtShadow(lifted: lifted),
         ),
         // 打开播放页时封面从播放条飞过来，落点量的就是这里
         child: KeyedSubtree(

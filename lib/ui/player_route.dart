@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../data/data_ext.dart';
 import '../player/player_controller.dart';
+import 'cover_shadow.dart';
 import 'player_page.dart';
 import 'title_bar.dart';
 import 'widgets.dart';
@@ -607,16 +608,14 @@ class _FlyingCover extends StatelessWidget {
       lifted: context.select<PlayerController, bool>((p) => p.playing),
     );
     return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius),
-        boxShadow: [
-          BoxShadow(
-            color: shadow.color.withValues(alpha: shadow.color.a * t),
-            offset: shadow.offset * t,
-            blurRadius: shadow.blurRadius * t,
-            spreadRadius: shadow.spreadRadius * t,
-          ),
-        ],
+      decoration: CoverShadowDecoration(
+        radius: radius,
+        shadow: BoxShadow(
+          color: shadow.color.withValues(alpha: shadow.color.a * t),
+          offset: shadow.offset * t,
+          blurRadius: shadow.blurRadius * t,
+          spreadRadius: shadow.spreadRadius * t,
+        ),
       ),
       child: Cover(
         bigCoverUrl(song),

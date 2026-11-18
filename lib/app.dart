@@ -16,6 +16,7 @@ import 'settings/locale_controller.dart';
 import 'settings/theme_controller.dart';
 import 'src/rust/api/music.dart' as api;
 import 'src/rust/frb_generated.dart';
+import 'ui/cover_shadow.dart';
 import 'ui/glass.dart';
 import 'ui/home_shell.dart';
 import 'ui/player_page.dart';
@@ -40,6 +41,7 @@ Future<void> initApp({
   }
   // 预热玻璃着色器，避免第一次出现玻璃时闪白
   await KanadeGlass.initialize();
+  unawaited(loadCoverShadow());
   if (Platform.isWindows) {
     unawaited(
       WidgetsBinding.instance.waitUntilFirstFrameRasterized.then(

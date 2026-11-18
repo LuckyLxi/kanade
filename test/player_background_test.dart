@@ -138,4 +138,36 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  Uint8List cover(int Function(int x, int y) value) {
+    final px = Uint8List(128 * 128 * 4);
+    for (var y = 0; y < 128; y++) {
+      for (var x = 0; x < 128; x++) {
+        final i = (y * 128 + x) * 4;
+        px[i] = px[i + 1] = px[i + 2] = value(x, y);
+        px[i + 3] = 255;
+      }
+    }
+    return px;
+  }
+
+  test('cover blur keeps a flat cover flat within dither', () {
+    final out = blurCoverPixels(cover((_, _) => 100), 128, 128);
+    expect(out.length, 256 * 256 * 4);
+    for (var i = 0; i < out.length; i += 4) {
+      expect(out[i], inInclusiveRange(99, 101));
+      expect(out[i + 3], 255);
+    }
+  });
+
+  test('cover blur does not round horizontal stripes into constant rows', () {
+    // 每行颜色一样、行间相差 1：模糊后大多数行落在两个整数之间
+    final out = blurCoverPixels(cover((_, y) => 80 + y % 2), 128, 128);
+    var constantRows = 0;
+    for (var y = 0; y < 256; y++) {
+      final row = {for (var x = 0; x < 256; x++) out[(y * 256 + x) * 4]};
+      if (row.length == 1) constantRows++;
+    }
+    expect(constantRows, 0);
+  });
 }

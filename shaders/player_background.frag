@@ -71,6 +71,12 @@ vec3 blob(vec3 col, vec2 p, vec3 color, vec2 center) {
   return mix(col, color, 0.6 * exp(-dot(d, d) / 0.07));
 }
 
+float hash(vec2 p) {
+  vec3 p3 = fract(p.xyx * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+
 void main() {
   vec2 frag = FlutterFragCoord().xy;
   float a = uPhase;
@@ -100,9 +106,10 @@ void main() {
   float y = frag.y / uSize.y;
   col *= mix(0.9, 0.62, smoothstep(0.45, 1.0, y)) * mix(0.85, 1.0, smoothstep(0.0, 0.2, y));
 
-  // 抖动噪声：8 位颜色在大面积暗色渐变里会出现一圈圈色带
-  float n = fract(52.9829189 * fract(dot(frag, vec2(0.06711056, 0.00583715))));
-  col += (n - 0.5) / 255.0;
+  // 抖动噪声：8 位颜色在大面积暗色渐变里会出现一圈圈色带。
+  // 用无方向的哈希噪声，两次相加成 ±1 色阶的三角分布；交错梯度噪声自带横向斜纹，暗色平面上看得见
+  float n = hash(frag) + hash(frag + 71.3);
+  col += (n - 1.0) / 255.0;
 
   fragColor = vec4(col, 1.0);
 }

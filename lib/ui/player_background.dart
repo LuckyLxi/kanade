@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'dart:math';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart' show SynchronousFuture;
+import 'package:flutter/foundation.dart'
+    show SynchronousFuture, visibleForTesting;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -145,22 +147,24 @@ Future<CoverArt> _build(String url) async {
   final src = await _loadSmall(NetworkImage(url));
   try {
     final data = await src.toByteData(format: ui.ImageByteFormat.rawRgba);
-    final palette = data == null ? fallbackPalette : _pick(data);
-    final rec = ui.PictureRecorder();
-    Canvas(rec).drawImageRect(
-      src,
-      Rect.fromLTWH(0, 0, src.width.toDouble(), src.height.toDouble()),
-      const Rect.fromLTWH(0, 0, _artSize + 0.0, _artSize + 0.0),
-      Paint()
-        ..filterQuality = FilterQuality.high
-        ..imageFilter = ui.ImageFilter.blur(
-          sigmaX: 6,
-          sigmaY: 6,
-          tileMode: TileMode.mirror,
-        ),
+    if (data == null) throw StateError('cover pixels unavailable');
+    final palette = _pick(data);
+    final bytes = data.buffer.asUint8List(
+      data.offsetInBytes,
+      data.lengthInBytes,
     );
-    final blurred = await rec.endRecording().toImage(_artSize, _artSize);
-    final art = CoverArt(palette, blurred);
+    final w = src.width;
+    final h = src.height;
+    final pixels = await Isolate.run(() => blurCoverPixels(bytes, w, h));
+    final done = Completer<ui.Image>();
+    ui.decodeImageFromPixels(
+      pixels,
+      _artSize,
+      _artSize,
+      ui.PixelFormat.rgba8888,
+      done.complete,
+    );
+    final art = CoverArt(palette, await done.future);
     if (Platform.isWindows) {
       await (_coverWarmUp ??= warmUpPlayerBackground(art: art));
     }
@@ -173,6 +177,81 @@ Future<CoverArt> _build(String url) async {
   } finally {
     src.dispose();
   }
+}
+
+/// 把 RGBA 小封面放大到 [_artSize] 并做 sigma 6 的高斯模糊（边缘镜像），返回 RGBA 像素。
+/// 不用 GPU 模糊：它输出 8 位时直接四舍五入，横向纹理多的封面每一行的舍入误差连成一片，
+/// 背景再把小图放大十几倍、提饱和，就成了一条条横纹。这里用浮点算完，加抖动再取整。
+@visibleForTesting
+Uint8List blurCoverPixels(Uint8List src, int srcW, int srcH) {
+  const n = _artSize;
+  final tmp = Float32List(srcH * n * 3);
+  final xs = _blurTaps(srcW);
+  for (var y = 0; y < srcH; y++) {
+    for (var o = 0; o < n; o++) {
+      final (start, w) = xs[o];
+      var r = 0.0, g = 0.0, b = 0.0;
+      for (var k = 0; k < w.length; k++) {
+        final i = (y * srcW + _mirrorIndex(start + k, srcW)) * 4;
+        r += w[k] * src[i];
+        g += w[k] * src[i + 1];
+        b += w[k] * src[i + 2];
+      }
+      final t = (y * n + o) * 3;
+      tmp[t] = r;
+      tmp[t + 1] = g;
+      tmp[t + 2] = b;
+    }
+  }
+  final out = Uint8List(n * n * 4);
+  final ys = _blurTaps(srcH);
+  final rnd = Random(1);
+  int dither(double v) =>
+      (v + rnd.nextDouble() - rnd.nextDouble()).round().clamp(0, 255);
+  for (var o = 0; o < n; o++) {
+    final (start, w) = ys[o];
+    for (var x = 0; x < n; x++) {
+      var r = 0.0, g = 0.0, b = 0.0;
+      for (var k = 0; k < w.length; k++) {
+        final t = (_mirrorIndex(start + k, srcH) * n + x) * 3;
+        r += w[k] * tmp[t];
+        g += w[k] * tmp[t + 1];
+        b += w[k] * tmp[t + 2];
+      }
+      final i = (o * n + x) * 4;
+      out[i] = dither(r);
+      out[i + 1] = dither(g);
+      out[i + 2] = dither(b);
+      out[i + 3] = 255;
+    }
+  }
+  return out;
+}
+
+/// 一个方向上每个输出像素的起始源像素和归一化的高斯权重。
+List<(int, Float64List)> _blurTaps(int srcLen) {
+  final scale = srcLen / _artSize;
+  final sigma = 6 * scale;
+  return List.generate(_artSize, (o) {
+    final c = (o + 0.5) * scale - 0.5;
+    final start = (c - 3 * sigma).floor();
+    final w = Float64List((c + 3 * sigma).ceil() - start + 1);
+    var sum = 0.0;
+    for (var k = 0; k < w.length; k++) {
+      final d = start + k - c;
+      sum += w[k] = exp(-d * d / (2 * sigma * sigma));
+    }
+    for (var k = 0; k < w.length; k++) {
+      w[k] /= sum;
+    }
+    return (start, w);
+  });
+}
+
+int _mirrorIndex(int i, int len) {
+  final period = 2 * len;
+  i %= period;
+  return i < len ? i : period - 1 - i;
 }
 
 Future<ui.Image> _loadSmall(ImageProvider provider) {
