@@ -76,6 +76,17 @@ class _LocalPlayerController extends PlayerController {
       }),
     ]);
     _restored = current != null;
+    if (_restoredRadio case {
+      'kind': final String kind,
+      'seed': final List<dynamic> seed,
+      'id': final int? id,
+      'pages': final int pages,
+    }) {
+      _radioSource = RadioSource.fromMessage(kind, seed.cast<int>(), id);
+      _radioPages = pages;
+      _radio = _radioSource!._fetcher(pages);
+    }
+    _restoredRadio = null;
     if (volume != 100) unawaited(_player.setVolume(volume));
   }
 
@@ -251,7 +262,21 @@ class _LocalPlayerController extends PlayerController {
 
   /// 电台模式（猜你喜欢、刷歌）下用来取下一批歌；普通播放列表为 null。
   Future<List<Song>> Function()? _radio;
+  RadioSource? _radioSource;
+
+  /// 电台已经取过几批，刷歌模式按页取，重启后从下一页接着取。
+  int _radioPages = 0;
   bool _radioLoading = false;
+
+  @override
+  Map<String, Object?>? get _radioSession => _radio == null
+      ? null
+      : {
+          'kind': _radioSource!.kind,
+          'seed': _radioSource!.seed,
+          'id': _radioSource!.id,
+          'pages': _radioPages,
+        };
 
   @override
   Future<void> playList(List<Song> songs, int start) async {
@@ -273,6 +298,8 @@ class _LocalPlayerController extends PlayerController {
     first ??= await fetch();
     if (first.isEmpty) throw StateError('radio returned no songs');
     _radio = fetch;
+    _radioSource = source;
+    _radioPages = 1;
     queue = List.of(first);
     await playAt(0);
   }
@@ -284,8 +311,11 @@ class _LocalPlayerController extends PlayerController {
     _radioLoading = true;
     try {
       final known = {for (final s in queue) s.mid};
-      final more = (await fetch()).where((s) => known.add(s.mid)).toList();
-      if (_radio != fetch || more.isEmpty) return false;
+      final batch = await fetch();
+      if (_radio != fetch) return false;
+      _radioPages++;
+      final more = batch.where((s) => known.add(s.mid)).toList();
+      if (more.isEmpty) return false;
       queue = [...queue, ...more];
       _saveSession();
       notifyListeners();

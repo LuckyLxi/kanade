@@ -8,7 +8,8 @@ import '../src/rust/api/types.dart';
 class PlayerSessionStore {
   static const _key = 'last_session';
 
-  ({List<Song> queue, int index, String? mode})? read() {
+  ({List<Song> queue, int index, String? mode, Map<String, dynamic>? radio})?
+  read() {
     final raw = api.getPref(key: _key);
     if (raw == null) return null;
     try {
@@ -23,6 +24,7 @@ class PlayerSessionStore {
         queue: songs,
         index: index,
         mode: m['mode'] is String ? m['mode'] as String : null,
+        radio: m['radio'] as Map<String, dynamic>?,
       );
     } catch (_) {
       return null;
@@ -32,13 +34,19 @@ class PlayerSessionStore {
   /// 队列删空了：下次启动不再恢复。读的时候解析失败就当没有会话。
   void clear() => api.setPref(key: _key, value: '');
 
-  void write(List<Song> queue, int index, String mode) {
+  void write(
+    List<Song> queue,
+    int index,
+    String mode, {
+    Map<String, Object?>? radio,
+  }) {
     api.setPref(
       key: _key,
       value: jsonEncode({
         'queue': [for (final song in queue) songToJson(song)],
         'index': index,
         'mode': mode,
+        'radio': ?radio,
       }),
     );
   }

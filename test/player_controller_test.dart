@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter_rust_bridge/flutter_rust_bridge.dart' show Int64List;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kanade/auth/auth_controller.dart';
 import 'package:kanade/data/song_json.dart';
@@ -78,6 +79,16 @@ class _Api implements RustLibApi {
 
   @override
   CachedAudio? crateApiMusicGetAnyCachedAudio({required String mid}) => null;
+  final radarPages = <int>[];
+  @override
+  Future<List<Song>> crateApiMusicGetRadarSongs({
+    required Int64List seed,
+    required int page,
+  }) async {
+    radarPages.add(page);
+    return [_song(2), _song(3)];
+  }
+
   void complete(int id) {
     lyrics[id]!.complete(Lyric(lines: const [], plain: 'lyric$id'));
     choruses[id]!.complete(
@@ -96,6 +107,7 @@ class _Api implements RustLibApi {
     requests.clear();
     unavailable.clear();
     audioRequests.clear();
+    radarPages.clear();
   }
 
   @override
@@ -284,6 +296,28 @@ void main() {
           (engine.opened.single as Media).start,
           const Duration(seconds: 42),
         );
+      });
+
+      testWidgets('local: restored radio keeps fetching from the next page', (
+        tester,
+      ) async {
+        PlayerSessionStore().write(
+          [_song(1), _song(2)],
+          1,
+          'sequence',
+          radio: {
+            'kind': 'radar',
+            'seed': [1],
+            'id': null,
+            'pages': 1,
+          },
+        );
+        create();
+        addTearDown(close);
+        await player.play();
+        await tester.pump();
+        expect(api.radarPages, [2]);
+        expect(player.queue.map((s) => s.mid), ['m1', 'm2', 'm3']);
       });
 
       testWidgets('local: seeking a restored song plays from there', (

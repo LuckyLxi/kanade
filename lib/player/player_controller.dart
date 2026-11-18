@@ -35,8 +35,8 @@ class RadioSource {
   final List<int> seed;
   final int? id;
 
-  Future<List<Song>> Function() _fetcher() {
-    var page = 0;
+  /// [page] 是已经取过的页数，重启后恢复刷歌模式时接着往后取。
+  Future<List<Song>> Function() _fetcher([int page = 0]) {
     return switch (kind) {
       'guess' => api.getGuessYouLike,
       'radar' => () => api.getRadarSongs(
@@ -257,18 +257,25 @@ abstract class PlayerController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 正在放的电台，存进会话；普通播放列表为 null。
+  Map<String, Object?>? get _radioSession => null;
+
+  /// 启动时从会话里读到的电台，由本地播放器接着往下取。
+  Map<String, dynamic>? _restoredRadio;
+
   /// 记下队列、当前歌曲和播放模式，下次启动时播放栏还显示这首。
   void _saveSession() {
     if (current == null) return;
-    _sessionStore.write(queue, index, mode.name);
+    _sessionStore.write(queue, index, mode.name, radio: _radioSession);
   }
 
-  /// 恢复上次的队列，只显示不播放。电台模式恢复成普通列表。
+  /// 恢复上次的队列，只显示不播放。
   void _restoreSession() {
     final session = _sessionStore.read();
     if (session == null) return;
     queue = session.queue;
     index = session.index;
+    _restoredRadio = session.radio;
     // 旧版本只把模式存在会话里
     if (api.getPref(key: _modeKey) == null) {
       mode = PlayMode.values.asNameMap()[session.mode] ?? mode;
