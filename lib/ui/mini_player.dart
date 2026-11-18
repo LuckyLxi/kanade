@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
+import 'package:flutter/physics.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:provider/provider.dart';
@@ -77,11 +78,54 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
   late final _drag = PlayerBarDrag(_anchor, this);
   late final _visibility = Listenable.merge([_anchor.hidden, _anchor.growing]);
 
+  /// 按住时整条轻微放大，松手回弹；值就是缩放，弹簧接着当前速度走。
+  late final AnimationController _press = AnimationController.unbounded(
+    vsync: this,
+    value: 1,
+  )..addListener(() => _anchor.pressScale.value = _press.value);
+  static const _pressedScale = 1.03;
+  static final _pressSpring = SpringDescription.withDampingRatio(
+    mass: 1,
+    stiffness: 420,
+    ratio: 0.75,
+  );
+  static final _releaseSpring = SpringDescription.withDampingRatio(
+    mass: 1,
+    stiffness: 260,
+    ratio: 0.5,
+  );
+
+  void _springTo(double target, SpringDescription spring) => _press.animateWith(
+    // 停下时正好落在目标上，松手后回到 1 才不留一点点缩放
+    SpringSimulation(
+      spring,
+      _press.value,
+      target,
+      _press.velocity,
+      snapToEnd: true,
+    ),
+  );
+
+  /// 按在里面的按钮上时不放大；按钮的 Listener 比外面的先收到同一次按下。
+  bool _downOnButton = false;
+
   @override
   void dispose() {
     _swipe.dispose();
+    _press.dispose();
+    _anchor.pressScale.value = 1;
     super.dispose();
   }
+
+  void _onPointerDown(PointerDownEvent _) {
+    if (_downOnButton) {
+      _downOnButton = false;
+      return;
+    }
+    _springTo(_pressedScale, _pressSpring);
+  }
+
+  void _release() => _springTo(1, _releaseSpring);
 
   /// 松手才切：歌名滑出去，换成下一首从另一边滑进来；不够远就弹回。
   Future<void> _onSwipeEnd(DragEndDetails d) async {
@@ -135,94 +179,105 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
       onHorizontalDragStart: swipe ? (_) => _swipe.stop() : null,
       onHorizontalDragUpdate: swipe ? (d) => _swipe.value += d.delta.dx : null,
       onHorizontalDragEnd: swipe ? _onSwipeEnd : null,
-      child: LayoutBuilder(
-        builder: (context, box) {
-          final w = box.maxWidth, h = box.maxHeight;
-          // 胶囊里 44，圆球和导航栏那么高时 46
-          final d = lerpDouble(
-            MiniPlayer._coverSize,
-            MiniPlayer._circleCover,
-            ((MiniPlayer.height - h) / 6).clamp(0.0, 1.0),
-          )!;
-          final face = widget.faceOpacity.clamp(0.0, 1.0);
-          final content = Material(
-            type: MaterialType.transparency,
-            child: Stack(
-              children: [
-                if (widget.faceOpacity > 0)
-                  Positioned(
-                    left: 0,
-                    top: (h - MiniPlayer.height) / 2,
-                    width: widget.capsuleWidth ?? w,
-                    height: MiniPlayer.height,
-                    child: widget.faceStagger
-                        ? _MiniFace(swipe: _swipe, reveal: face)
-                        : Opacity(
-                            opacity: face,
-                            child: _MiniFace(swipe: _swipe),
-                          ),
-                  ),
-                Positioned(
-                  // 封面平时待在左端的半圆里，收成圆时是右边缩进来
-                  left: lerpDouble(
-                    (h - d) / 2,
-                    w - (h + d) / 2,
-                    widget.coverShift,
-                  ),
-                  top: (h - d) / 2,
-                  width: d,
-                  height: d,
-                  child: KeyedSubtree(
-                    key: _anchor.coverKey,
-                    child: Cover(
-                      song.coverUrl,
-                      size: d,
-                      radius: d / 2,
-                      keepPrevious: true,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-          // 变形开头玻璃跟着长成播放页的形状，歌名和封面这时由转场层画
-          return PlayerBarGrowth(
-            anchor: _anchor,
-            builder: (growing, shapeT) {
-              final shape = LiquidRoundedRectangle(
-                borderRadius: PlayerMorph.radiusAt(math.min(w, h), shapeT),
-              );
-              final inner = Opacity(
-                opacity: growing ? 0 : 1,
-                child: PlayerBarGrowth.pin(content),
-              );
-              if (!widget.grouped) {
-                return GlassContainer(
-                  useOwnLayer: true,
-                  settings: KanadeGlass.navigationSettings(context),
-                  quality: KanadeGlass.navigationQuality,
-                  shape: shape,
-                  clipBehavior: Clip.antiAlias,
-                  child: inner,
-                );
-              }
-              // 分组的玻璃连同里面的内容都由外面的玻璃层来画，外面套 Opacity 藏不住；
-              // 播放页盖上来时干脆不挂玻璃，只留透明的内容占位
-              return ValueListenableBuilder(
-                valueListenable: _anchor.hidden,
-                child: inner,
-                builder: (_, hidden, inner) => hidden && !growing
-                    ? inner!
-                    : GlassContainer(
-                        quality: KanadeGlass.navigationQuality,
-                        shape: shape,
-                        clipBehavior: Clip.antiAlias,
-                        child: inner,
+      child: Listener(
+        onPointerDown: _onPointerDown,
+        onPointerUp: (_) => _release(),
+        onPointerCancel: (_) => _release(),
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final w = box.maxWidth, h = box.maxHeight;
+            // 胶囊里 44，圆球和导航栏那么高时 46
+            final d = lerpDouble(
+              MiniPlayer._coverSize,
+              MiniPlayer._circleCover,
+              ((MiniPlayer.height - h) / 6).clamp(0.0, 1.0),
+            )!;
+            final face = widget.faceOpacity.clamp(0.0, 1.0);
+            final content = _PressScale(
+              anchor: _anchor,
+              child: Material(
+                type: MaterialType.transparency,
+                child: Stack(
+                  children: [
+                    if (widget.faceOpacity > 0)
+                      Positioned(
+                        left: 0,
+                        top: (h - MiniPlayer.height) / 2,
+                        width: widget.capsuleWidth ?? w,
+                        height: MiniPlayer.height,
+                        child: widget.faceStagger
+                            ? _MiniFace(swipe: _swipe, reveal: face)
+                            : Opacity(
+                                opacity: face,
+                                child: _MiniFace(swipe: _swipe),
+                              ),
                       ),
-              );
-            },
-          );
-        },
+                    Positioned(
+                      // 封面平时待在左端的半圆里，收成圆时是右边缩进来
+                      left: lerpDouble(
+                        (h - d) / 2,
+                        w - (h + d) / 2,
+                        widget.coverShift,
+                      ),
+                      top: (h - d) / 2,
+                      width: d,
+                      height: d,
+                      child: KeyedSubtree(
+                        key: _anchor.coverKey,
+                        child: Cover(
+                          song.coverUrl,
+                          size: d,
+                          radius: d / 2,
+                          keepPrevious: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+            // 变形开头玻璃跟着长成播放页的形状，歌名和封面这时由转场层画
+            return PlayerBarGrowth(
+              anchor: _anchor,
+              builder: (growing, shapeT) {
+                final shape = LiquidRoundedRectangle(
+                  borderRadius: PlayerMorph.radiusAt(
+                    math.min(w, h) * _anchor.pressScale.value,
+                    shapeT,
+                  ),
+                );
+                final inner = Opacity(
+                  opacity: growing ? 0 : 1,
+                  child: PlayerBarGrowth.pin(content),
+                );
+                if (!widget.grouped) {
+                  return GlassContainer(
+                    useOwnLayer: true,
+                    settings: KanadeGlass.navigationSettings(context),
+                    quality: KanadeGlass.navigationQuality,
+                    shape: shape,
+                    clipBehavior: Clip.antiAlias,
+                    child: inner,
+                  );
+                }
+                // 分组的玻璃连同里面的内容都由外面的玻璃层来画，外面套 Opacity 藏不住；
+                // 播放页盖上来时干脆不挂玻璃，只留透明的内容占位
+                return ValueListenableBuilder(
+                  valueListenable: _anchor.hidden,
+                  child: inner,
+                  builder: (_, hidden, inner) => hidden && !growing
+                      ? inner!
+                      : GlassContainer(
+                          quality: KanadeGlass.navigationQuality,
+                          shape: shape,
+                          clipBehavior: Clip.antiAlias,
+                          child: inner,
+                        ),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
     // 播放页盖在上面时由转场层画它，这里藏起来；变形开头只留长大的玻璃
@@ -235,6 +290,22 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
       ),
     );
   }
+}
+
+/// 按下时里面的内容跟着放大；玻璃本身由 [PlayerBarGrowth] 按 [PlayerBarAnchor.pressScale] 排大。
+/// 一直跟着 [PlayerBarAnchor.pressScale]，不在变形途中切换：飞行封面从这里量起点，中途变了就会跳。
+class _PressScale extends StatelessWidget {
+  const _PressScale({required this.anchor, required this.child});
+
+  final PlayerBarAnchor anchor;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: anchor.pressScale,
+    child: child,
+    builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
+  );
 }
 
 /// 胶囊上除封面以外的部分：歌名、播放键（桌面没有手势，再加上一首 / 下一首）、进度线。
@@ -259,15 +330,25 @@ class _MiniFace extends StatelessWidget {
     final buttonsIn = reveal == null
         ? 1.0
         : const Interval(0.3, 1).transform(reveal.clamp(0.0, 1.0));
-    Widget pop(Widget button) => buttonsIn >= 1
-        ? button
-        : Opacity(
-            opacity: buttonsIn,
-            child: Transform.scale(
-              scale: 0.6 + 0.4 * Curves.easeOutBack.transform(buttonsIn),
-              child: button,
-            ),
-          );
+    final bar = context.findAncestorStateOfType<_MiniPlayerState>();
+    Widget pop(Widget button) {
+      if (bar != null) {
+        button = Listener(
+          onPointerDown: (_) => bar._downOnButton = true,
+          child: button,
+        );
+      }
+      return buttonsIn >= 1
+          ? button
+          : Opacity(
+              opacity: buttonsIn,
+              child: Transform.scale(
+                scale: 0.6 + 0.4 * Curves.easeOutBack.transform(buttonsIn),
+                child: button,
+              ),
+            );
+    }
+
     Widget title = Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -35,14 +35,32 @@ class PlayerBarAnchor {
   /// 这段的玻璃就是播放条自己那块跟着长大（见 [PlayerBarGrowth]），其余时候为 null。
   final growing = ValueNotifier<PlayerMorph?>(null);
 
+  /// 按下时播放条以中心放大的倍数。变形从放大后的样子长出去，玻璃和转场层才对得上。
+  final pressScale = ValueNotifier(1.0);
+
   Rect? get rect => _globalRect(barKey);
   Rect? get coverRect => _globalRect(coverKey);
+
+  /// 算上 [pressScale] 的 [rect]。封面在播放条里跟着内容一起放大，[coverRect] 量到的已经算上了。
+  Rect? get pressedRect {
+    final r = rect;
+    if (r == null) return null;
+    final s = pressScale.value;
+    return Rect.fromCenter(
+      center: r.center,
+      width: r.width * s,
+      height: r.height * s,
+    );
+  }
 
   /// 挂着 [key] 的组件在屏幕上的位置。还没布局时返回 null。
   static Rect? _globalRect(GlobalKey key) {
     final box = key.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.hasSize) return null;
-    return box.localToGlobal(Offset.zero) & box.size;
+    return MatrixUtils.transformRect(
+      box.getTransformTo(null),
+      Offset.zero & box.size,
+    );
   }
 }
 
@@ -484,7 +502,7 @@ class _BarMorphState extends State<_BarMorph> {
     final morph = widget.morph;
     final anchor = morph.anchor;
     return AnimatedBuilder(
-      animation: morph.motion,
+      animation: Listenable.merge([morph.motion, anchor?.pressScale]),
       child: _MorphScope(
         morph: morph,
         child: KeyedSubtree(key: _pageKey, child: widget.child),
@@ -494,7 +512,7 @@ class _BarMorphState extends State<_BarMorph> {
         final full = Offset.zero & size;
         // 没有播放条（测试、其他入口）时从屏幕底边升上来
         final start = _start =
-            anchor?.rect ??
+            anchor?.pressedRect ??
             _start ??
             Rect.fromLTWH(16, size.height, size.width - 32, 64);
         morph.travel = math.max(160, start.top);
@@ -651,11 +669,13 @@ class PlayerBarGrowth extends StatelessWidget {
     valueListenable: anchor.growing,
     builder: (context, morph, _) => AnimatedBuilder(
       // 换动画不换结构，玻璃一直是同一个
-      animation: morph?.motion ?? const AlwaysStoppedAnimation(0.0),
+      animation: Listenable.merge([morph?.motion, anchor.pressScale]),
       builder: (context, _) {
         final t = morph?.progress ?? 0.0;
         return _Grow(
           t: t,
+          // 按下的放大也靠把玻璃排大、对齐整像素，不用变换去缩放，边缘不起锯齿
+          scale: anchor.pressScale.value,
           screen: MediaQuery.sizeOf(context),
           pixelRatio: MediaQuery.devicePixelRatioOf(context),
           child: builder(morph != null, shapeT(t)),
@@ -668,22 +688,25 @@ class PlayerBarGrowth extends StatelessWidget {
 class _Grow extends SingleChildRenderObjectWidget {
   const _Grow({
     required this.t,
+    required this.scale,
     required this.screen,
     required this.pixelRatio,
     super.child,
   });
 
   final double t;
+  final double scale;
   final Size screen;
   final double pixelRatio;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderGrow(t, screen, pixelRatio);
+      _RenderGrow(t, scale, screen, pixelRatio);
 
   @override
   void updateRenderObject(BuildContext context, _RenderGrow object) => object
     ..t = t
+    ..scale = scale
     ..screen = screen
     ..pixelRatio = pixelRatio;
 }
@@ -691,7 +714,7 @@ class _Grow extends SingleChildRenderObjectWidget {
 /// 自己占播放条的大小；里面按 [_BarMorph] 的形状排：尺寸从播放条走向全屏，位置走向屏幕左上角。
 /// 尺寸只看进度，排版时就能定；位置要等外面排完，在绘制时才算。
 class _RenderGrow extends RenderProxyBox {
-  _RenderGrow(this._t, this._screen, this._pixelRatio);
+  _RenderGrow(this._t, this._scale, this._screen, this._pixelRatio);
 
   double _t;
   set t(double value) {
@@ -699,6 +722,16 @@ class _RenderGrow extends RenderProxyBox {
     _t = value;
     markNeedsLayout();
   }
+
+  /// 起点按这个倍数以中心放大，和 [PlayerBarAnchor.pressedRect] 一致。
+  double _scale;
+  set scale(double value) {
+    if (value == _scale) return;
+    _scale = value;
+    markNeedsLayout();
+  }
+
+  bool get _rest => _t == 0 && _scale == 1;
 
   Size _screen;
   set screen(Size value) {
@@ -718,8 +751,9 @@ class _RenderGrow extends RenderProxyBox {
   double _snap(double v) => (v * _pixelRatio).roundToDouble() / _pixelRatio;
 
   Offset get _shift {
-    if (_t == 0) return Offset.zero;
-    final shift = -localToGlobal(Offset.zero) * _t;
+    if (_rest) return Offset.zero;
+    final pressed = -_restSize.bottomRight(Offset.zero) * ((_scale - 1) / 2);
+    final shift = pressed * (1 - _t) - localToGlobal(Offset.zero) * _t;
     return Offset(_snap(shift.dx), _snap(shift.dy));
   }
 
@@ -732,10 +766,10 @@ class _RenderGrow extends RenderProxyBox {
   @override
   void performLayout() {
     size = _restSize = constraints.biggest;
-    final grown = Size.lerp(size, _screen, _t)!;
+    final grown = Size.lerp(size * _scale, _screen, _t)!;
     child?.layout(
       BoxConstraints.tight(
-        _t == 0 ? size : Size(_snap(grown.width), _snap(grown.height)),
+        _rest ? size : Size(_snap(grown.width), _snap(grown.height)),
       ),
     );
   }
@@ -779,7 +813,7 @@ class _RenderPin extends RenderProxyBox {
     return node as _RenderGrow?;
   }
 
-  bool get _pinned => (_grow?._t ?? 0) != 0;
+  bool get _pinned => !(_grow?._rest ?? true);
 
   Offset get _back => _pinned ? -_grow!._shift : Offset.zero;
 
