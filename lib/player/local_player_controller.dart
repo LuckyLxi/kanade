@@ -281,6 +281,8 @@ class _LocalPlayerController extends PlayerController {
   @override
   Future<void> playList(List<Song> songs, int start) async {
     _radio = null;
+    _history.clear();
+    _playingMid = null;
     queue = List.of(songs);
     if (queue.isEmpty) {
       _refreshDisplayMetadata();
@@ -329,6 +331,10 @@ class _LocalPlayerController extends PlayerController {
 
   /// 随机模式下，“下一首播放”插在当前歌后面、还没放到的有几首；[next] 先按顺序放完它们。
   int _pinnedNext = 0;
+
+  /// 放过的歌（mid），随机模式下 [previous] 沿着它往回退。
+  final _history = <String>[];
+  String? _playingMid;
 
   /// 把歌插到当前这首后面。连着点几首时，后点的先放。
   @override
@@ -409,8 +415,20 @@ class _LocalPlayerController extends PlayerController {
     int skipped = 0,
     int pinnedNext = 0,
     Duration? start,
+    bool record = true,
   }) async {
     if (i < 0 || i >= queue.length) return;
+    final mid = queue[i].mid;
+    // 放失败被跳过的歌不记
+    if (record &&
+        skipped == 0 &&
+        error == null &&
+        _playingMid != null &&
+        _playingMid != mid) {
+      _history.add(_playingMid!);
+      if (_history.length > 500) _history.removeAt(0);
+    }
+    _playingMid = mid;
     // 手动点了别的歌，之前插的“下一首”就不再算数
     _pinnedNext = pinnedNext;
     final token = ++_token;
@@ -626,6 +644,13 @@ class _LocalPlayerController extends PlayerController {
     if (position.value > const Duration(seconds: 5)) {
       await _player.seek(Duration.zero);
       return;
+    }
+    if (mode == PlayMode.shuffle && _radio == null) {
+      while (_history.isNotEmpty) {
+        final mid = _history.removeLast();
+        final i = queue.indexWhere((s) => s.mid == mid);
+        if (i >= 0 && i != index) return _playAt(i, record: false);
+      }
     }
     await playAt((index - 1 + queue.length) % queue.length);
   }

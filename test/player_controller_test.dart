@@ -549,6 +549,32 @@ void main() {
     expect(player.current?.mid, 'm3');
   });
 
+  testWidgets('shuffle previous walks back through played songs', (
+    tester,
+  ) async {
+    final auth = AuthController(watchSession: false);
+    final player = PlayerController(
+      auth,
+      player: _Engine(),
+      loadDisplayMetadata: false,
+    );
+    addTearDown(() {
+      player.dispose();
+      auth.dispose();
+    });
+    await player.playList([for (var i = 1; i <= 8; i++) _song(i)], 0);
+    player.setMode(PlayMode.shuffle);
+    final played = [player.current!.mid];
+    for (var i = 0; i < 3; i++) {
+      await player.next();
+      played.add(player.current!.mid);
+    }
+    for (var i = played.length - 2; i >= 0; i--) {
+      await player.previous();
+      expect(player.current?.mid, played[i]);
+    }
+  });
+
   testWidgets('manual selection overrides pending next songs', (tester) async {
     final auth = AuthController(watchSession: false);
     final player = PlayerController(
