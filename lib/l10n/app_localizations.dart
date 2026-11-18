@@ -1893,17 +1893,11 @@ abstract class AppLocalizations {
   /// **'播完停'**
   String get sleepTimerWaitingShort;
 
-  /// No description provided for @sleepTimerCustomHint.
+  /// No description provided for @sleepTimerDuration.
   ///
   /// In zh, this message translates to:
-  /// **'自定义时长'**
-  String get sleepTimerCustomHint;
-
-  /// No description provided for @sleepTimerMinutes.
-  ///
-  /// In zh, this message translates to:
-  /// **'分钟'**
-  String get sleepTimerMinutes;
+  /// **'时长'**
+  String get sleepTimerDuration;
 
   /// No description provided for @sleepTimerStart.
   ///
@@ -1916,6 +1910,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'播完整首再停止'**
   String get sleepAfterSong;
+
+  /// No description provided for @sleepAfterSongHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'到点时正在放的歌会放完再暂停'**
+  String get sleepAfterSongHint;
 
   /// No description provided for @sleepTimerOff.
   ///

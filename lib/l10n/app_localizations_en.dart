@@ -1075,16 +1075,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sleepTimerWaitingShort => 'After song';
 
   @override
-  String get sleepTimerCustomHint => 'Custom length';
-
-  @override
-  String get sleepTimerMinutes => 'min';
+  String get sleepTimerDuration => 'Duration';
 
   @override
   String get sleepTimerStart => 'Start';
 
   @override
   String get sleepAfterSong => 'Finish the current song';
+
+  @override
+  String get sleepAfterSongHint =>
+      'When time is up, the playing song ends before pausing';
 
   @override
   String get sleepTimerOff => 'Turn off timer';

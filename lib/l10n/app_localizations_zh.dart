@@ -1009,16 +1009,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sleepTimerWaitingShort => '播完停';
 
   @override
-  String get sleepTimerCustomHint => '自定义时长';
-
-  @override
-  String get sleepTimerMinutes => '分钟';
+  String get sleepTimerDuration => '时长';
 
   @override
   String get sleepTimerStart => '开始';
 
   @override
   String get sleepAfterSong => '播完整首再停止';
+
+  @override
+  String get sleepAfterSongHint => '到点时正在放的歌会放完再暂停';
 
   @override
   String get sleepTimerOff => '关闭定时';

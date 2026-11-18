@@ -36,13 +36,8 @@ enum _Drag { none, route, page }
 const _motion = Duration(milliseconds: 550);
 const _curve = Curves.easeInOutCubicEmphasized;
 
-final _fallbackTheme = ThemeData(
-  useMaterial3: true,
-  colorScheme: ColorScheme.fromSeed(
-    seedColor: fallbackPalette[1],
-    brightness: Brightness.dark,
-  ),
-);
+/// 播放页底色一直是深的，弹窗、菜单固定用深色主题，不跟着亮色模式或封面变。
+final _playerTheme = buildTheme(Brightness.dark);
 
 /// Apple Music 风格的全屏播放页：封面取色流动背景、下拉关闭，
 /// 窄屏下封面会收进左上角，给歌词 / 播放队列腾地方。
@@ -312,7 +307,7 @@ class _PlayerPageState extends State<PlayerPage>
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Theme(
-        data: _art?.theme ?? _fallbackTheme,
+        data: _playerTheme,
         child: PopScope(
           canPop: wide || _page.isDismissed || _side != _Panel.queue,
           onPopInvokedWithResult: (didPop, _) {

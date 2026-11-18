@@ -27,15 +27,6 @@ class CoverArt {
 
   final List<Color> palette;
   final ui.Image blurred;
-
-  /// 按主色生成的深色主题（弹出菜单、底部面板用）。fromSeed 要算色调，生成一次就留着。
-  late final ThemeData theme = ThemeData(
-    useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: palette[1],
-      brightness: Brightness.dark,
-    ),
-  );
 }
 
 /// 解码封面用的尺寸（取色也用它）和预模糊图的尺寸。

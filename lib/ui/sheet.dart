@@ -60,7 +60,19 @@ Future<T?> _showSheet<T>(
   barrierColor: Colors.black.withValues(alpha: 0.6),
   constraints: const BoxConstraints(maxWidth: 480),
   enableDrag: enableDrag,
+  sheetAnimationStyle: _sheetMotion,
   builder: builder,
+);
+
+/// 默认进出场都是同一条减速曲线、200ms 出头，收起时一下就没了。
+/// 进场滑上来再慢慢停稳；退场先轻轻起步再加速滑出去。
+/// 进场不用 emphasizedDecelerate：它头两帧就走完一半，看着像突然冒出来。
+/// 退场时动画值从 1 走到 0，曲线要翻过来才是“先慢后快”。
+final _sheetMotion = AnimationStyle(
+  duration: const Duration(milliseconds: 450),
+  reverseDuration: const Duration(milliseconds: 260),
+  curve: const Cubic(0.25, 0.8, 0.25, 1),
+  reverseCurve: Easing.emphasizedAccelerate.flipped,
 );
 
 /// Windows：卡片样式不变，高度在原高度和窗口顶部之间升降。
