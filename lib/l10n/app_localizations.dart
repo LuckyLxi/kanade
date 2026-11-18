@@ -1629,6 +1629,12 @@ abstract class AppLocalizations {
   /// **'清空最近搜索'**
   String get searchHistoryClear;
 
+  /// No description provided for @searchHistoryClearConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空所有最近搜索？'**
+  String get searchHistoryClearConfirm;
+
   /// No description provided for @mvUnavailable.
   ///
   /// In zh, this message translates to:

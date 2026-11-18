@@ -255,6 +255,7 @@
   "searchKindUser": "Users",
   "searchHistory": "Recent searches",
   "searchHistoryClear": "Clear recent searches",
+  "searchHistoryClearConfirm": "Clear all recent searches?",
   "mvUnavailable": "This video can't be played right now",
   "watchMv": "Watch MV",
   "findSimilarSongs": "Find similar songs",

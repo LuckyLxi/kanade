@@ -9,6 +9,7 @@ import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'album_page.dart';
+import 'kanade_dialog.dart';
 import 'keyed_route.dart';
 import 'mv_page.dart';
 import 'recognize_sheet.dart';
@@ -117,6 +118,29 @@ class _SearchPageState extends State<SearchPage> {
   void _saveHistory(List<String> history) {
     setState(() => _history = history);
     api.setPref(key: _historyKey, value: jsonEncode(history));
+  }
+
+  Future<void> _clearHistory() async {
+    final l = AppLocalizations.of(context);
+    final ok = await showKanadeDialog<bool>(
+      context,
+      builder: (context) => KanadeDialog(
+        icon: Icons.delete_outline_rounded,
+        title: l.searchHistoryClearConfirm,
+        actions: [
+          KanadeDialogAction(
+            label: l.clear,
+            primary: true,
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+          KanadeDialogAction(
+            label: l.cancel,
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) _saveHistory([]);
   }
 
   @override
@@ -834,7 +858,7 @@ class _SearchPageState extends State<SearchPage> {
                   tooltip: l.searchHistoryClear,
                   iconSize: 18,
                   color: scheme.onSurfaceVariant,
-                  onPressed: () => _saveHistory([]),
+                  onPressed: _clearHistory,
                   icon: const Icon(Icons.delete_outline_rounded),
                 ),
               ],

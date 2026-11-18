@@ -855,6 +855,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchHistoryClear => '清空最近搜索';
 
   @override
+  String get searchHistoryClearConfirm => '清空所有最近搜索？';
+
+  @override
   String get mvUnavailable => '这个视频暂时无法播放';
 
   @override

@@ -903,6 +903,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchHistoryClear => 'Clear recent searches';
 
   @override
+  String get searchHistoryClearConfirm => 'Clear all recent searches?';
+
+  @override
   String get mvUnavailable => 'This video can\'t be played right now';
 
   @override
