@@ -51,7 +51,20 @@ class _FollowButtonState extends State<FollowButton> {
     return FilledButton.tonalIcon(
       onPressed: _pending ? null : _toggle,
       icon: Icon(widget.followed ? Icons.check_rounded : Icons.add_rounded),
-      label: Text(widget.followed ? l.followed : l.follow),
+      // 两种文字都排着，按钮始终是长的那个宽，切换时旁边的按钮不跟着伸缩
+      label: Stack(
+        alignment: Alignment.center,
+        children: [
+          for (final followed in [false, true])
+            Visibility(
+              visible: followed == widget.followed,
+              maintainSize: true,
+              maintainAnimation: true,
+              maintainState: true,
+              child: Text(followed ? l.followed : l.follow),
+            ),
+        ],
+      ),
     );
   }
 }

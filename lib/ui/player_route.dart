@@ -311,8 +311,9 @@ class PlayerRoute extends ModalRoute<void> with PlayerMorph {
   @override
   String? get barrierLabel => null;
 
+  // 展开停稳后底下的页面全被挡住，不用再画；变形、拖动时路由自己会改回透明
   @override
-  bool get opaque => false;
+  bool get opaque => true;
 
   @override
   bool get maintainState => true;
@@ -364,11 +365,31 @@ class PlayerRoute extends ModalRoute<void> with PlayerMorph {
     }
   }
 
+  /// 正从右边滑进来或滑出去、盖着播放页的页面。
+  final _cover = ValueNotifier<PlayerCover?>(null);
+
+  @override
+  void didChangeNext(Route<dynamic>? nextRoute) {
+    super.didChangeNext(nextRoute);
+    // 它开始返回时就不再是下一个路由了，要等它滑完才放开
+    if (nextRoute is! PlayerCover || nextRoute == _cover.value) return;
+    _cover.value = nextRoute;
+    final animation = nextRoute.animation!;
+    late final AnimationStatusListener gone;
+    gone = (status) {
+      if (!status.isDismissed) return;
+      animation.removeStatusListener(gone);
+      if (_cover.value == nextRoute) _cover.value = null;
+    };
+    animation.addStatusListener(gone);
+  }
+
   @override
   void dispose() {
     stopGrowing();
     anchor?.hidden.value = false;
     artInFlight.dispose();
+    _cover.dispose();
     super.dispose();
   }
 
@@ -435,7 +456,41 @@ class PlayerRoute extends ModalRoute<void> with PlayerMorph {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
     Widget child,
-  ) => _BarMorph(morph: this, child: child);
+  ) => ValueListenableBuilder(
+    valueListenable: _cover,
+    child: _BarMorph(morph: this, child: child),
+    // 被盖住的部分不画，显卡只算露出来的那条；只切换裁剪开关，播放页不会被重建
+    builder: (_, cover, child) => ClipRect(
+      clipper: cover == null ? null : _CoverClipper(cover),
+      clipBehavior: cover == null ? Clip.none : Clip.hardEdge,
+      child: child,
+    ),
+  );
+}
+
+/// 从右边滑进来盖在播放页上的页面（见 PlayerBarPage）。
+mixin PlayerCover on ModalRoute<void> {
+  /// 这一帧它的左边缘在屏幕上的横坐标；拿不到时为 null。
+  double? get coverLeft;
+}
+
+class _CoverClipper extends CustomClipper<Rect> {
+  _CoverClipper(this.cover) : super(reclip: cover.animation);
+
+  final PlayerCover cover;
+
+  // 滑动中的页面左边两角是圆的（见 theme.dart），角外还露着播放页
+  static const _corner = 48.0;
+
+  @override
+  Rect getClip(Size size) {
+    final left = cover.coverLeft;
+    final right = left == null ? size.width : left + _corner;
+    return Rect.fromLTRB(0, 0, math.min(size.width, right), size.height);
+  }
+
+  @override
+  bool shouldReclip(_CoverClipper oldClipper) => oldClipper.cover != cover;
 }
 
 class _BarMorph extends StatefulWidget {

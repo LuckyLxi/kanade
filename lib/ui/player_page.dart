@@ -9,6 +9,7 @@ import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../auth/auth_controller.dart';
 import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
@@ -22,6 +23,7 @@ import 'player_detail.dart';
 import 'player_lyrics.dart';
 import 'player_route.dart';
 import 'queue_list.dart';
+import 'singer_page.dart';
 import 'sleep_timer_sheet.dart';
 import 'smooth_scroll.dart';
 import 'song_action_sheet.dart';
@@ -155,6 +157,22 @@ class _PlayerPageState extends State<PlayerPage>
       // 换歌后会从新的位置重新来一遍，这一遍不用接着做
       if (!mounted || p.current != song) return;
       await precacheImage(queueCover(context, s), context, onError: (_, _) {});
+    }
+  }
+
+  String? _singersOf;
+
+  /// 点歌手名进去时粉丝数和关注状态多半已经取好，那一栏不用等着淡入。
+  void _prefetchSingers(Song song) {
+    if (song.mid == _singersOf) return;
+    _singersOf = song.mid;
+    // 在 build 里调用，不能用 context.read
+    final account = Provider.of<AuthController>(
+      context,
+      listen: false,
+    ).user?.uin;
+    for (final s in song.singers) {
+      if (s.mid.isNotEmpty) SingerSocials.get(s.mid, account).ignore();
     }
   }
 
@@ -293,6 +311,7 @@ class _PlayerPageState extends State<PlayerPage>
     if (song == null) return const Scaffold();
     final cover = bigCoverUrl(song);
     _loadArt(cover);
+    _prefetchSingers(song);
     final wide = MediaQuery.sizeOf(context).width >= 800;
 
     final page = Scaffold(

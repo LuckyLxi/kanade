@@ -18,7 +18,7 @@ import 'song_tile.dart';
 import 'widgets.dart';
 
 /// 歌手页：顶部大图，下面是精选、歌曲、专辑、视频、详情五个分类。
-class SingerPage extends StatelessWidget {
+class SingerPage extends StatefulWidget {
   const SingerPage({super.key, required this.mid, required this.name});
 
   final String mid;
@@ -28,11 +28,22 @@ class SingerPage extends StatelessWidget {
       keyedPage('singer:$mid', (_) => SingerPage(mid: mid, name: name));
 
   @override
+  State<SingerPage> createState() => _SingerPageState();
+}
+
+class _SingerPageState extends State<SingerPage> {
+  // 粉丝数和关注状态跟详情一起发，不等详情回来，免得转场结束后才冒出来
+  late final _social = SingerSocials.get(
+    widget.mid,
+    context.read<AuthController>().user?.uin,
+  );
+
+  @override
   Widget build(BuildContext context) {
     return GlassBackScaffold(
       body: AsyncView<SingerDetail>(
-        load: () => api.getSingerDetail(mid: mid),
-        builder: (context, d) => _SingerBody(d),
+        load: () => api.getSingerDetail(mid: widget.mid),
+        builder: (context, d) => _SingerBody(d, social: _social),
       ),
     );
   }
@@ -41,9 +52,10 @@ class SingerPage extends StatelessWidget {
 enum _Tab { featured, songs, albums, videos, about }
 
 class _SingerBody extends StatefulWidget {
-  const _SingerBody(this.d);
+  const _SingerBody(this.d, {required this.social});
 
   final SingerDetail d;
+  final Future<SingerSocial> social;
 
   @override
   State<_SingerBody> createState() => _SingerBodyState();
@@ -194,14 +206,19 @@ class _SingerBodyState extends State<_SingerBody>
     final d = widget.d;
     // 换了账号要重新取关注状态
     final account = context.select<AuthController, String?>((a) => a.user?.uin);
-    if (_social == null || account != _account) {
+    if (_social == null) {
       _account = account;
-      _social = api.getSingerSocial(mid: d.mid);
+      _social = widget.social;
+    } else if (account != _account) {
+      _account = account;
+      _social = SingerSocials.get(d.mid, account);
       _followed = null;
     }
     final top = MediaQuery.paddingOf(context).top;
     return FutureBuilder<SingerSocial>(
       future: _social,
+      // 已经取好的第一帧就用上，不再淡入
+      initialData: SingerSocials.peek(d.mid, account),
       builder: (context, snap) {
         final social = snap.data;
         return GestureDetector(
@@ -216,8 +233,10 @@ class _SingerBodyState extends State<_SingerBody>
                 pinned: true,
                 delegate: _Hero(
                   d: d,
-                  subtitle: social == null
+                  subtitle: snap.hasError
                       ? ''
+                      : social == null
+                      ? null
                       : [
                           l.userFans(formatCount(l, social.fansCount.toInt())),
                           social.guardTitle,
@@ -247,19 +266,28 @@ class _SingerBodyState extends State<_SingerBody>
                           label: Text(l.playAll(d.songs.length)),
                         ),
                       ),
-                      if (social != null) ...[
+                      // 还在取时先占着位置，回来时播放全部不会一下子变窄
+                      if (!snap.hasError) ...[
                         const SizedBox(width: 10),
                         SizedBox(
                           height: 46,
-                          child: FollowButton(
-                            followed: _followed ?? social.followed,
-                            onChanged: (value) async {
-                              await api.setSingerFollowed(
-                                mid: d.mid,
-                                followed: value,
-                              );
-                              if (mounted) setState(() => _followed = value);
-                            },
+                          child: _FadeIn(
+                            shown: social != null,
+                            child: FollowButton(
+                              followed: _followed ?? social?.followed ?? false,
+                              onChanged: (value) async {
+                                await api.setSingerFollowed(
+                                  mid: d.mid,
+                                  followed: value,
+                                );
+                                SingerSocials.setFollowed(
+                                  d.mid,
+                                  account,
+                                  value,
+                                );
+                                if (mounted) setState(() => _followed = value);
+                              },
+                            ),
                           ),
                         ),
                       ],
@@ -625,7 +653,9 @@ class _Hero extends SliverPersistentHeaderDelegate {
   });
 
   final SingerDetail d;
-  final String subtitle;
+
+  /// null 是还在取，先空着占一行，回来时名字不会被顶上去。
+  final String? subtitle;
   final double top;
   final double maxHeight;
   final double minHeight;
@@ -681,13 +711,16 @@ class _Hero extends SliverPersistentHeaderDelegate {
                     height: 1.15,
                   ),
                 ),
-                if (subtitle.isNotEmpty) ...[
+                if (subtitle?.isEmpty != true) ...[
                   const SizedBox(height: 6),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: scheme.onSurfaceVariant,
+                  _FadeIn(
+                    shown: subtitle != null,
+                    child: Text(
+                      subtitle ?? ' ',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
@@ -836,4 +869,74 @@ class AlbumTile extends StatelessWidget {
       onTap: () => openPage(context, AlbumPage.route(album.mid, album.name)),
     );
   }
+}
+
+/// 歌手的粉丝数、守护和关注状态。播放页一放上歌就先取，点进歌手页时多半已经回来了。
+/// 按账号分开记；隔一会儿再要就重新取。
+abstract final class SingerSocials {
+  static const _maxAge = Duration(minutes: 5);
+  static final _entries = <(String?, String), _SocialEntry>{};
+
+  static Future<SingerSocial> get(String mid, String? account) {
+    final now = DateTime.now();
+    _entries.removeWhere((_, e) => now.difference(e.at) >= _maxAge);
+    final key = (account, mid);
+    final old = _entries[key];
+    if (old != null) return old.future;
+    final entry = _entries[key] = _SocialEntry(
+      api.getSingerSocial(mid: mid),
+      now,
+    );
+    entry.future.then<void>(
+      (v) => entry.value = v,
+      // 失败的不留着，下次重新取
+      onError: (Object _) {
+        if (_entries[key] == entry) _entries.remove(key);
+      },
+    );
+    return entry.future;
+  }
+
+  /// 已经取回来的；还在取或没取过是 null。
+  static SingerSocial? peek(String mid, String? account) =>
+      _entries[(account, mid)]?.value;
+
+  static void setFollowed(String mid, String? account, bool followed) {
+    final key = (account, mid);
+    final old = _entries.remove(key)?.value;
+    if (old == null) return;
+    final value = SingerSocial(
+      fansCount: old.fansCount,
+      guardTitle: old.guardTitle,
+      followed: followed,
+    );
+    _entries[key] = _SocialEntry(Future.value(value), DateTime.now())
+      ..value = value;
+  }
+}
+
+class _SocialEntry {
+  _SocialEntry(this.future, this.at);
+
+  final Future<SingerSocial> future;
+  final DateTime at;
+  SingerSocial? value;
+}
+
+/// 后取到的内容淡入；还没取到时占着位置，看不见也点不到。
+class _FadeIn extends StatelessWidget {
+  const _FadeIn({required this.shown, required this.child});
+
+  final bool shown;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    ignoring: !shown,
+    child: AnimatedOpacity(
+      opacity: shown ? 1 : 0,
+      duration: const Duration(milliseconds: 200),
+      child: child,
+    ),
+  );
 }

@@ -5,9 +5,10 @@ import 'glass.dart';
 import 'keyed_route.dart';
 import 'mini_player.dart';
 import 'player_route.dart';
+import 'transition_snapshot.dart';
 
 /// 从播放页进的二级页面（歌手、专辑……）：盖在播放页上面，返回就回到播放页。
-/// 页面底部自带一条播放条，进来时从下往上弹出，返回时跟着页面一起走。
+/// 页面底部自带一条播放条，跟着页面一起滑进滑出。
 /// 里面有自己的 Navigator，在这里接着点进的页面也带着这条播放条。
 /// 同一时间只有一层：点这条播放条打开的播放页里再进歌手页，不会再叠一层，见 [pushFromPlayer]。
 class PlayerBarPage extends StatefulWidget {
@@ -16,15 +17,13 @@ class PlayerBarPage extends StatefulWidget {
   /// 里面的第一个页面。
   final Route<void> first;
 
-  static Route<void> route(Route<void> first) =>
-      MaterialPageRoute(builder: (_) => PlayerBarPage(first: first));
+  static Route<void> route(Route<void> first) => _PlayerBarRoute(first);
 
   @override
   State<PlayerBarPage> createState() => _PlayerBarPageState();
 }
 
-class _PlayerBarPageState extends State<PlayerBarPage>
-    with SingleTickerProviderStateMixin {
+class _PlayerBarPageState extends State<PlayerBarPage> {
   static _PlayerBarPageState? _open;
 
   final _nav = GlobalKey<NavigatorState>();
@@ -50,20 +49,9 @@ class _PlayerBarPageState extends State<PlayerBarPage>
   final _miniAnchor = MiniPlayer.newAnchor();
   final _desktopAnchor = DesktopPlayerBar.newAnchor();
 
-  late final _rise = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 520),
-  )..forward();
-  late final _offset = CurvedAnimation(
-    parent: _rise,
-    curve: Curves.easeOutBack,
-  );
-
   @override
   void dispose() {
     if (_open == this) _open = null;
-    _offset.dispose();
-    _rise.dispose();
     super.dispose();
   }
 
@@ -134,17 +122,7 @@ class _PlayerBarPageState extends State<PlayerBarPage>
                 left: wide ? gap : 16,
                 right: wide ? gap : 16,
                 bottom: barBottom,
-                child: AnimatedBuilder(
-                  animation: _offset,
-                  child: bar,
-                  builder: (_, bar) => Transform.translate(
-                    offset: Offset(
-                      0,
-                      (1 - _offset.value) * (barHeight + barBottom + 16),
-                    ),
-                    child: bar,
-                  ),
-                ),
+                child: bar,
               ),
             ],
           ),
@@ -168,4 +146,42 @@ void pushFromPlayer(BuildContext context, Route<void> route) {
   } else {
     Navigator.of(context).push(PlayerBarPage.route(route));
   }
+}
+
+class _PlayerBarRoute extends MaterialPageRoute<void> with PlayerCover {
+  _PlayerBarRoute(Route<void> first)
+    : super(builder: (_) => PlayerBarPage(first: first));
+
+  /// 挂在滑动层里面，它的位置就是页面这一帧滑到的位置。
+  final _edge = GlobalKey();
+
+  // 播放页画的时候这一帧已经排完版，量到的就是这一帧的位置
+  @override
+  double? get coverLeft {
+    final box = _edge.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return null;
+    return box.localToGlobal(Offset.zero).dx;
+  }
+
+  // 返回前这一页一般停着不动，GPU 已经降频，开头几帧整页重画赶不上；
+  // 贴一张图就只剩截图那一帧重。进来时内容还在加载，不能定住。
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => super.buildTransitions(
+    context,
+    animation,
+    secondaryAnimation,
+    KeyedSubtree(
+      key: _edge,
+      child: TransitionSnapshot(
+        animation: animation,
+        when: (status) => status == AnimationStatus.reverse,
+        child: child,
+      ),
+    ),
+  );
 }
