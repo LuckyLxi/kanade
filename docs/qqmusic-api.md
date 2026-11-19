@@ -696,14 +696,14 @@ QQ 和微信扫码在换 musickey 前会先清掉旧会话；App 授权只在换
 
 | 账号 | 条件 | 通道与请求键 | `param` |
 | --- | --- | --- | --- |
-| Android 上 App 授权（`tme`，存了 `login_comm`）的微信账号 | 有 `refresh_key` | `TmeClient`，公参用登录时那套 Android 设备公参，另加 `qq`、`authst`、`tmeLoginType`（字符串）、`psrf_qqopenid`、`psrf_access_token_expiresAt`；照官方 Android 客户端 20.09（2026-11-19 抓包），请求键 `music.login.LoginServer.Login` | `openid`、`access_token`、`refresh_token`（都可以为空）、`expired_in`、`musicid`、`musickey`、`refresh_key`、`loginMode=2` |
+| Android 上存了 `login_comm` 的会话（QQ / 微信扫码、微信 App 授权） | 同下面对应账号的条件 | `TmeClient`，公参用登录时那套 Android 设备公参，另加 `qq`、`authst`、`tmeLoginType`（字符串）、`psrf_qqopenid`、`psrf_access_token_expiresAt`；照官方 Android 客户端 20.09（2026-11-19 抓包），请求键 `music.login.LoginServer.Login` | `openid`、`access_token`、`refresh_token`（都可以为空）、`expired_in`、`musicid`、`musickey`、`refresh_key`、`loginMode=2` |
 | 其他 App 授权（`tme`）或 Windows 扫码（`pc`）的微信账号 | 有 `refresh_key` | PC 登录，请求键 `WXLoginByToken`，`tmeLoginType=1` | `access_token`（App 授权为空）、`deviceName=<计算机名>`、`deviceType="Widnows"`（原文拼写）、`expired_in`（登录响应的 `expired_at`，App 授权为 0）、`forceRefreshToken=0`、`musicid`、`musickey`、`onlyNeedAccessToken=0`、`openid`（App 授权为空）、`refresh_key`、`refresh_token`（可以为空）、`strAppid="wx48db31d50e334801"` |
 | 网页 QQ 扫码 | 有 `refresh_key`、`refresh_token`、`access_token` | PC 登录，请求键 `music.login.LoginServer.Login`，`tmeLoginType=2` | `access_token`、`appid=100497308`、`deviceName=<计算机名>`、`deviceType="Widnows"`、`expired_in=<登录响应的 expired_at>`、`forceRefreshToken=0`、`musicid`、`musickey`、`onlyNeedAccessToken=0`、`openid`、`refresh_key`、`refresh_token` |
 | 非 Windows 的网页微信扫码 | 有 `refresh_key`、`refresh_token` | 通用 `music.login.LoginServer.Login`，公参覆盖 `tmeLoginType` | `musicid`、`musickey`、`refresh_key`、`refresh_token`、`strAppid="wx48db31d50e334801"` |
 
 - App 授权登录只给 `refresh_key`，没有 `refresh_token`。这时如果走网页微信那一行的写法，服务端返回 `1000`，**而且当前 musickey 会跟着失效**。必须用第一行带 `deviceName` 等字段的写法，第一次续期的响应会补发 `refresh_token`。
 - App 授权的 QQ 账号还没验证过，不续期。Cookie 登录和旧版本保存的会话缺少续期凭证，要重新登录一次。
-- Android 的 App 授权登录如果走 PC 的 `WXLoginByToken` 续期，换来的 key 听歌、红心照常，但关注歌手（`cgi_concern_user_v2`）不论走哪个通道都返回 `10018`；改走 Android 设备公参续期后正常（2026-11-19 实测，刚登录只有 `refresh_key` 时也能续）。
+- Android 的 App 授权登录如果走 PC 的 `WXLoginByToken` 续期，换来的 key 听歌、红心照常，但关注歌手（`cgi_concern_user_v2`）不论走哪个通道都返回 `10018`；改走 Android 设备公参续期后正常（2026-11-19 实测，刚登录只有 `refresh_key` 时也能续；QQ / 微信扫码登录走这条也能续期并关注）。表里其他几行只剩 Windows 登录和旧版本保存的、没有 `login_comm` 的会话会走。
 - 续期返回新 musickey，旧的通常仍能用一段时间。续期期间退出或换了账号，结果直接丢掉。
 
 ### 退出

@@ -305,9 +305,9 @@ pub async fn refresh_session() -> Result<Session> {
         bail!(ApiError::login("session has no refresh credentials"));
     }
     let musicid: i64 = old.uin.parse().context(ApiError::login("invalid musicid"))?;
-    let data = if let Some(mut comm) = old.login_comm.clone().filter(|_| old.tme) {
-        // Android 的 App 授权登录照官方 Android 客户端，用登录时的设备公参续期（2026-11-19 抓包）。
-        // 走 PC 的 WXLoginByToken 换来的 key 关注歌手会返回 10018（2026-11-19 实测）。
+    let data = if let Some(mut comm) = old.login_comm.clone() {
+        // Android 上的登录照官方 Android 客户端，用登录时的设备公参续期（2026-11-19 抓包）。
+        // App 授权登录走 PC 的 WXLoginByToken 换来的 key 关注歌手会返回 10018（2026-11-19 实测）。
         comm["qq"] = json!(old.uin);
         comm["authst"] = json!(old.musickey);
         comm["tmeLoginType"] = json!(old.login_type.to_string());
