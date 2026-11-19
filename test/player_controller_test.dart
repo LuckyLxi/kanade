@@ -79,6 +79,9 @@ class _Api implements RustLibApi {
 
   @override
   CachedAudio? crateApiMusicGetAnyCachedAudio({required String mid}) => null;
+
+  @override
+  CachedAudio? crateApiMusicGetDownloadedAudio({required String mid}) => null;
   final radarPages = <int>[];
   @override
   Future<List<Song>> crateApiMusicGetRadarSongs({

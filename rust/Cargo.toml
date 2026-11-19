@@ -11,6 +11,7 @@ flutter_rust_bridge = "=2.13.0"
 anyhow = "1"
 base64 = "0.22"
 flate2 = "1"
+lofty = "0.22"
 rand = "0.8"
 ring = "0.17"
 reqwest = { version = "0.12", default-features = false, features = ["json", "gzip", "cookies", "rustls-tls"] }
@@ -44,7 +45,7 @@ jni = "0.21"
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
 # 听歌识曲录电脑内声音（device_audio.rs）。
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Media_Audio", "Win32_Security", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Threading", "Win32_System_Variant"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Media_Audio", "Win32_Security", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Threading", "Win32_System_Variant", "Win32_UI_Shell"] }
 windows-core = "0.62"
 
 [target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]

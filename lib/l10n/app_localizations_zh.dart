@@ -1148,4 +1148,60 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get updateOpenBrowser => '在浏览器中下载';
+
+  @override
+  String get download => '下载';
+
+  @override
+  String get downloaded => '已下载';
+
+  @override
+  String get downloading => '下载中';
+
+  @override
+  String get downloadQueued => '等待下载';
+
+  @override
+  String get downloadPaused => '已暂停';
+
+  @override
+  String get downloadFailed => '下载失败';
+
+  @override
+  String get downloadAdded => '已加入下载';
+
+  @override
+  String get downloadQuality => '选择下载音质';
+
+  @override
+  String get downloadWavHint => '存成 WAV，文件比较大';
+
+  @override
+  String get downloadOtherQuality => '换个音质重新下载';
+
+  @override
+  String get downloadRetry => '重新下载';
+
+  @override
+  String get deleteDownload => '删除下载';
+
+  @override
+  String get cancelDownload => '取消下载';
+
+  @override
+  String deleteDownloadConfirm(String name) {
+    return '删除「$name」下载的歌曲文件和歌词？';
+  }
+
+  @override
+  String get downloadDeleted => '已删除';
+
+  @override
+  String get downloadDir => '下载位置';
+
+  @override
+  String get downloadDirAndroid => '系统「音乐/Kanade」文件夹';
+
+  @override
+  String get settingsDownloads => '下载';
 }

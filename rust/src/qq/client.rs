@@ -210,6 +210,7 @@ pub fn init_store(data_dir: &Path) -> Result<()> {
         return Ok(());
     }
     std::fs::create_dir_all(data_dir)?;
+    super::download::init(data_dir.join("downloads"));
     let core = Core::new(Store::open(&data_dir.join("kanade.db"))?)?;
     let _ = CORE.set(core);
     Ok(())

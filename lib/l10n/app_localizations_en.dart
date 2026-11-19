@@ -1224,4 +1224,60 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get updateOpenBrowser => 'Download in browser';
+
+  @override
+  String get download => 'Download';
+
+  @override
+  String get downloaded => 'Downloaded';
+
+  @override
+  String get downloading => 'Downloading';
+
+  @override
+  String get downloadQueued => 'Waiting';
+
+  @override
+  String get downloadPaused => 'Paused';
+
+  @override
+  String get downloadFailed => 'Download failed';
+
+  @override
+  String get downloadAdded => 'Added to downloads';
+
+  @override
+  String get downloadQuality => 'Download quality';
+
+  @override
+  String get downloadWavHint => 'Saved as WAV, large file';
+
+  @override
+  String get downloadOtherQuality => 'Download in another quality';
+
+  @override
+  String get downloadRetry => 'Retry download';
+
+  @override
+  String get deleteDownload => 'Delete download';
+
+  @override
+  String get cancelDownload => 'Cancel download';
+
+  @override
+  String deleteDownloadConfirm(String name) {
+    return 'Delete the downloaded file and lyrics of \"$name\"?';
+  }
+
+  @override
+  String get downloadDeleted => 'Deleted';
+
+  @override
+  String get downloadDir => 'Download folder';
+
+  @override
+  String get downloadDirAndroid => 'System \"Music/Kanade\" folder';
+
+  @override
+  String get settingsDownloads => 'Downloads';
 }

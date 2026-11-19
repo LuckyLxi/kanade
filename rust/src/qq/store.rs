@@ -38,7 +38,8 @@ impl Store {
              CREATE TABLE IF NOT EXISTS audio_cache (
                  mid TEXT NOT NULL, quality TEXT NOT NULL, file TEXT NOT NULL,
                  size INTEGER NOT NULL, last_used INTEGER NOT NULL,
-                 PRIMARY KEY (mid, quality));",
+                 PRIMARY KEY (mid, quality));
+             CREATE TABLE IF NOT EXISTS download (mid TEXT PRIMARY KEY, data TEXT NOT NULL, created INTEGER NOT NULL);",
         )?;
         conn.execute("DELETE FROM cache WHERE expires_at < ?1", params![now()])?;
         Ok(Self { conn: Mutex::new(conn) })
@@ -144,6 +145,39 @@ impl Store {
         stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
             .map(|rows| rows.flatten().collect())
             .unwrap_or_default()
+    }
+
+    /// 下载记录（JSON），先加入的在前。
+    pub fn download_all(&self) -> Vec<String> {
+        let conn = self.conn.lock().unwrap();
+        let Ok(mut stmt) = conn.prepare("SELECT data FROM download ORDER BY created, rowid") else {
+            return vec![];
+        };
+        stmt.query_map([], |r| r.get(0))
+            .map(|rows| rows.flatten().collect())
+            .unwrap_or_default()
+    }
+
+    pub fn download_get(&self, mid: &str) -> Option<String> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row("SELECT data FROM download WHERE mid = ?1", params![mid], |r| r.get(0))
+            .optional()
+            .ok()
+            .flatten()
+    }
+
+    /// 已有记录只改内容，加入顺序不变；`created` 只在新加时用。
+    pub fn download_put(&self, mid: &str, data: &str, created: i64) -> Result<()> {
+        self.conn.lock().unwrap().execute(
+            "INSERT INTO download (mid, data, created) VALUES (?1, ?2, ?3)
+             ON CONFLICT(mid) DO UPDATE SET data = excluded.data",
+            params![mid, data, created],
+        )?;
+        Ok(())
+    }
+
+    pub fn download_delete(&self, mid: &str) {
+        let _ = self.conn.lock().unwrap().execute("DELETE FROM download WHERE mid = ?1", params![mid]);
     }
 
     pub fn kv_get(&self, key: &str) -> Option<String> {

@@ -683,5 +683,30 @@
   "updateNotWritable": "没有权限替换程序目录里的文件，请改用安装包。",
   "updateInstallFailed": "没能打开安装程序。",
   "updateUseInstaller": "改用安装包",
-  "updateOpenBrowser": "在浏览器中下载"
+  "updateOpenBrowser": "在浏览器中下载",
+  "download": "下载",
+  "downloaded": "已下载",
+  "downloading": "下载中",
+  "downloadQueued": "等待下载",
+  "downloadPaused": "已暂停",
+  "downloadFailed": "下载失败",
+  "downloadAdded": "已加入下载",
+  "downloadQuality": "选择下载音质",
+  "downloadWavHint": "存成 WAV，文件比较大",
+  "downloadOtherQuality": "换个音质重新下载",
+  "downloadRetry": "重新下载",
+  "deleteDownload": "删除下载",
+  "cancelDownload": "取消下载",
+  "deleteDownloadConfirm": "删除「{name}」下载的歌曲文件和歌词？",
+  "@deleteDownloadConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadDeleted": "已删除",
+  "downloadDir": "下载位置",
+  "downloadDirAndroid": "系统「音乐/Kanade」文件夹",
+  "settingsDownloads": "下载"
 }

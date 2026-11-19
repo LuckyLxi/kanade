@@ -6,7 +6,7 @@ use crate::api::types::*;
 use crate::frb_generated::StreamSink;
 use crate::qq::audio_cache::cache;
 use crate::qq::{
-    client, detail, history, library, login, music, mv, quality, recognize, social, user,
+    client, detail, download, history, library, login, music, mv, quality, recognize, social, user,
 };
 
 // 错误转换与会话副作用只在 API 边界组合；复核请求不经过此处。
@@ -158,6 +158,49 @@ pub fn clear_audio_cache() {
 /// 接口数据缓存占用的字节数。
 pub fn get_api_cache_size() -> i64 {
     client::core().store.cache_size()
+}
+
+/// 下载好的这首歌（播放优先用它）；文件不在了返回 None。
+#[flutter_rust_bridge::frb(sync)]
+pub fn get_downloaded_audio(mid: String) -> Option<CachedAudio> {
+    download::downloaded(&mid).map(|(path, quality)| CachedAudio { path, quality })
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn get_downloads() -> Vec<DownloadItem> {
+    download::list()
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn get_download(mid: String) -> Option<DownloadItem> {
+    download::get(&mid)
+}
+
+/// 加入下载队列，每首从 `quality` 开始逐档降级。
+pub fn download_songs(songs: Vec<Song>, quality: Quality) {
+    download::downloader().enqueue(songs, quality)
+}
+
+/// 删除下载记录和下好的文件。
+pub fn remove_download(mid: String) {
+    download::downloader().remove(&mid)
+}
+
+/// 下载进度和状态变化。
+pub fn watch_downloads(sink: StreamSink<DownloadEvent>) {
+    download::downloader().watch(sink)
+}
+
+/// 下载文件夹；Android 上是固定的系统「音乐/Kanade」。
+#[flutter_rust_bridge::frb(sync)]
+pub fn get_download_dir() -> String {
+    download::dir().to_string_lossy().into_owned()
+}
+
+/// 空字符串恢复默认文件夹。
+#[flutter_rust_bridge::frb(sync)]
+pub fn set_download_dir(dir: String) -> Result<(), ApiError> {
+    Ok(download::set_dir(&dir).map_err(api_error)?)
 }
 
 pub async fn get_song_qualities(mid: String) -> Result<Vec<QualityOption>, ApiError> {

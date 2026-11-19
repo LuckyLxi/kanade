@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -97,10 +100,11 @@ typedef _Section = ({
 
 class _SettingsPageState extends State<SettingsPage> {
   int _limitMb = api.getAudioCacheLimitMb();
+  String _downloadDir = api.getDownloadDir();
   int? _audioSize;
   int? _apiSize;
   final _scroll = SmoothScrollController();
-  final _sectionKeys = List.generate(5, (_) => GlobalKey());
+  final _sectionKeys = List.generate(6, (_) => GlobalKey());
   final _themeIconKeys = {for (final m in ThemeMode.values) m: GlobalKey()};
   final _qualityMenu = GlobalKey<GlassDropdownState<Quality>>();
   final _languageMenu = GlobalKey<GlassDropdownState<String>>();
@@ -125,6 +129,13 @@ class _SettingsPageState extends State<SettingsPage> {
     AppUpdate.currentVersion().then((v) {
       if (mounted) setState(() => _version = v);
     });
+  }
+
+  Future<void> _pickDownloadDir() async {
+    final dir = await getDirectoryPath(initialDirectory: _downloadDir);
+    if (dir == null || !mounted) return;
+    api.setDownloadDir(dir: dir);
+    setState(() => _downloadDir = api.getDownloadDir());
   }
 
   Future<void> _checkUpdate() async {
@@ -563,6 +574,19 @@ class _SettingsPageState extends State<SettingsPage> {
             trailing: _ClearButton(
               onPressed: _apiSize == null || _apiSize == 0 ? null : _clearApi,
             ),
+          ),
+        ],
+        after: null,
+      ),
+      (
+        title: l.settingsDownloads,
+        icon: Icons.download_outlined,
+        rows: [
+          _Item(
+            icon: Icons.folder_outlined,
+            title: l.downloadDir,
+            hint: Platform.isAndroid ? l.downloadDirAndroid : _downloadDir,
+            onTap: Platform.isAndroid ? null : _pickDownloadDir,
           ),
         ],
         after: null,

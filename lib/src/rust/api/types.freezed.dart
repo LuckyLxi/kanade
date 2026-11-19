@@ -13,6 +13,302 @@ part of 'types.dart';
 // dart format off
 T _$identity<T>(T value) => value;
 /// @nodoc
+mixin _$DownloadEvent {
+
+
+
+
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is DownloadEvent);
+}
+
+
+@override
+int get hashCode => runtimeType.hashCode;
+
+@override
+String toString() {
+    return 'DownloadEvent()';
+}
+
+
+}
+
+/// @nodoc
+class $DownloadEventCopyWith<$Res>  {
+$DownloadEventCopyWith(DownloadEvent _, $Res Function(DownloadEvent) __);
+}
+
+
+/// Adds pattern-matching-related methods to [DownloadEvent].
+extension DownloadEventPatterns on DownloadEvent {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( DownloadEvent_Changed value)?  changed,TResult Function( DownloadEvent_Removed value)?  removed,required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case DownloadEvent_Changed() when changed != null:
+return changed(_that);case DownloadEvent_Removed() when removed != null:
+return removed(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( DownloadEvent_Changed value)  changed,required TResult Function( DownloadEvent_Removed value)  removed,}){
+final _that = this;
+switch (_that) {
+case DownloadEvent_Changed():
+return changed(_that);case DownloadEvent_Removed():
+return removed(_that);}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( DownloadEvent_Changed value)?  changed,TResult? Function( DownloadEvent_Removed value)?  removed,}){
+final _that = this;
+switch (_that) {
+case DownloadEvent_Changed() when changed != null:
+return changed(_that);case DownloadEvent_Removed() when removed != null:
+return removed(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( DownloadItem field0)?  changed,TResult Function( String mid)?  removed,required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case DownloadEvent_Changed() when changed != null:
+return changed(_that.field0);case DownloadEvent_Removed() when removed != null:
+return removed(_that.mid);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( DownloadItem field0)  changed,required TResult Function( String mid)  removed,}) {final _that = this;
+switch (_that) {
+case DownloadEvent_Changed():
+return changed(_that.field0);case DownloadEvent_Removed():
+return removed(_that.mid);}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( DownloadItem field0)?  changed,TResult? Function( String mid)?  removed,}) {final _that = this;
+switch (_that) {
+case DownloadEvent_Changed() when changed != null:
+return changed(_that.field0);case DownloadEvent_Removed() when removed != null:
+return removed(_that.mid);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+
+
+class DownloadEvent_Changed extends DownloadEvent {
+  const DownloadEvent_Changed(this.field0): super._();
+  
+
+ final  DownloadItem field0;
+
+/// Create a copy of DownloadEvent
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$DownloadEvent_ChangedCopyWith<DownloadEvent_Changed> get copyWith => _$DownloadEvent_ChangedCopyWithImpl<DownloadEvent_Changed>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is DownloadEvent_Changed&&(identical(other.field0, field0) || other.field0 == field0));
+}
+
+
+@override
+int get hashCode {
+    return Object.hash(runtimeType,field0);
+}
+
+@override
+String toString() {
+    return 'DownloadEvent.changed(field0: $field0)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $DownloadEvent_ChangedCopyWith<$Res> implements $DownloadEventCopyWith<$Res> {
+  factory $DownloadEvent_ChangedCopyWith(DownloadEvent_Changed value, $Res Function(DownloadEvent_Changed) _then) = _$DownloadEvent_ChangedCopyWithImpl;
+@useResult
+$Res call({
+ DownloadItem field0
+});
+
+
+
+
+}
+/// @nodoc
+class _$DownloadEvent_ChangedCopyWithImpl<$Res>
+    implements $DownloadEvent_ChangedCopyWith<$Res> {
+  _$DownloadEvent_ChangedCopyWithImpl(this._self, this._then);
+
+  final DownloadEvent_Changed _self;
+  final $Res Function(DownloadEvent_Changed) _then;
+
+/// Create a copy of DownloadEvent
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? field0 = null,}) {
+  return _then(DownloadEvent_Changed(
+null == field0 ? _self.field0 : field0 // ignore: cast_nullable_to_non_nullable
+as DownloadItem,
+  ));
+}
+
+
+}
+
+/// @nodoc
+
+
+class DownloadEvent_Removed extends DownloadEvent {
+  const DownloadEvent_Removed({required this.mid}): super._();
+  
+
+ final  String mid;
+
+/// Create a copy of DownloadEvent
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$DownloadEvent_RemovedCopyWith<DownloadEvent_Removed> get copyWith => _$DownloadEvent_RemovedCopyWithImpl<DownloadEvent_Removed>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is DownloadEvent_Removed&&(identical(other.mid, mid) || other.mid == mid));
+}
+
+
+@override
+int get hashCode {
+    return Object.hash(runtimeType,mid);
+}
+
+@override
+String toString() {
+    return 'DownloadEvent.removed(mid: $mid)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $DownloadEvent_RemovedCopyWith<$Res> implements $DownloadEventCopyWith<$Res> {
+  factory $DownloadEvent_RemovedCopyWith(DownloadEvent_Removed value, $Res Function(DownloadEvent_Removed) _then) = _$DownloadEvent_RemovedCopyWithImpl;
+@useResult
+$Res call({
+ String mid
+});
+
+
+
+
+}
+/// @nodoc
+class _$DownloadEvent_RemovedCopyWithImpl<$Res>
+    implements $DownloadEvent_RemovedCopyWith<$Res> {
+  _$DownloadEvent_RemovedCopyWithImpl(this._self, this._then);
+
+  final DownloadEvent_Removed _self;
+  final $Res Function(DownloadEvent_Removed) _then;
+
+/// Create a copy of DownloadEvent
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? mid = null,}) {
+  return _then(DownloadEvent_Removed(
+mid: null == mid ? _self.mid : mid // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+/// @nodoc
 mixin _$QrStatus {
 
 

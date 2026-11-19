@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'auth/auth_controller.dart';
+import 'download/download_controller.dart';
 import 'l10n/app_localizations.dart';
 import 'l10n/localizations_delegates.dart';
 import 'library/library_controller.dart';
@@ -73,6 +74,7 @@ class AppProviders extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeController()),
         ChangeNotifierProvider(create: (_) => LyricSettings()),
         ChangeNotifierProvider(create: (_) => AuthController()),
+        ChangeNotifierProvider(create: (_) => DownloadController()),
         // 启动时就去取红心列表
         ChangeNotifierProvider(
           create: (context) =>

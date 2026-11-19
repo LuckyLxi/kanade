@@ -8,6 +8,7 @@ import 'package:kanade/src/rust/frb_generated.dart';
 /// 假的 Rust 层：本地缓存是一张表，在线取链接按 [served] 降级或抛出 [urlError]。
 class _FakeApi implements RustLibApi {
   final cache = <(String, Quality), String>{};
+  final downloads = <String, CachedAudio>{};
   final served = <Quality, Quality>{};
   Object? urlError;
   String? sourceKey;
@@ -19,6 +20,7 @@ class _FakeApi implements RustLibApi {
 
   void reset() {
     cache.clear();
+    downloads.clear();
     served.clear();
     urlError = null;
     sourceKey = streamKey = null;
@@ -27,6 +29,9 @@ class _FakeApi implements RustLibApi {
     readinessRequests.clear();
     decoded = null;
   }
+
+  @override
+  CachedAudio? crateApiMusicGetDownloadedAudio({required String mid}) => downloads[mid];
 
   @override
   String? crateApiMusicGetCachedAudio({required String mid, required Quality quality}) => cache[(mid, quality)];
@@ -179,6 +184,17 @@ void main() {
     fake.urlError = Exception('offline');
     fake.cache[('m1', Quality.standard)] = 'C:/cache/a.mp3';
     expect(await AudioSource.resolve(_song, Quality.high, stale: () => true), isNull);
+  });
+
+  test('下载过：不管选哪档都先用下载的文件，播不了就不再用它', () async {
+    fake.downloads['m1'] = const CachedAudio(path: 'D:/Music/a.flac', quality: Quality.lossless);
+    fake.cache[('m1', Quality.high)] = 'C:/cache/a.m4a';
+    final src = (await AudioSource.resolve(_song, Quality.high, stale: _fresh))!;
+    expect((src.url, src.quality, src.cached), ('D:/Music/a.flac', Quality.lossless, true));
+    expect(src.fallback(), Quality.lossless);
+    expect(fake.removed, isEmpty);
+    final next = (await AudioSource.resolve(_song, Quality.high, stale: _fresh))!;
+    expect(next.url, 'C:/cache/a.m4a');
   });
 
   test('缓存播不了：删掉缓存，同一档重新在线取', () async {

@@ -107,6 +107,35 @@ pub struct CachedAudio {
     pub quality: Quality,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DownloadState {
+    Queued,
+    Running,
+    Paused,
+    Failed,
+    Done,
+}
+
+#[derive(Debug, Clone)]
+pub struct DownloadItem {
+    pub song: Song,
+    /// 下完或开始下以后是实际拿到的音质，之前是选的音质。
+    pub quality: Quality,
+    pub state: DownloadState,
+    pub received: u64,
+    /// 还不知道大小时为 0。
+    pub total: u64,
+    /// 下完后的文件路径（Android 上是 content:// 地址）。
+    pub file: String,
+    pub error: Option<ApiError>,
+}
+
+#[derive(Debug, Clone)]
+pub enum DownloadEvent {
+    Changed(DownloadItem),
+    Removed { mid: String },
+}
+
 #[derive(Debug, Clone)]
 pub struct LyricLine {
     pub time_ms: u32,

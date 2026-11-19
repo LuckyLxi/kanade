@@ -132,6 +132,40 @@ Future<void> clearAudioCache() =>
 Future<PlatformInt64> getApiCacheSize() =>
     RustLib.instance.api.crateApiMusicGetApiCacheSize();
 
+/// 下载好的这首歌（播放优先用它）；文件不在了返回 None。
+CachedAudio? getDownloadedAudio({required String mid}) =>
+    RustLib.instance.api.crateApiMusicGetDownloadedAudio(mid: mid);
+
+List<DownloadItem> getDownloads() =>
+    RustLib.instance.api.crateApiMusicGetDownloads();
+
+DownloadItem? getDownload({required String mid}) =>
+    RustLib.instance.api.crateApiMusicGetDownload(mid: mid);
+
+/// 加入下载队列，每首从 `quality` 开始逐档降级。
+Future<void> downloadSongs({
+  required List<Song> songs,
+  required Quality quality,
+}) => RustLib.instance.api.crateApiMusicDownloadSongs(
+  songs: songs,
+  quality: quality,
+);
+
+/// 删除下载记录和下好的文件。
+Future<void> removeDownload({required String mid}) =>
+    RustLib.instance.api.crateApiMusicRemoveDownload(mid: mid);
+
+/// 下载进度和状态变化。
+Stream<DownloadEvent> watchDownloads() =>
+    RustLib.instance.api.crateApiMusicWatchDownloads();
+
+/// 下载文件夹；Android 上是固定的系统「音乐/Kanade」。
+String getDownloadDir() => RustLib.instance.api.crateApiMusicGetDownloadDir();
+
+/// 空字符串恢复默认文件夹。
+void setDownloadDir({required String dir}) =>
+    RustLib.instance.api.crateApiMusicSetDownloadDir(dir: dir);
+
 Future<List<QualityOption>> getSongQualities({required String mid}) =>
     RustLib.instance.api.crateApiMusicGetSongQualities(mid: mid);
 

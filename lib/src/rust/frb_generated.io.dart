@@ -27,6 +27,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AnyhowException dco_decode_AnyhowException(dynamic raw);
 
   @protected
+  RustStreamSink<DownloadEvent> dco_decode_StreamSink_download_event_Sse(
+    dynamic raw,
+  );
+
+  @protected
   RustStreamSink<Uint8List> dco_decode_StreamSink_list_prim_u_8_strict_Sse(
     dynamic raw,
   );
@@ -64,6 +69,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ChorusRange dco_decode_box_autoadd_chorus_range(dynamic raw);
+
+  @protected
+  DownloadItem dco_decode_box_autoadd_download_item(dynamic raw);
 
   @protected
   PlaylistBrief dco_decode_box_autoadd_playlist_brief(dynamic raw);
@@ -104,6 +112,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CommentTarget dco_decode_comment_target(dynamic raw);
 
   @protected
+  DownloadEvent dco_decode_download_event(dynamic raw);
+
+  @protected
+  DownloadItem dco_decode_download_item(dynamic raw);
+
+  @protected
+  DownloadState dco_decode_download_state(dynamic raw);
+
+  @protected
   FeedCard dco_decode_feed_card(dynamic raw);
 
   @protected
@@ -138,6 +155,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<Comment> dco_decode_list_comment(dynamic raw);
+
+  @protected
+  List<DownloadItem> dco_decode_list_download_item(dynamic raw);
 
   @protected
   List<FeedCard> dco_decode_list_feed_card(dynamic raw);
@@ -251,10 +271,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
+  ApiError? dco_decode_opt_box_autoadd_api_error(dynamic raw);
+
+  @protected
   CachedAudio? dco_decode_opt_box_autoadd_cached_audio(dynamic raw);
 
   @protected
   ChorusRange? dco_decode_opt_box_autoadd_chorus_range(dynamic raw);
+
+  @protected
+  DownloadItem? dco_decode_opt_box_autoadd_download_item(dynamic raw);
 
   @protected
   PlaylistBrief? dco_decode_opt_box_autoadd_playlist_brief(dynamic raw);
@@ -417,6 +443,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
 
   @protected
+  RustStreamSink<DownloadEvent> sse_decode_StreamSink_download_event_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RustStreamSink<Uint8List> sse_decode_StreamSink_list_prim_u_8_strict_Sse(
     SseDeserializer deserializer,
   );
@@ -454,6 +485,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ChorusRange sse_decode_box_autoadd_chorus_range(SseDeserializer deserializer);
+
+  @protected
+  DownloadItem sse_decode_box_autoadd_download_item(
+    SseDeserializer deserializer,
+  );
 
   @protected
   PlaylistBrief sse_decode_box_autoadd_playlist_brief(
@@ -496,6 +532,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CommentTarget sse_decode_comment_target(SseDeserializer deserializer);
 
   @protected
+  DownloadEvent sse_decode_download_event(SseDeserializer deserializer);
+
+  @protected
+  DownloadItem sse_decode_download_item(SseDeserializer deserializer);
+
+  @protected
+  DownloadState sse_decode_download_state(SseDeserializer deserializer);
+
+  @protected
   FeedCard sse_decode_feed_card(SseDeserializer deserializer);
 
   @protected
@@ -530,6 +575,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<Comment> sse_decode_list_comment(SseDeserializer deserializer);
+
+  @protected
+  List<DownloadItem> sse_decode_list_download_item(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<FeedCard> sse_decode_list_feed_card(SseDeserializer deserializer);
@@ -655,12 +705,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
+  ApiError? sse_decode_opt_box_autoadd_api_error(SseDeserializer deserializer);
+
+  @protected
   CachedAudio? sse_decode_opt_box_autoadd_cached_audio(
     SseDeserializer deserializer,
   );
 
   @protected
   ChorusRange? sse_decode_opt_box_autoadd_chorus_range(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  DownloadItem? sse_decode_opt_box_autoadd_download_item(
     SseDeserializer deserializer,
   );
 
@@ -834,6 +892,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_StreamSink_download_event_Sse(
+    RustStreamSink<DownloadEvent> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_StreamSink_list_prim_u_8_strict_Sse(
     RustStreamSink<Uint8List> self,
     SseSerializer serializer,
@@ -881,6 +945,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_chorus_range(
     ChorusRange self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_download_item(
+    DownloadItem self,
     SseSerializer serializer,
   );
 
@@ -933,6 +1003,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_comment_target(CommentTarget self, SseSerializer serializer);
 
   @protected
+  void sse_encode_download_event(DownloadEvent self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_download_item(DownloadItem self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_download_state(DownloadState self, SseSerializer serializer);
+
+  @protected
   void sse_encode_feed_card(FeedCard self, SseSerializer serializer);
 
   @protected
@@ -973,6 +1052,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_comment(List<Comment> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_download_item(
+    List<DownloadItem> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_feed_card(List<FeedCard> self, SseSerializer serializer);
@@ -1146,6 +1231,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_api_error(
+    ApiError? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_cached_audio(
     CachedAudio? self,
     SseSerializer serializer,
@@ -1154,6 +1245,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_chorus_range(
     ChorusRange? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_download_item(
+    DownloadItem? self,
     SseSerializer serializer,
   );
 

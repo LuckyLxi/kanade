@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kanade/download/download_controller.dart';
 import 'package:kanade/l10n/app_localizations.dart';
 import 'package:kanade/l10n/localizations_delegates.dart';
 import 'package:kanade/library/library_controller.dart';
@@ -30,6 +31,17 @@ class _Api implements RustLibApi {
     similarRequests.add(songId);
     return similar();
   }
+
+  @override
+  Future<int> crateApiMusicGetSongCommentCount({required int id}) async => 0;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Downloads extends ChangeNotifier implements DownloadController {
+  @override
+  DownloadItem? item(String mid) => null;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -88,11 +100,14 @@ Future<_Player> _show(WidgetTester tester, Song song, {double dpr = 1}) async {
   final library = _Library();
   addTearDown(player.dispose);
   addTearDown(library.dispose);
+  final downloads = _Downloads();
+  addTearDown(downloads.dispose);
   await tester.pumpWidget(
     MultiProvider(
       providers: [
         ChangeNotifierProvider<PlayerController>.value(value: player),
         ChangeNotifierProvider<LibraryController>.value(value: library),
+        ChangeNotifierProvider<DownloadController>.value(value: downloads),
       ],
       child: MaterialApp(
         locale: const Locale('zh'),

@@ -2150,6 +2150,114 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'在浏览器中下载'**
   String get updateOpenBrowser;
+
+  /// No description provided for @download.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载'**
+  String get download;
+
+  /// No description provided for @downloaded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已下载'**
+  String get downloaded;
+
+  /// No description provided for @downloading.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载中'**
+  String get downloading;
+
+  /// No description provided for @downloadQueued.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待下载'**
+  String get downloadQueued;
+
+  /// No description provided for @downloadPaused.
+  ///
+  /// In zh, this message translates to:
+  /// **'已暂停'**
+  String get downloadPaused;
+
+  /// No description provided for @downloadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载失败'**
+  String get downloadFailed;
+
+  /// No description provided for @downloadAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加入下载'**
+  String get downloadAdded;
+
+  /// No description provided for @downloadQuality.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择下载音质'**
+  String get downloadQuality;
+
+  /// No description provided for @downloadWavHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'存成 WAV，文件比较大'**
+  String get downloadWavHint;
+
+  /// No description provided for @downloadOtherQuality.
+  ///
+  /// In zh, this message translates to:
+  /// **'换个音质重新下载'**
+  String get downloadOtherQuality;
+
+  /// No description provided for @downloadRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新下载'**
+  String get downloadRetry;
+
+  /// No description provided for @deleteDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除下载'**
+  String get deleteDownload;
+
+  /// No description provided for @cancelDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消下载'**
+  String get cancelDownload;
+
+  /// No description provided for @deleteDownloadConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除「{name}」下载的歌曲文件和歌词？'**
+  String deleteDownloadConfirm(String name);
+
+  /// No description provided for @downloadDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已删除'**
+  String get downloadDeleted;
+
+  /// No description provided for @downloadDir.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载位置'**
+  String get downloadDir;
+
+  /// No description provided for @downloadDirAndroid.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统「音乐/Kanade」文件夹'**
+  String get downloadDirAndroid;
+
+  /// No description provided for @settingsDownloads.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载'**
+  String get settingsDownloads;
 }
 
 class _AppLocalizationsDelegate
