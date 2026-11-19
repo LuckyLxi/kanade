@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../auth/auth_controller.dart';
 import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
@@ -9,6 +10,7 @@ import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'album_page.dart';
 import 'comments_page.dart';
+import 'follow_button.dart';
 import 'mv_page.dart';
 import 'player_bar_page.dart';
 import 'sheet.dart';
@@ -34,6 +36,7 @@ void openSinger(BuildContext context, Song song) {
           SheetRow(
             leading: const Icon(Icons.person_outline_rounded),
             title: s.name,
+            trailing: _SingerFollow(s.mid),
             chevron: true,
             onTap: () {
               Navigator.pop(sheet);
@@ -220,4 +223,52 @@ class _LikeButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 多位歌手面板里每行右边的关注按钮。播放页已经提前取过关注状态，一般打开就有。
+class _SingerFollow extends StatefulWidget {
+  const _SingerFollow(this.mid);
+
+  final String mid;
+
+  @override
+  State<_SingerFollow> createState() => _SingerFollowState();
+}
+
+class _SingerFollowState extends State<_SingerFollow> {
+  late final _account = context.read<AuthController>().user?.uin;
+  late final _social = SingerSocials.get(widget.mid, _account);
+  bool? _followed;
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<SingerSocial>(
+    future: _social,
+    initialData: SingerSocials.peek(widget.mid, _account),
+    builder: (context, snap) {
+      if (snap.hasError) return const SizedBox.shrink();
+      final social = snap.data;
+      // 还在取时先占着位置，回来时歌手名不会被挤窄
+      return Padding(
+        padding: const EdgeInsets.only(left: 8, right: 4),
+        child: IgnorePointer(
+          ignoring: social == null,
+          child: AnimatedOpacity(
+            opacity: social == null ? 0 : 1,
+            duration: const Duration(milliseconds: 200),
+            child: SizedBox(
+              height: 32,
+              child: FollowButton(
+                followed: _followed ?? social?.followed ?? false,
+                onChanged: (value) async {
+                  await api.setSingerFollowed(mid: widget.mid, followed: value);
+                  SingerSocials.setFollowed(widget.mid, _account, value);
+                  if (mounted) setState(() => _followed = value);
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
