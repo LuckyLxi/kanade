@@ -13,13 +13,16 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
+import androidx.annotation.Keep
 import java.io.File
 import java.io.IOException
 
 /**
  * 下载的歌存进系统「音乐/Kanade」，由 Rust（download.rs）经 JNI 调用。
  * Android 10 起走 MediaStore，不需要存储权限；更早的系统直接写文件。
+ * 这些方法只有 Rust 在调，不 @Keep 的话 release 包的 R8 会把它们删掉。
  */
+@Keep
 object MediaStoreBridge {
     private const val FOLDER = "Kanade"
     private lateinit var app: Context
