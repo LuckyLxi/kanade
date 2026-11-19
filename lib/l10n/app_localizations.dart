@@ -819,6 +819,36 @@ abstract class AppLocalizations {
   /// **'暂无歌词'**
   String get noLyrics;
 
+  /// No description provided for @lyricOptions.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌词显示'**
+  String get lyricOptions;
+
+  /// No description provided for @lyricWordByWord.
+  ///
+  /// In zh, this message translates to:
+  /// **'逐字歌词'**
+  String get lyricWordByWord;
+
+  /// No description provided for @lyricWordByWordHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟着演唱一个字一个字点亮'**
+  String get lyricWordByWordHint;
+
+  /// No description provided for @lyricRomaji.
+  ///
+  /// In zh, this message translates to:
+  /// **'罗马音'**
+  String get lyricRomaji;
+
+  /// No description provided for @lyricRomajiHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'日语、韩语歌在歌词下面显示读音'**
+  String get lyricRomajiHint;
+
   /// No description provided for @modeSequence.
   ///
   /// In zh, this message translates to:

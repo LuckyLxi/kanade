@@ -3233,6 +3233,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<LyricWord> dco_decode_list_lyric_word(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_lyric_word).toList();
+  }
+
+  @protected
   List<MvStream> dco_decode_list_mv_stream(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_mv_stream).toList();
@@ -3386,12 +3392,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   LyricLine dco_decode_lyric_line(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return LyricLine(
       timeMs: dco_decode_u_32(arr[0]),
       text: dco_decode_String(arr[1]),
       trans: dco_decode_String(arr[2]),
+      roma: dco_decode_String(arr[3]),
+      words: dco_decode_list_lyric_word(arr[4]),
+    );
+  }
+
+  @protected
+  LyricWord dco_decode_lyric_word(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return LyricWord(
+      startMs: dco_decode_u_32(arr[0]),
+      durationMs: dco_decode_u_32(arr[1]),
+      text: dco_decode_String(arr[2]),
     );
   }
 
@@ -4571,6 +4592,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<LyricWord> sse_decode_list_lyric_word(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <LyricWord>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_lyric_word(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<MvStream> sse_decode_list_mv_stream(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -4852,7 +4885,28 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_timeMs = sse_decode_u_32(deserializer);
     var var_text = sse_decode_String(deserializer);
     var var_trans = sse_decode_String(deserializer);
-    return LyricLine(timeMs: var_timeMs, text: var_text, trans: var_trans);
+    var var_roma = sse_decode_String(deserializer);
+    var var_words = sse_decode_list_lyric_word(deserializer);
+    return LyricLine(
+      timeMs: var_timeMs,
+      text: var_text,
+      trans: var_trans,
+      roma: var_roma,
+      words: var_words,
+    );
+  }
+
+  @protected
+  LyricWord sse_decode_lyric_word(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_startMs = sse_decode_u_32(deserializer);
+    var var_durationMs = sse_decode_u_32(deserializer);
+    var var_text = sse_decode_String(deserializer);
+    return LyricWord(
+      startMs: var_startMs,
+      durationMs: var_durationMs,
+      text: var_text,
+    );
   }
 
   @protected
@@ -6092,6 +6146,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_lyric_word(
+    List<LyricWord> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_lyric_word(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_mv_stream(
     List<MvStream> self,
     SseSerializer serializer,
@@ -6358,6 +6424,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_u_32(self.timeMs, serializer);
     sse_encode_String(self.text, serializer);
     sse_encode_String(self.trans, serializer);
+    sse_encode_String(self.roma, serializer);
+    sse_encode_list_lyric_word(self.words, serializer);
+  }
+
+  @protected
+  void sse_encode_lyric_word(LyricWord self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.startMs, serializer);
+    sse_encode_u_32(self.durationMs, serializer);
+    sse_encode_String(self.text, serializer);
   }
 
   @protected

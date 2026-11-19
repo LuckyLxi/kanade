@@ -402,6 +402,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noLyrics => '暂无歌词';
 
   @override
+  String get lyricOptions => '歌词显示';
+
+  @override
+  String get lyricWordByWord => '逐字歌词';
+
+  @override
+  String get lyricWordByWordHint => '跟着演唱一个字一个字点亮';
+
+  @override
+  String get lyricRomaji => '罗马音';
+
+  @override
+  String get lyricRomajiHint => '日语、韩语歌在歌词下面显示读音';
+
+  @override
   String get modeSequence => '列表循环';
 
   @override

@@ -427,6 +427,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noLyrics => 'No lyrics';
 
   @override
+  String get lyricOptions => 'Lyrics display';
+
+  @override
+  String get lyricWordByWord => 'Word-by-word lyrics';
+
+  @override
+  String get lyricWordByWordHint => 'Light up each word as it is sung';
+
+  @override
+  String get lyricRomaji => 'Romanization';
+
+  @override
+  String get lyricRomajiHint =>
+      'Show pronunciation under Japanese and Korean lyrics';
+
+  @override
   String get modeSequence => 'Repeat all';
 
   @override

@@ -268,21 +268,27 @@ DTS:X、360RA、NAC 由播放器以外的解码器先转成 WAV（缓存扩展�
 
 ## 歌词与高潮片段
 
-实现：[music.rs](../rust/src/qq/music.rs) `lyric`、`chorus`，解析在 [lyric.rs](../rust/src/qq/lyric.rs)。
+实现：[music.rs](../rust/src/qq/music.rs) `lyric`、`chorus`，解密在 [qrc.rs](../rust/src/qq/qrc.rs)，解析在 [lyric.rs](../rust/src/qq/lyric.rs)。
 
-歌词主接口：`music.musichallSong.PlayLyricInfo.GetPlayLyricInfo`，通用通道。
+歌词主接口：`music.musichallSong.PlayLyricInfo.GetPlayLyricInfo`，通用通道。和 PC 官方客户端一样要逐字歌词、翻译和罗马音：
 
 ```json
-{"songMID":"<mid>","songID":42,"trans":1,"roma":0,"crypt":0,"qrc":0}
+{"songMID":"<mid>","songID":42,"trans":1,"roma":1,"crypt":1,"qrc":1}
 ```
 
-读 `lyric` 和 `trans`，能按 Base64 解成 UTF-8 就解，否则保留原文。主接口出错或歌词为空时改用旧 CGI：
+响应里的 `lyric` / `trans` / `roma` 都是十六进制密文，没有的是空串；`qrc` 为 1 表示 `lyric` 是逐字歌词。解法：十六进制转字节，每 8 字节用 QQ 改过的 3DES 解（密钥 `!@#)(*$%123ZXC!@!@#)(NHL`，和标准 DES 有三处不同，见 qrc.rs 开头），拼起来是 zlib 数据，解压得到原文：
+
+- 逐字歌词和罗马音是一段 XML，歌词在 `LyricContent` 属性里（要反转义）。每行 `[开始,时长]字(开始,时长)字(开始,时长)…`，单位毫秒；字本身也可能带括号，比如 `Around (`。
+- 没有逐字歌词时 `lyric` 解出来是普通 LRC，有时连时间轴都没有。
+- `trans` 是 LRC，时间只到 10 毫秒，和逐字歌词的行对不齐，按最近的行（1 秒以内）合并；`//` 表示这行没有翻译。罗马音也按时间合并到行上。
+
+主接口出错或歌词为空时改用旧 CGI：
 
 ```text
 GET https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=<mid>&format=json&nobase64=1&g_tk=5381
 ```
 
-读原始响应的 `lyric` / `trans`。按 LRC 时间轴解析并合并翻译，翻译为 `//` 视为没有翻译；没有时间轴的歌词放在 `Lyric.plain`。请求关掉了 QRC，所以没有逐字歌词和罗马音。
+读原始响应的 `lyric` / `trans`，只有 LRC，没有逐字和罗马音。没有时间轴的歌词放在 `Lyric.plain`。
 
 高潮片段不用单独请求：歌曲信息（`CgiGetTrackInfo` 的 `ids` 写法，不需要登录）里的 `file.try_begin` / `file.try_end` 就是官方客户端标出的高潮起止，单位毫秒，没有时两个都是 0。`track.vi[4]` / `vi[5]` 是从同一起点开始的 30 秒试听窗口，Kanade 不用。
 

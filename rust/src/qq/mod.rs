@@ -14,6 +14,7 @@ pub mod mv;
 mod nac;
 pub mod parse;
 mod qmc;
+mod qrc;
 pub mod quality;
 mod ra360;
 pub mod recognize;

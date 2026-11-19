@@ -113,6 +113,17 @@ pub struct LyricLine {
     pub text: String,
     /// 翻译，没有就是空字符串。
     pub trans: String,
+    /// 罗马音，没有就是空字符串。
+    pub roma: String,
+    /// 逐字时间，拼起来就是 [text]；没有逐字歌词时为空。
+    pub words: Vec<LyricWord>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LyricWord {
+    pub start_ms: u32,
+    pub duration_ms: u32,
+    pub text: String,
 }
 
 #[derive(Debug, Clone)]

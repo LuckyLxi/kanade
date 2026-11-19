@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../l10n/l10n_ext.dart';
 import '../player/player_controller.dart';
+import '../settings/lyric_settings.dart';
 import '../src/rust/api/types.dart';
 
 /// Apple Music 式歌词：大号粗体左对齐，当前行从左到右逐渐点亮，
@@ -49,6 +50,9 @@ class _LyricViewState extends State<LyricView> with TickerProviderStateMixin {
 
   /// 刚打开或换了歌词：直接停到当前行，不从第一行滚下来。
   bool _jump = true;
+
+  /// 罗马音开关一变，各行高度跟着变，要重新停到当前行。
+  bool? _romaji;
 
   /// 换句时整页先一下跳到位，每行再从原来的位置滑过去。
   /// 每行各自记着离新位置还差多远（[_off]）、滑得多快（[_vel]）、什么时候出发（[_startAt]）。
@@ -180,6 +184,13 @@ class _LyricViewState extends State<LyricView> with TickerProviderStateMixin {
       _jump = true;
       _follow(_current);
     }
+    final romaji = context.select<LyricSettings, bool>((s) => s.romaji);
+    final wordByWord = context.select<LyricSettings, bool>((s) => s.wordByWord);
+    if (romaji != _romaji) {
+      _romaji = romaji;
+      _jump = true;
+      _follow(_current);
+    }
     final l = AppLocalizations.of(context);
     final big = TextStyle(
       fontSize: widget.fontSize,
@@ -263,6 +274,8 @@ class _LyricViewState extends State<LyricView> with TickerProviderStateMixin {
                               : null,
                           distance: _current < 0 ? i + 1 : (i - _current).abs(),
                           active: i == _current,
+                          romaji: romaji,
+                          wordByWord: wordByWord,
                           free: _free,
                           blur: _blur,
                           // 上一波还没滑完又换句：大小明暗也直接接着变，不再停下来等
@@ -525,6 +538,8 @@ class _Line extends StatelessWidget {
     required this.nextMs,
     required this.distance,
     required this.active,
+    required this.romaji,
+    required this.wordByWord,
     required this.free,
     required this.blur,
     required this.delay,
@@ -536,6 +551,8 @@ class _Line extends StatelessWidget {
   final int? nextMs;
   final int distance;
   final bool active;
+  final bool romaji;
+  final bool wordByWord;
   final ValueListenable<bool> free;
 
   /// 模糊的强弱，见 [_LyricBlur.strength]。
@@ -608,11 +625,24 @@ class _Line extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         active
-                            ? _Sweep(line: line, nextMs: nextMs, style: style)
+                            ? _Sweep(
+                                line: line,
+                                nextMs: nextMs,
+                                words: wordByWord ? line.words : const [],
+                                style: style,
+                              )
                             : Text(
                                 line.text,
                                 style: style.copyWith(color: Colors.white),
                               ),
+                        if (romaji && line.roma.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              line.roma,
+                              style: transStyle.copyWith(color: Colors.white70),
+                            ),
+                          ),
                         if (line.trans.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
@@ -631,13 +661,21 @@ class _Line extends StatelessWidget {
   }
 }
 
-/// 当前行从左往右点亮：按本行到下一行的时间比例推进。
+/// 当前行从左往右点亮：有逐字时间就亮到正在唱的字，否则按本行到下一行的时间比例推进。
 /// 一句歌词折成好几行时一行一行亮，每行分到的时间按这一行的字数算。
 class _Sweep extends StatefulWidget {
-  const _Sweep({required this.line, required this.nextMs, required this.style});
+  const _Sweep({
+    required this.line,
+    required this.nextMs,
+    required this.words,
+    required this.style,
+  });
 
   final LyricLine line;
   final int? nextMs;
+
+  /// 空的就按整行时间亮。
+  final List<LyricWord> words;
   final TextStyle style;
 
   @override
@@ -686,11 +724,15 @@ class _SweepState extends State<_Sweep> {
   Widget build(BuildContext context) {
     final player = context.read<PlayerController>();
     final line = widget.line;
+    final words = widget.words;
     // 行间隔太长（间奏）时只按 6 秒算，避免长时间半亮
     final span = ((widget.nextMs ?? line.timeMs + 5000) - line.timeMs).clamp(
       800,
       6000,
     );
+    double progress(Duration pos) => words.isEmpty
+        ? ((pos.inMilliseconds - line.timeMs) / span).clamp(0.0, 1.0)
+        : _sungChars(words, pos.inMilliseconds);
     // 自己排版不会自动带上主题字体、字号缩放和语言（中文标点选哪套字体），要和旁边用 Text 的行一致
     final style = DefaultTextStyle.of(context).style.merge(widget.style);
     final scaler = MediaQuery.textScalerOf(context);
@@ -704,16 +746,11 @@ class _SweepState extends State<_Sweep> {
           child: ValueListenableBuilder(
             valueListenable: player.position,
             builder: (_, pos, _) => TweenAnimationBuilder<double>(
-              tween: Tween(
-                end: ((pos.inMilliseconds - line.timeMs) / span).clamp(
-                  0.0,
-                  1.0,
-                ),
-              ),
+              tween: Tween(end: progress(pos)),
               duration: const Duration(milliseconds: 250),
               builder: (_, v, _) => CustomPaint(
                 size: Size(text.lit.width, text.lit.height),
-                painter: _SweepPainter(text, v),
+                painter: _SweepPainter(text, v, byChars: words.isNotEmpty),
               ),
             ),
           ),
@@ -747,22 +784,28 @@ class _SweepText {
     dim = painter(const Color(0x88FFFFFF));
 
     final metrics = lit.computeLineMetrics();
-    final chars = <int>[];
+    final ranges = <TextRange>[];
     final rows = <Rect>[];
     var top = 0.0;
     for (final m in metrics) {
       final start = lit.getPositionForOffset(
         Offset(m.left + 1, top + m.height / 2),
       );
-      final range = lit.getLineBoundary(start);
-      chars.add(max(1, range.end - range.start));
+      ranges.add(lit.getLineBoundary(start));
       rows.add(Rect.fromLTWH(m.left, top, m.width, m.height));
       top += m.height;
     }
+    final chars = [for (final r in ranges) max(1, r.end - r.start)];
     final total = chars.fold(0, (a, b) => a + b);
     var done = 0;
     for (final (i, row) in rows.indexed) {
-      lines.add((row: row, from: done / total, to: (done + chars[i]) / total));
+      lines.add((
+        row: row,
+        from: done / total,
+        to: (done + chars[i]) / total,
+        start: ranges[i].start,
+        end: ranges[i].end,
+      ));
       done += chars[i];
     }
   }
@@ -775,7 +818,30 @@ class _SweepText {
   final double width;
   late final TextPainter lit;
   late final TextPainter dim;
-  final lines = <({Rect row, double from, double to})>[];
+  final lines = <({Rect row, double from, double to, int start, int end})>[];
+
+  /// 第 [i] 行亮到哪（0~1，按行宽）。[byChars] 时 [v] 是唱到第几个字，否则是整句的进度。
+  double rowProgress(int i, double v, bool byChars) {
+    final l = lines[i];
+    if (!byChars) return ((v - l.from) / (l.to - l.from)).clamp(0.0, 1.0);
+    if (v >= l.end) return 1;
+    if (v <= l.start) return 0;
+    // 行首的位置算在这一行开头，其余的算在前一个字后面，折行处才不会跑到下一行去
+    double x(int k) => lit
+        .getOffsetForCaret(
+          TextPosition(
+            offset: k,
+            affinity: k == l.start
+                ? TextAffinity.downstream
+                : TextAffinity.upstream,
+          ),
+          Rect.zero,
+        )
+        .dx;
+    final k = v.floor();
+    final at = x(k) + (x(min(k + 1, l.end)) - x(k)) * (v - k);
+    return ((at - l.row.left) / max(l.row.width, 1)).clamp(0.0, 1.0);
+  }
 
   void dispose() {
     lit.dispose();
@@ -785,10 +851,11 @@ class _SweepText {
 
 /// 先画暗的整句，再把亮的一份按行盖上去：亮完的行整行露出，正在亮的行露到进度位置并带一段渐变，后面的行不露。
 class _SweepPainter extends CustomPainter {
-  _SweepPainter(this.text, this.progress);
+  _SweepPainter(this.text, this.progress, {required this.byChars});
 
   final _SweepText text;
   final double progress;
+  final bool byChars;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -799,8 +866,12 @@ class _SweepPainter extends CustomPainter {
     text.lit.paint(canvas, Offset.zero);
     final lines = text.lines;
     for (final (i, l) in lines.indexed) {
-      final p = ((progress - l.from) / (l.to - l.from)).clamp(0.0, 1.0);
+      final p = text.rowProgress(i, progress, byChars);
       if (p >= 1) continue;
+      // 逐字时渐变只拖半个字宽，不然还没唱的下一两个字也跟着亮
+      final feather = byChars
+          ? min(0.15, (text.style.fontSize ?? 14) * 0.5 / max(l.row.width, 1))
+          : 0.15;
       // 每行的遮罩上下接起来铺满，第一行往上、最后一行往下延伸到边
       final rect = Rect.fromLTRB(
         bounds.left,
@@ -819,7 +890,7 @@ class _SweepPainter extends CustomPainter {
             Colors.transparent,
             Colors.transparent,
           ],
-          [0, p, min(p + 0.15, 1), 1],
+          [0, p, min(p + feather, 1), 1],
         );
       } else {
         mask.color = Colors.transparent;
@@ -831,7 +902,22 @@ class _SweepPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SweepPainter old) =>
-      old.progress != progress || old.text != text;
+      old.progress != progress || old.text != text || old.byChars != byChars;
+}
+
+/// 唱到第几个字，可以是小数：唱完的字全算上，正在唱的按时间算一部分。
+double _sungChars(List<LyricWord> words, int ms) {
+  var chars = 0.0;
+  for (final w in words) {
+    if (ms < w.startMs) break;
+    if (ms >= w.startMs + w.durationMs) {
+      chars += w.text.length;
+      continue;
+    }
+    chars += w.text.length * (ms - w.startMs) / w.durationMs;
+    break;
+  }
+  return chars;
 }
 
 /// 间奏时的三个呼吸圆点。

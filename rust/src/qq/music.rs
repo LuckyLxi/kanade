@@ -1,13 +1,13 @@
 //! 搜索、播放链接、歌词、榜单、歌单。
 
 use anyhow::{bail, Context, Result};
-use base64::Engine;
 use serde_json::{json, Value};
 
 use super::client::core;
 use super::error::ApiError;
 use super::lyric;
 use super::parse::{self, first_s, n, s};
+use super::qrc;
 use super::quality::{file_name, playback_chain, stream_available};
 use super::sign::hash33;
 use crate::api::types::*;
@@ -584,31 +584,27 @@ pub async fn song_url(mid: &str, media_mid: &str, quality: Quality) -> Result<So
     }
 }
 
-fn b64_text(v: &Value) -> String {
-    let raw = s(v);
-    if raw.is_empty() {
-        return raw;
-    }
-    base64::engine::general_purpose::STANDARD
-        .decode(raw.as_bytes())
-        .ok()
-        .and_then(|b| String::from_utf8(b).ok())
-        .unwrap_or(raw)
-}
-
 pub async fn lyric(mid: &str, id: i64) -> Result<Lyric> {
     let c = core();
     let data = c
-        .cached(&format!("lyric:{mid}"), 7 * 86400, || async {
+        // 缓存的是解密后的原文；以前存的是不带逐字和罗马音的版本，换个键不再读它
+        .cached(&format!("lyric:qrc:{mid}"), 7 * 86400, || async {
             let r = c
                 .musicu(
                     "music.musichallSong.PlayLyricInfo",
                     "GetPlayLyricInfo",
-                    json!({ "songMID": mid, "songID": id, "trans": 1, "roma": 0, "crypt": 0, "qrc": 0 }),
+                    json!({ "songMID": mid, "songID": id, "trans": 1, "roma": 1, "crypt": 1, "qrc": 1 }),
                 )
                 .await;
-            match r {
-                Ok(d) if !s(&d["lyric"]).is_empty() => Ok(json!({ "lyric": b64_text(&d["lyric"]), "trans": b64_text(&d["trans"]) })),
+            let decrypted = r.and_then(|d| {
+                Ok(json!({
+                    "lyric": qrc::decrypt(&s(&d["lyric"]))?,
+                    "trans": qrc::decrypt(&s(&d["trans"]))?,
+                    "roma": qrc::decrypt(&s(&d["roma"]))?,
+                }))
+            });
+            match decrypted {
+                Ok(d) if !s(&d["lyric"]).is_empty() => Ok(d),
                 _ => {
                     let d = c
                         .get_json(
@@ -621,7 +617,11 @@ pub async fn lyric(mid: &str, id: i64) -> Result<Lyric> {
             }
         })
         .await?;
-    Ok(lyric::build(&s(&data["lyric"]), &s(&data["trans"])))
+    Ok(lyric::build(
+        &s(&data["lyric"]),
+        &s(&data["trans"]),
+        &s(&data["roma"]),
+    ))
 }
 
 /// 歌曲信息里的 `file.try_begin` / `try_end` 就是官方客户端标出的高潮片段，没有时是 0。

@@ -7,6 +7,7 @@ import '../auth/auth_controller.dart';
 import '../l10n/l10n_ext.dart';
 import '../player/player_controller.dart';
 import '../settings/locale_controller.dart';
+import '../settings/lyric_settings.dart';
 import '../settings/theme_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
@@ -400,6 +401,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final scheme = Theme.of(context).colorScheme;
     final locale = context.watch<LocaleController>().locale;
     final themeMode = context.watch<ThemeController>().mode;
+    final lyric = context.watch<LyricSettings>();
     final defaultQuality = context.select<PlayerController, Quality>(
       (p) => p.defaultQuality,
     );
@@ -506,6 +508,28 @@ class _SettingsPageState extends State<SettingsPage> {
               child: _Value(languageText(locale?.languageCode ?? '')),
             ),
             onTap: () => _languageMenu.currentState?.open(),
+          ),
+          _Item(
+            icon: Icons.lyrics_outlined,
+            title: l.lyricWordByWord,
+            hint: l.lyricWordByWordHint,
+            onTap: () => lyric.setWordByWord(!lyric.wordByWord),
+            trailing: Switch(
+              value: lyric.wordByWord,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onChanged: lyric.setWordByWord,
+            ),
+          ),
+          _Item(
+            icon: Icons.abc_rounded,
+            title: l.lyricRomaji,
+            hint: l.lyricRomajiHint,
+            onTap: () => lyric.setRomaji(!lyric.romaji),
+            trailing: Switch(
+              value: lyric.romaji,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onChanged: lyric.setRomaji,
+            ),
           ),
         ],
         after: null,

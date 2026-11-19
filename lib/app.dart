@@ -13,6 +13,7 @@ import 'library/library_controller.dart';
 import 'player/media_session.dart';
 import 'player/player_controller.dart';
 import 'settings/locale_controller.dart';
+import 'settings/lyric_settings.dart';
 import 'settings/theme_controller.dart';
 import 'src/rust/api/music.dart' as api;
 import 'src/rust/frb_generated.dart';
@@ -70,6 +71,7 @@ class AppProviders extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => LocaleController()),
         ChangeNotifierProvider(create: (_) => ThemeController()),
+        ChangeNotifierProvider(create: (_) => LyricSettings()),
         ChangeNotifierProvider(create: (_) => AuthController()),
         // 启动时就去取红心列表
         ChangeNotifierProvider(

@@ -11,6 +11,7 @@ import '../src/rust/api/types.dart';
 import 'album_page.dart';
 import 'comments_page.dart';
 import 'follow_button.dart';
+import 'lyric_options_sheet.dart';
 import 'mv_page.dart';
 import 'player_bar_page.dart';
 import 'sheet.dart';
@@ -49,11 +50,12 @@ void openSinger(BuildContext context, Song song) {
 }
 
 /// 歌曲的更多操作：上排快捷操作，下方为 MV、相似歌曲、歌手和专辑。
-/// 在自己的歌单里打开时传入 [onRemove]，多出“从歌单中删除”。
+/// 在自己的歌单里打开时传入 [onRemove]，多出“从歌单中删除”；从播放页打开时 [lyricOptions] 多出歌词显示设置。
 Future<void> showSongActions(
   BuildContext context,
   Song song, {
   VoidCallback? onRemove,
+  bool lyricOptions = false,
 }) {
   final l = AppLocalizations.of(context);
   // 拿不到评论数就不显示
@@ -133,6 +135,13 @@ Future<void> showSongActions(
             onTap: () =>
                 run(() => Navigator.of(context).push(CommentsPage.song(song))),
           ),
+          if (lyricOptions)
+            SheetRow(
+              leading: const Icon(Icons.lyrics_outlined),
+              title: l.lyricOptions,
+              chevron: true,
+              onTap: () => run(() => showLyricOptions(context)),
+            ),
           if (song.mvVid.isNotEmpty)
             SheetRow(
               leading: const Icon(Icons.music_video_rounded),

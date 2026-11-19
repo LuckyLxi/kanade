@@ -692,7 +692,7 @@ class _TitleRow extends StatelessWidget {
         const SizedBox(width: 10),
         _GlassButton(
           tooltip: l.more,
-          onTap: () => showSongActions(context, song),
+          onTap: () => showSongActions(context, song, lyricOptions: true),
           child: const Icon(
             Icons.more_horiz_rounded,
             color: Colors.white,
