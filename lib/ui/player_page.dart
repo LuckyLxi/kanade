@@ -2224,7 +2224,7 @@ class _QueuePanelState extends State<_QueuePanel> {
                 controller: _scroll,
                 physics: _pulling ? const NeverScrollableScrollPhysics() : null,
                 color: Colors.white,
-                dragColor: const Color(0xF0303030),
+                dragTint: const Color(0x59303030),
                 // 在手柄上按下是要拖动排序，不当成往下拉翻回主页面
                 onHandleDown: () => _onHandle = true,
               ),

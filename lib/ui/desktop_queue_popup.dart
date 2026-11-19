@@ -217,7 +217,7 @@ class _DesktopQueueButtonState extends State<DesktopQueueButton>
           child: QueueList(
             controller: _scroll,
             color: scheme.onSurface,
-            dragColor: scheme.surfaceContainerHighest,
+            dragTint: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
           ),
         ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
@@ -17,7 +18,7 @@ class QueueList extends StatelessWidget {
     super.key,
     required this.controller,
     required this.color,
-    required this.dragColor,
+    required this.dragTint,
     this.physics,
     this.padding = const EdgeInsets.fromLTRB(12, 4, 12, 40),
     this.onHandleDown,
@@ -33,8 +34,8 @@ class QueueList extends StatelessWidget {
   /// 文字和图标的颜色，其他深浅都从它推出来。
   final Color color;
 
-  /// 拖动中那一行的底色，要够实，盖住下面挪动的行。
-  final Color dragColor;
+  /// 拖动中那一行毛玻璃上的淡色，压住后面糊掉的字。
+  final Color dragTint;
   final ScrollPhysics? physics;
   final EdgeInsets padding;
 
@@ -52,10 +53,23 @@ class QueueList extends StatelessWidget {
       buildDefaultDragHandles: false,
       itemCount: p.queue.length,
       onReorderItem: p.moveQueue,
-      proxyDecorator: (child, _, _) => Material(
-        color: dragColor,
-        borderRadius: BorderRadius.circular(12),
+      // 提起和放下时跟着拖动自带的 250ms 动画渐显渐隐
+      proxyDecorator: (child, _, animation) => AnimatedBuilder(
+        animation: animation,
         child: child,
+        builder: (_, child) {
+          final t = Curves.easeInOut.transform(animation.value);
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 16 * t, sigmaY: 16 * t),
+              child: Material(
+                color: dragTint.withValues(alpha: dragTint.a * t),
+                child: child,
+              ),
+            ),
+          );
+        },
       ),
       itemBuilder: (_, i) => QueueTile(
         key: ObjectKey(p.queue[i]),
