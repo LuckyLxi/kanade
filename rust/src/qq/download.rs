@@ -608,16 +608,21 @@ impl Downloader {
                 self.store(mid, rec, stop);
             }
         };
-        if quality::requires_pcm(src.quality) {
-            self.fetch_pcm(&src, &part, stop, &mut rec, &mut report)
-                .await?;
-        } else {
-            self.fetch(&src, &part, stop, &mut rec, &mut report)
-                .await?;
+        // 上次已经下完、卡在后面保存那步：临时文件写过标签，比下载的长度长，不能再接着下
+        let fetched = rec.total > 0 && rec.received == rec.total && part.is_file();
+        if !fetched {
+            if quality::requires_pcm(src.quality) {
+                self.fetch_pcm(&src, &part, stop, &mut rec, &mut report)
+                    .await?;
+            } else {
+                self.fetch(&src, &part, stop, &mut rec, &mut report)
+                    .await?;
+            }
         }
         if stop.stopped() {
             bail!(Cancelled);
         }
+        self.store(mid, &rec, stop);
 
         let (ext, mime) = sniff(&part).unwrap_or((quality::extension(src.quality), "audio/*"));
         let cover = self.cover(&song).await;
@@ -681,7 +686,13 @@ impl Downloader {
         if offset > 0 {
             req = req.header("Range", format!("bytes={offset}-"));
         }
-        let mut resp = req.send().await?.error_for_status()?;
+        let mut resp = req.send().await?;
+        // 临时文件比音源还长（比如写过标签）：从头下
+        if resp.status() == reqwest::StatusCode::RANGE_NOT_SATISFIABLE {
+            offset = 0;
+            resp = self.http.get(&src.url).header("Referer", REFERER).send().await?;
+        }
+        let mut resp = resp.error_for_status()?;
         if resp.status() != reqwest::StatusCode::PARTIAL_CONTENT {
             offset = 0;
         }

@@ -227,7 +227,7 @@ class _ActiveRow extends StatelessWidget {
             ),
           Text(
             status,
-            maxLines: 1,
+            maxLines: d.state == DownloadState.failed ? 4 : 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12,
