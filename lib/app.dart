@@ -74,7 +74,6 @@ class AppProviders extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeController()),
         ChangeNotifierProvider(create: (_) => LyricSettings()),
         ChangeNotifierProvider(create: (_) => AuthController()),
-        ChangeNotifierProvider(create: (_) => DownloadController()),
         // 启动时就去取红心列表
         ChangeNotifierProvider(
           create: (context) =>
@@ -91,6 +90,10 @@ class AppProviders extends StatelessWidget {
                   context.read<LocaleController>(),
                   androidPlaybackDirectory!,
                 ),
+        ),
+        ChangeNotifierProvider(
+          create: (context) =>
+              DownloadController(context.read<PlayerController>().downloads),
         ),
       ],
       child: mediaSession && androidPlaybackDirectory == null

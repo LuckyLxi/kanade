@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
+import '../download/download_controller.dart';
 import '../l10n/l10n_ext.dart';
 import '../player/player_controller.dart';
 import '../settings/locale_controller.dart';
@@ -413,6 +414,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final locale = context.watch<LocaleController>().locale;
     final themeMode = context.watch<ThemeController>().mode;
     final lyric = context.watch<LyricSettings>();
+    final downloads = context.watch<DownloadController>();
     final defaultQuality = context.select<PlayerController, Quality>(
       (p) => p.defaultQuality,
     );
@@ -588,6 +590,30 @@ class _SettingsPageState extends State<SettingsPage> {
             hint: Platform.isAndroid ? l.downloadDirAndroid : _downloadDir,
             onTap: Platform.isAndroid ? null : _pickDownloadDir,
           ),
+          _SegmentedItem(
+            icon: Icons.downloading_rounded,
+            title: l.downloadConcurrency,
+            segments: [
+              for (var n = 1; n <= 5; n++)
+                _Segment(
+                  selected: n == downloads.concurrency,
+                  onTap: () => downloads.setConcurrency(n),
+                  child: Text(l.downloadConcurrencyValue(n)),
+                ),
+            ],
+          ),
+          if (Platform.isAndroid)
+            _Item(
+              icon: Icons.wifi_rounded,
+              title: l.downloadWifiOnly,
+              hint: l.downloadWifiOnlyHint,
+              onTap: () => downloads.setWifiOnly(!downloads.wifiOnly),
+              trailing: Switch(
+                value: downloads.wifiOnly,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged: downloads.setWifiOnly,
+              ),
+            ),
         ],
         after: null,
       ),

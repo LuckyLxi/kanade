@@ -14,7 +14,7 @@ class _RemotePlayerController extends PlayerController {
         (directory, onUpdate) => AndroidPlaybackConnection(
           directory,
           onUpdate,
-          onRestart: _resumePosition,
+          onRestart: _onRestart,
         ))(directory, _applyUpdate);
     _lifecycle = AppLifecycleListener(
       onResume: _connect,
@@ -33,6 +33,15 @@ class _RemotePlayerController extends PlayerController {
   (String, bool)? _lastLike;
   bool _disposed = false;
   bool _resuming = false;
+  final _downloadChanges = StreamController<String?>.broadcast();
+
+  @override
+  late final downloads = RemoteDownloads(_send, _downloadChanges.stream);
+
+  void _onRestart() {
+    _downloadChanges.add(null);
+    _resumePosition();
+  }
 
   void _connect() {
     _connection.setWatching(true);
@@ -81,6 +90,10 @@ class _RemotePlayerController extends PlayerController {
 
   void _applyUpdate(PlaybackMessage message) {
     if (_disposed) return;
+    if (message['download'] case final String mid) {
+      _downloadChanges.add(mid);
+      return;
+    }
     if (message['position'] case final int milliseconds) {
       if (_resuming) return;
       position.value = Duration(milliseconds: milliseconds);
@@ -242,6 +255,7 @@ class _RemotePlayerController extends PlayerController {
     _locale.removeListener(_syncLocale);
     _lifecycle.dispose();
     _connection.dispose();
+    unawaited(_downloadChanges.close());
     super.dispose();
   }
 }

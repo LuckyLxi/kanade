@@ -1204,4 +1204,39 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsDownloads => '下载';
+
+  @override
+  String get downloadPauseAll => '全部暂停';
+
+  @override
+  String get downloadResumeAll => '全部开始';
+
+  @override
+  String get downloadPause => '暂停';
+
+  @override
+  String get downloadResume => '继续';
+
+  @override
+  String get downloadWaitingWifi => '等待 Wi-Fi';
+
+  @override
+  String get downloadEmpty => '没有正在下载的歌';
+
+  @override
+  String get downloadedEmpty => '还没有下载过歌';
+
+  @override
+  String get downloadConcurrency => '同时下载';
+
+  @override
+  String downloadConcurrencyValue(int count) {
+    return '$count 首';
+  }
+
+  @override
+  String get downloadWifiOnly => '仅 Wi-Fi 下载';
+
+  @override
+  String get downloadWifiOnlyHint => '用流量时先排队，连上 Wi-Fi 再下';
 }

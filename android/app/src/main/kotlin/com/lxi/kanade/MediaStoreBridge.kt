@@ -3,9 +3,14 @@ package com.lxi.kanade
 import android.content.ContentValues
 import android.content.Context
 import android.media.MediaScannerConnection
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
 import java.io.File
@@ -18,6 +23,7 @@ import java.io.IOException
 object MediaStoreBridge {
     private const val FOLDER = "Kanade"
     private lateinit var app: Context
+    private val main = Handler(Looper.getMainLooper())
 
     fun install(context: Context) {
         app = context.applicationContext
@@ -25,6 +31,25 @@ object MediaStoreBridge {
             nativeInit()
         } catch (e: UnsatisfiedLinkError) {
             Log.e("MediaStoreBridge", "native library unavailable", e)
+            return
+        }
+        // 「仅 Wi-Fi 下载」按是否计费判断，注册后会先回调一次当前网络
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            app.getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(
+                object : ConnectivityManager.NetworkCallback() {
+                    override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                        nativeNetworkChanged(!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED))
+                    }
+                },
+            )
+        }
+    }
+
+    /** [total] 为 0 时收起下载通知。 */
+    @JvmStatic
+    fun notifyDownloads(done: Int, total: Int) {
+        main.post {
+            if (total == 0) DownloadService.stop(app) else DownloadService.show(app, done, total)
         }
     }
 
@@ -100,4 +125,7 @@ object MediaStoreBridge {
 
     @JvmStatic
     private external fun nativeInit()
+
+    @JvmStatic
+    private external fun nativeNetworkChanged(metered: Boolean)
 }

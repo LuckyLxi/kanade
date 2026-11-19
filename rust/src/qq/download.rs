@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU8, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -25,6 +25,9 @@ use crate::frb_generated::StreamSink;
 const REFERER: &str = "https://y.qq.com/";
 const DIR_PREF: &str = "pref:download_dir";
 const CONCURRENCY_PREF: &str = "pref:download_concurrency";
+const WIFI_ONLY_PREF: &str = "pref:download_wifi_only";
+/// 网络或临时错误自动重试的次数。
+const RETRIES: u32 = 2;
 pub const MAX_CONCURRENCY: u32 = 5;
 const DEFAULT_CONCURRENCY: u32 = 2;
 /// 进度写库和通知界面的最短间隔。
@@ -154,16 +157,42 @@ impl std::fmt::Display for Cancelled {
 
 impl std::error::Error for Cancelled {}
 
+/// 叫停正在下的一首：[flag] 交给解码器，[reason] 决定停下后记录改成什么。
+#[derive(Default)]
+struct Stop {
+    flag: AtomicBool,
+    reason: AtomicU8,
+}
+
+const STOP_PAUSE: u8 = 1;
+const STOP_REMOVE: u8 = 2;
+/// 切到了流量：放回队列等 Wi-Fi。
+const STOP_REQUEUE: u8 = 3;
+
+impl Stop {
+    fn stop(&self, reason: u8) {
+        self.reason.store(reason, Ordering::Relaxed);
+        self.flag.store(true, Ordering::Relaxed);
+    }
+
+    fn stopped(&self) -> bool {
+        self.flag.load(Ordering::Relaxed)
+    }
+}
+
 pub struct Downloader {
     stage: PathBuf,
     http: reqwest::Client,
     handle: Handle,
-    running: Mutex<HashMap<String, Arc<AtomicBool>>>,
+    running: Mutex<HashMap<String, Arc<Stop>>>,
     sinks: Mutex<Vec<StreamSink<DownloadEvent>>>,
+    /// 这一批里下完的首数，队列清空时归零；通知显示「下完的/这一批总数」。
+    batch_done: AtomicU32,
 }
 
 static STAGE: OnceLock<PathBuf> = OnceLock::new();
 static DOWNLOADER: OnceLock<Downloader> = OnceLock::new();
+static METERED: AtomicBool = AtomicBool::new(false);
 
 /// 下载中的临时文件放在数据目录里，下完再移到音乐文件夹。
 pub fn init(stage: PathBuf) {
@@ -200,6 +229,7 @@ pub fn downloader() -> &'static Downloader {
             handle: rx.recv().expect("download runtime"),
             running: Mutex::new(HashMap::new()),
             sinks: Mutex::new(Vec::new()),
+            batch_done: AtomicU32::new(0),
         };
         // 上次没下完的（进程被杀或退出）留着，等手动继续
         for (mid, mut rec) in records() {
@@ -247,6 +277,43 @@ pub fn concurrency() -> u32 {
         .and_then(|v| v.parse().ok())
         .unwrap_or(DEFAULT_CONCURRENCY)
         .clamp(1, MAX_CONCURRENCY)
+}
+
+pub fn set_concurrency(n: u32) -> Result<()> {
+    core()
+        .store
+        .kv_set(CONCURRENCY_PREF, &n.clamp(1, MAX_CONCURRENCY).to_string())?;
+    if let Some(d) = DOWNLOADER.get() {
+        d.pump();
+    }
+    Ok(())
+}
+
+pub fn wifi_only() -> bool {
+    core().store.kv_get(WIFI_ONLY_PREF).as_deref() == Some("true")
+}
+
+pub fn set_wifi_only(on: bool) -> Result<()> {
+    core()
+        .store
+        .kv_set(WIFI_ONLY_PREF, if on { "true" } else { "false" })?;
+    if let Some(d) = DOWNLOADER.get() {
+        d.network_changed();
+    }
+    Ok(())
+}
+
+/// 开了「仅 Wi-Fi 下载」又在用流量：排队的先不开始。
+pub fn waiting_for_wifi() -> bool {
+    METERED.load(Ordering::Relaxed) && wifi_only()
+}
+
+/// 网络变了（Android 上来自 MediaStoreBridge 的网络回调）。
+pub fn set_metered(metered: bool) {
+    METERED.store(metered, Ordering::Relaxed);
+    if let Some(d) = DOWNLOADER.get() {
+        d.network_changed();
+    }
 }
 
 /// 下载好的这首歌；文件被删掉了就把记录也删掉，播放改走网络。
@@ -307,7 +374,13 @@ impl Downloader {
         let key = quality::cache_key(want);
         let now = super::client::now_ms() as i64;
         for (i, song) in songs.iter().enumerate() {
-            if self.running.lock().unwrap().contains_key(&song.mid) {
+            let live = self
+                .running
+                .lock()
+                .unwrap()
+                .get(&song.mid)
+                .is_some_and(|s| !s.stopped());
+            if live {
                 continue;
             }
             let rec = match load(&song.mid) {
@@ -343,9 +416,9 @@ impl Downloader {
     }
 
     /// 删掉下载记录、下好的文件和没下完的临时文件。
-    pub fn remove(&self, mid: &str) {
-        if let Some(cancel) = self.running.lock().unwrap().remove(mid) {
-            cancel.store(true, Ordering::Relaxed);
+    pub fn remove(&'static self, mid: &str) {
+        if let Some(stop) = self.running.lock().unwrap().get(mid) {
+            stop.stop(STOP_REMOVE);
         }
         let _ = std::fs::remove_file(self.part(mid));
         if let Some(rec) = load(mid) {
@@ -355,6 +428,72 @@ impl Downloader {
         }
         core().store.download_delete(mid);
         self.emit(DownloadEvent::Removed { mid: mid.into() });
+        self.notify();
+    }
+
+    /// 暂停排队中和正在下的；临时文件留着，继续时从断点接着下。
+    pub fn pause(&'static self, mids: &[String]) {
+        for mid in mids {
+            let Some(mut rec) = load(mid) else { continue };
+            if !matches!(rec.state, State::Queued | State::Running) {
+                continue;
+            }
+            if let Some(stop) = self.running.lock().unwrap().get(mid) {
+                stop.stop(STOP_PAUSE);
+            }
+            rec.state = State::Paused;
+            save(mid, &rec);
+            self.emit_record(&rec);
+        }
+        self.notify();
+    }
+
+    /// 继续暂停的、重试失败的。
+    pub fn resume(&'static self, mids: &[String]) {
+        for mid in mids {
+            let Some(mut rec) = load(mid) else { continue };
+            if !matches!(rec.state, State::Paused | State::Failed) {
+                continue;
+            }
+            rec.state = State::Queued;
+            rec.error = None;
+            save(mid, &rec);
+            self.emit_record(&rec);
+        }
+        self.pump();
+    }
+
+    fn network_changed(&'static self) {
+        if waiting_for_wifi() {
+            for stop in self.running.lock().unwrap().values() {
+                stop.stop(STOP_REQUEUE);
+            }
+        } else {
+            self.pump();
+        }
+    }
+
+    /// 有在下的就显示通知（Android 上同时是前台服务），都停了就收起。
+    fn notify(&self) {
+        let running = self
+            .running
+            .lock()
+            .unwrap()
+            .values()
+            .any(|s| !s.stopped());
+        let active = records()
+            .iter()
+            .filter(|(_, r)| matches!(r.state, State::Queued | State::Running))
+            .count() as u32;
+        if active == 0 {
+            self.batch_done.store(0, Ordering::Relaxed);
+        }
+        if running {
+            let done = self.batch_done.load(Ordering::Relaxed);
+            platform::notify(done, done + active);
+        } else {
+            platform::notify(0, 0);
+        }
     }
 
     fn part(&self, mid: &str) -> PathBuf {
@@ -362,49 +501,89 @@ impl Downloader {
     }
 
     fn pump(&'static self) {
-        let limit = concurrency() as usize;
-        let mut running = self.running.lock().unwrap();
-        for (mid, mut rec) in records() {
-            if running.len() >= limit {
-                break;
+        if !waiting_for_wifi() {
+            let limit = concurrency() as usize;
+            let mut running = self.running.lock().unwrap();
+            for (mid, mut rec) in records() {
+                if running.len() >= limit {
+                    break;
+                }
+                if rec.state != State::Queued || running.contains_key(&mid) {
+                    continue;
+                }
+                let stop = Arc::new(Stop::default());
+                running.insert(mid.clone(), stop.clone());
+                rec.state = State::Running;
+                save(&mid, &rec);
+                self.emit_record(&rec);
+                self.handle.spawn(async move {
+                    let mut attempt = 0;
+                    let result = loop {
+                        let result = self.run(&mid, &stop).await;
+                        match &result {
+                            Err(e) if attempt < RETRIES && !stop.stopped() && retryable(e) => {
+                                attempt += 1;
+                                tokio::time::sleep(Duration::from_secs(2 * attempt as u64)).await;
+                            }
+                            _ => break result,
+                        }
+                    };
+                    self.finish(&mid, &stop, result);
+                });
             }
-            if rec.state != State::Queued || running.contains_key(&mid) {
-                continue;
-            }
-            let cancel = Arc::new(AtomicBool::new(false));
-            running.insert(mid.clone(), cancel.clone());
-            rec.state = State::Running;
-            save(&mid, &rec);
-            self.emit_record(&rec);
-            self.handle.spawn(async move {
-                let result = self.run(&mid, &cancel).await;
-                self.finish(&mid, &cancel, result);
-            });
         }
+        self.notify();
     }
 
-    fn finish(&'static self, mid: &str, cancel: &Arc<AtomicBool>, result: Result<()>) {
+    fn finish(&'static self, mid: &str, stop: &Arc<Stop>, result: Result<()>) {
         {
             let mut running = self.running.lock().unwrap();
-            if running.get(mid).is_some_and(|c| Arc::ptr_eq(c, cancel)) {
+            if running.get(mid).is_some_and(|s| Arc::ptr_eq(s, stop)) {
                 running.remove(mid);
             }
         }
-        // 被暂停或删除时由那边改记录
-        if !cancel.load(Ordering::Relaxed) {
-            if let Err(e) = result {
-                if let Some(mut rec) = load(mid) {
-                    rec.state = State::Failed;
-                    rec.error = Some(encode_error(&e));
+        if let Some(mut rec) = load(mid) {
+            let received = || std::fs::metadata(self.part(mid)).map_or(0, |m| m.len());
+            match stop.reason.load(Ordering::Relaxed) {
+                // 记录暂停时已改好，这里补上临时文件实际的长度
+                STOP_PAUSE if rec.state == State::Paused => {
+                    rec.received = received();
                     save(mid, &rec);
                     self.emit_record(&rec);
                 }
+                STOP_REQUEUE if rec.state == State::Running => {
+                    rec.state = State::Queued;
+                    rec.received = received();
+                    save(mid, &rec);
+                    self.emit_record(&rec);
+                }
+                _ if !stop.stopped() => match result {
+                    Ok(()) => {
+                        self.batch_done.fetch_add(1, Ordering::Relaxed);
+                    }
+                    Err(e) => {
+                        rec.state = State::Failed;
+                        rec.error = Some(encode_error(&e));
+                        save(mid, &rec);
+                        self.emit_record(&rec);
+                    }
+                },
+                // 删掉了，或删掉后马上又重新加入了
+                _ => {}
             }
         }
         self.pump();
     }
 
-    async fn run(&'static self, mid: &str, cancel: &Arc<AtomicBool>) -> Result<()> {
+    /// 下载中途写进度；已经被叫停就不写，免得把暂停或删除盖回去。
+    fn store(&self, mid: &str, rec: &Record, stop: &Stop) {
+        if !stop.stopped() {
+            save(mid, rec);
+            self.emit_record(rec);
+        }
+    }
+
+    async fn run(&'static self, mid: &str, stop: &Arc<Stop>) -> Result<()> {
         let mut rec = load(mid).context("download record is missing")?;
         let song = rec.song().context("download record is broken")?;
         let want = quality::from_cache_key(&rec.want).context(ApiError::UnsupportedFormat)?;
@@ -418,8 +597,7 @@ impl Downloader {
             let _ = std::fs::remove_file(&part);
         }
         rec.quality = Some(key);
-        save(mid, &rec);
-        self.emit_record(&rec);
+        self.store(mid, &rec, stop);
 
         let mut last = Instant::now();
         let mut report = |rec: &mut Record, received: u64, total: u64| {
@@ -427,18 +605,17 @@ impl Downloader {
             rec.total = total;
             if last.elapsed() >= REPORT_EVERY {
                 last = Instant::now();
-                save(mid, rec);
-                self.emit_record(rec);
+                self.store(mid, rec, stop);
             }
         };
         if quality::requires_pcm(src.quality) {
-            self.fetch_pcm(&src, &part, cancel, &mut rec, &mut report)
+            self.fetch_pcm(&src, &part, stop, &mut rec, &mut report)
                 .await?;
         } else {
-            self.fetch(&src, &part, cancel, &mut rec, &mut report)
+            self.fetch(&src, &part, stop, &mut rec, &mut report)
                 .await?;
         }
-        if cancel.load(Ordering::Relaxed) {
+        if stop.stopped() {
             bail!(Cancelled);
         }
 
@@ -474,6 +651,13 @@ impl Downloader {
         rec.received = size;
         rec.total = size;
         rec.error = None;
+        // 刚存好时被删了：存好的文件跟着删掉；被暂停就算下完了
+        if stop.reason.load(Ordering::Relaxed) == STOP_REMOVE {
+            for f in rec.file.iter().chain(rec.lrc.iter()) {
+                platform::delete(f);
+            }
+            bail!(Cancelled);
+        }
         save(mid, &rec);
         self.emit_record(&rec);
         Ok(())
@@ -484,7 +668,7 @@ impl Downloader {
         &self,
         src: &SongUrl,
         part: &Path,
-        cancel: &AtomicBool,
+        stop: &Stop,
         rec: &mut Record,
         report: &mut impl FnMut(&mut Record, u64, u64),
     ) -> Result<()> {
@@ -509,7 +693,7 @@ impl Downloader {
         };
         report(rec, offset, total);
         while let Some(chunk) = resp.chunk().await? {
-            if cancel.load(Ordering::Relaxed) {
+            if stop.stopped() {
                 f.flush().await?;
                 bail!(Cancelled);
             }
@@ -535,7 +719,7 @@ impl Downloader {
         &self,
         src: &SongUrl,
         part: &Path,
-        cancel: &Arc<AtomicBool>,
+        stop: &Arc<Stop>,
         rec: &mut Record,
         report: &mut impl FnMut(&mut Record, u64, u64),
     ) -> Result<()> {
@@ -550,7 +734,7 @@ impl Downloader {
         let mut encoded = Vec::with_capacity(total as usize);
         report(rec, 0, total);
         while let Some(chunk) = resp.chunk().await? {
-            if cancel.load(Ordering::Relaxed) {
+            if stop.stopped() {
                 bail!(Cancelled);
             }
             encoded.extend_from_slice(&chunk);
@@ -559,13 +743,14 @@ impl Downloader {
         if let Some(ekey) = &src.ekey {
             Qmc::from_ekey(ekey)?.decrypt(&mut encoded, 0);
         }
-        let (q, part, cancel) = (src.quality, part.to_path_buf(), cancel.clone());
+        let (q, part, stop) = (src.quality, part.to_path_buf(), stop.clone());
         let size = tokio::task::spawn_blocking(move || {
             let progress = |_, _| {};
+            let cancel = &stop.flag;
             match q {
-                Quality::Dts => dts::decode(&encoded, &part, &cancel, &progress),
-                Quality::Aicodec => nac::decode(&encoded, &part, &cancel, &progress),
-                Quality::Ra360 => ra360::decode(&encoded, &part, &cancel, &progress),
+                Quality::Dts => dts::decode(&encoded, &part, cancel, &progress),
+                Quality::Aicodec => nac::decode(&encoded, &part, cancel, &progress),
+                Quality::Ra360 => ra360::decode(&encoded, &part, cancel, &progress),
                 _ => unreachable!("only decoded qualities use this download"),
             }
         })
@@ -583,6 +768,12 @@ impl Downloader {
         let resp = self.http.get(url).send().await.ok()?.error_for_status().ok()?;
         Some(resp.bytes().await.ok()?.to_vec())
     }
+}
+
+/// 存储权限、没有链接这类重试也没用的直接算失败。
+fn retryable(e: &anyhow::Error) -> bool {
+    let code = encode_error(e);
+    code.starts_with("network:") || code.starts_with("internal:")
 }
 
 /// 按文件头认格式；同一档位有时拿到的是别的封装（比如 320k 降成了 OGG）。
@@ -764,6 +955,8 @@ mod platform {
     pub fn exists(file: &str) -> bool {
         Path::new(file).is_file()
     }
+
+    pub fn notify(_done: u32, _total: u32) {}
 }
 
 /// Android 上经 MediaStore 存进系统「音乐/Kanade」（MediaStoreBridge.kt），文件记的是 content:// 地址。
@@ -854,6 +1047,28 @@ mod platform {
                 "delete",
                 "(Ljava/lang/String;)V",
                 &[JValue::Object(&file)],
+            )?;
+            Ok(())
+        });
+    }
+
+    #[no_mangle]
+    pub extern "system" fn Java_com_lxi_kanade_MediaStoreBridge_nativeNetworkChanged(
+        _env: JNIEnv,
+        _class: JClass,
+        metered: jni::sys::jboolean,
+    ) {
+        super::set_metered(metered != 0);
+    }
+
+    /// [total] 为 0 时收起通知、停掉前台服务。
+    pub fn notify(done: u32, total: u32) {
+        let _ = call(|env, class| {
+            env.call_static_method(
+                class,
+                "notifyDownloads",
+                "(II)V",
+                &[JValue::Int(done as i32), JValue::Int(total as i32)],
             )?;
             Ok(())
         });

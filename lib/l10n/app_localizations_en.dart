@@ -1280,4 +1280,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsDownloads => 'Downloads';
+
+  @override
+  String get downloadPauseAll => 'Pause all';
+
+  @override
+  String get downloadResumeAll => 'Start all';
+
+  @override
+  String get downloadPause => 'Pause';
+
+  @override
+  String get downloadResume => 'Resume';
+
+  @override
+  String get downloadWaitingWifi => 'Waiting for Wi-Fi';
+
+  @override
+  String get downloadEmpty => 'Nothing downloading';
+
+  @override
+  String get downloadedEmpty => 'No downloaded songs yet';
+
+  @override
+  String get downloadConcurrency => 'Simultaneous downloads';
+
+  @override
+  String downloadConcurrencyValue(int count) {
+    return '$count';
+  }
+
+  @override
+  String get downloadWifiOnly => 'Download on Wi-Fi only';
+
+  @override
+  String get downloadWifiOnlyHint =>
+      'Queue downloads on mobile data until Wi-Fi is back';
 }

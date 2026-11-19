@@ -5,6 +5,7 @@ import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -20,6 +21,19 @@ class MainActivity : AudioServiceActivity() {
     private var bubble: RecognizeBubble? = null
     private var pendingCapture: MethodChannel.Result? = null
     private var captureTitle = ""
+    private var downloads: MethodChannel? = null
+    /** 从下载通知冷启动，等 Dart 起来后来取。 */
+    private var openDownloads = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        openDownloads = savedInstanceState == null && intent?.action == DownloadService.ACTION_OPEN
+        super.onCreate(savedInstanceState)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.action == DownloadService.ACTION_OPEN) downloads?.invokeMethod("open", null)
+    }
 
     override fun provideFlutterEngine(context: Context): FlutterEngine? =
         if ((application as KanadeApplication).separateAndroidPlayback) null
@@ -174,6 +188,17 @@ class MainActivity : AudioServiceActivity() {
                     },
                 )
                 else -> result.notImplemented()
+            }
+        }
+        downloads = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "kanade/downloads").apply {
+            setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "launched" -> {
+                        result.success(openDownloads)
+                        openDownloads = false
+                    }
+                    else -> result.notImplemented()
+                }
             }
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "kanade/update").setMethodCallHandler { call, result ->

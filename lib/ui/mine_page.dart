@@ -11,11 +11,13 @@ import 'package:url_launcher/url_launcher.dart';
 import '../auth/auth_controller.dart';
 import '../auth/qr_login_controller.dart';
 import '../data/data_ext.dart';
+import '../download/download_controller.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/error.dart';
 import '../src/rust/api/types.dart';
+import 'downloads_page.dart';
 import 'kanade_dialog.dart';
 import 'keyed_route.dart';
 import 'playlist_actions.dart';
@@ -322,6 +324,9 @@ class _LoggedInState extends State<_LoggedIn> {
     final likedCount = context.select<LibraryController, int>(
       (c) => c.likedCount,
     );
+    final downloading = context.select<DownloadController, int>(
+      (c) => c.items.where((d) => d.state != DownloadState.done).length,
+    );
     final playlistsVersion = context.select<LibraryController, int>(
       (c) => c.playlistsVersion,
     );
@@ -399,6 +404,16 @@ class _LoggedInState extends State<_LoggedIn> {
                   icon: const Icon(Icons.history),
                   label: l.recentPlays,
                   onTap: () => Navigator.of(context).push(RecentPage.route()),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _QuickTile(
+                  icon: const Icon(Icons.download_rounded),
+                  label: l.download,
+                  trailing: downloading > 0 ? '$downloading' : null,
+                  onTap: () =>
+                      Navigator.of(context).push(DownloadsPage.route()),
                 ),
               ),
             ],

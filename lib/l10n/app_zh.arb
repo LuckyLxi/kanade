@@ -708,5 +708,23 @@
   "downloadDeleted": "已删除",
   "downloadDir": "下载位置",
   "downloadDirAndroid": "系统「音乐/Kanade」文件夹",
-  "settingsDownloads": "下载"
+  "settingsDownloads": "下载",
+  "downloadPauseAll": "全部暂停",
+  "downloadResumeAll": "全部开始",
+  "downloadPause": "暂停",
+  "downloadResume": "继续",
+  "downloadWaitingWifi": "等待 Wi-Fi",
+  "downloadEmpty": "没有正在下载的歌",
+  "downloadedEmpty": "还没有下载过歌",
+  "downloadConcurrency": "同时下载",
+  "downloadConcurrencyValue": "{count} 首",
+  "@downloadConcurrencyValue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadWifiOnly": "仅 Wi-Fi 下载",
+  "downloadWifiOnlyHint": "用流量时先排队，连上 Wi-Fi 再下"
 }

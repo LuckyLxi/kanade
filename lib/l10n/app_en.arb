@@ -365,5 +365,16 @@
   "downloadDeleted": "Deleted",
   "downloadDir": "Download folder",
   "downloadDirAndroid": "System \"Music/Kanade\" folder",
-  "settingsDownloads": "Downloads"
+  "settingsDownloads": "Downloads",
+  "downloadPauseAll": "Pause all",
+  "downloadResumeAll": "Start all",
+  "downloadPause": "Pause",
+  "downloadResume": "Resume",
+  "downloadWaitingWifi": "Waiting for Wi-Fi",
+  "downloadEmpty": "Nothing downloading",
+  "downloadedEmpty": "No downloaded songs yet",
+  "downloadConcurrency": "Simultaneous downloads",
+  "downloadConcurrencyValue": "{count}",
+  "downloadWifiOnly": "Download on Wi-Fi only",
+  "downloadWifiOnlyHint": "Queue downloads on mobile data until Wi-Fi is back"
 }

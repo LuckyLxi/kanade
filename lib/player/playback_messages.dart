@@ -33,6 +33,12 @@ enum PlaybackOp {
   cacheInfo,
   cacheLimit,
   clearAudioCache,
+  download,
+  pauseDownloads,
+  resumeDownloads,
+  removeDownload,
+  downloadConcurrency,
+  downloadWifiOnly,
 }
 
 PlaybackMessage encodePlayerState(

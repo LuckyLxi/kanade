@@ -155,6 +155,29 @@ Future<void> downloadSongs({
 Future<void> removeDownload({required String mid}) =>
     RustLib.instance.api.crateApiMusicRemoveDownload(mid: mid);
 
+Future<void> pauseDownloads({required List<String> mids}) =>
+    RustLib.instance.api.crateApiMusicPauseDownloads(mids: mids);
+
+/// 继续暂停的、重试失败的。
+Future<void> resumeDownloads({required List<String> mids}) =>
+    RustLib.instance.api.crateApiMusicResumeDownloads(mids: mids);
+
+int getDownloadConcurrency() =>
+    RustLib.instance.api.crateApiMusicGetDownloadConcurrency();
+
+Future<void> setDownloadConcurrency({required int n}) =>
+    RustLib.instance.api.crateApiMusicSetDownloadConcurrency(n: n);
+
+bool getDownloadWifiOnly() =>
+    RustLib.instance.api.crateApiMusicGetDownloadWifiOnly();
+
+Future<void> setDownloadWifiOnly({required bool enabled}) =>
+    RustLib.instance.api.crateApiMusicSetDownloadWifiOnly(enabled: enabled);
+
+/// 开了「仅 Wi-Fi 下载」又在用流量。
+bool downloadWaitingForWifi() =>
+    RustLib.instance.api.crateApiMusicDownloadWaitingForWifi();
+
 /// 下载进度和状态变化。
 Stream<DownloadEvent> watchDownloads() =>
     RustLib.instance.api.crateApiMusicWatchDownloads();

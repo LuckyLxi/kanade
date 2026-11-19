@@ -186,6 +186,39 @@ pub fn remove_download(mid: String) {
     download::downloader().remove(&mid)
 }
 
+pub fn pause_downloads(mids: Vec<String>) {
+    download::downloader().pause(&mids)
+}
+
+/// 继续暂停的、重试失败的。
+pub fn resume_downloads(mids: Vec<String>) {
+    download::downloader().resume(&mids)
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn get_download_concurrency() -> u32 {
+    download::concurrency()
+}
+
+pub fn set_download_concurrency(n: u32) -> Result<(), ApiError> {
+    Ok(download::set_concurrency(n).map_err(api_error)?)
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn get_download_wifi_only() -> bool {
+    download::wifi_only()
+}
+
+pub fn set_download_wifi_only(enabled: bool) -> Result<(), ApiError> {
+    Ok(download::set_wifi_only(enabled).map_err(api_error)?)
+}
+
+/// 开了「仅 Wi-Fi 下载」又在用流量。
+#[flutter_rust_bridge::frb(sync)]
+pub fn download_waiting_for_wifi() -> bool {
+    download::waiting_for_wifi()
+}
+
 /// 下载进度和状态变化。
 pub fn watch_downloads(sink: StreamSink<DownloadEvent>) {
     download::downloader().watch(sink)

@@ -16,6 +16,7 @@ import '../src/rust/api/types.dart';
 import 'baked_shadow.dart';
 import 'desktop_shell.dart';
 import 'discover_page.dart';
+import 'downloads_page.dart';
 import 'glass.dart';
 import 'mine_page.dart';
 import 'mini_player.dart';
@@ -195,16 +196,36 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
     MiniPlayer.anchor.hidden.addListener(_reportPlayerVisibility);
     DesktopPlayerBar.anchor.hidden.addListener(_reportPlayerVisibility);
     _auth.addListener(_onAuthChanged);
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      _downloadsChannel.setMethodCallHandler((call) async {
+        if (call.method == 'open') _openDownloads();
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _reportPlayerVisibility();
       _onAuthChanged();
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        unawaited(
+          _downloadsChannel.invokeMethod<bool>('launched').then((open) {
+            if (open == true && mounted) _openDownloads();
+          }, onError: (Object _) {}),
+        );
+      }
       // 开发时版本号不准，只在发布版里启动时检查
       if (kReleaseMode) unawaited(checkForUpdate(context));
     });
   }
 
   late final _auth = context.read<AuthController>();
+
+  /// 点下载通知打开下载管理页（MainActivity）。
+  static const _downloadsChannel = MethodChannel('kanade/downloads');
+
+  void _openDownloads() {
+    _keys[2].currentState?.push(DownloadsPage.route());
+    if (_tab != 2) setState(() => _tab = 2);
+  }
 
   /// 登录凭证失效被自动退出时，说明原因并提供重新登录的入口。
   void _onAuthChanged() {
@@ -231,6 +252,7 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
     MiniPlayer.anchor.hidden.removeListener(_reportPlayerVisibility);
     DesktopPlayerBar.anchor.hidden.removeListener(_reportPlayerVisibility);
     _auth.removeListener(_onAuthChanged);
+    _downloadsChannel.setMethodCallHandler(null);
     _shape.dispose();
     _fuse.dispose();
     _drop.dispose();

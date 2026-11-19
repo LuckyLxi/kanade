@@ -10,6 +10,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
     <!-- 听歌识曲录手机内声音 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
+    <!-- 下载：后台接着下并显示进度通知，「仅 Wi-Fi 下载」要知道当前网络是否计费 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <!-- 保存登录二维码到相册（gal），Android 10 起不再需要 -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
@@ -60,6 +63,10 @@
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
+        <service android:name=".DownloadService"
+            android:foregroundServiceType="dataSync"
+            android:process="${playbackProcess}"
+            android:exported="false" />
         <service android:name=".RecognizeService"
             android:foregroundServiceType="microphone|mediaProjection"
             android:exported="false" />

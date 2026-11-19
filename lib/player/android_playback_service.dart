@@ -55,6 +55,16 @@ class _PlaybackServer {
     player.addListener(_publish);
     library.addListener(_publish);
     player.position.addListener(_publishPosition);
+    // 下载在这个进程里跑；界面从共用的数据库读记录，这里只告诉它哪首变了
+    api.watchDownloads().listen((e) {
+      final mid = switch (e) {
+        DownloadEvent_Changed(field0: final d) => d.song.mid,
+        DownloadEvent_Removed(:final mid) => mid,
+      };
+      for (final socket in _clients) {
+        sendPlaybackMessage(socket, {'download': mid});
+      }
+    });
   }
 
   void _attach(Socket socket) {
@@ -212,6 +222,22 @@ class _PlaybackServer {
         await player.setAudioCacheLimit(argument as int);
       case PlaybackOp.clearAudioCache:
         await player.clearAudioCache();
+      case PlaybackOp.download:
+        final args = argument as List<Object?>;
+        await api.downloadSongs(
+          songs: _songs(args[0]),
+          quality: Quality.values.byName(args[1] as String),
+        );
+      case PlaybackOp.pauseDownloads:
+        await api.pauseDownloads(mids: (argument as List<Object?>).cast());
+      case PlaybackOp.resumeDownloads:
+        await api.resumeDownloads(mids: (argument as List<Object?>).cast());
+      case PlaybackOp.removeDownload:
+        await api.removeDownload(mid: argument as String);
+      case PlaybackOp.downloadConcurrency:
+        await api.setDownloadConcurrency(n: argument as int);
+      case PlaybackOp.downloadWifiOnly:
+        await api.setDownloadWifiOnly(enabled: argument as bool);
     }
     return null;
   }

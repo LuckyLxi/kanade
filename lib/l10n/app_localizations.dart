@@ -2258,6 +2258,72 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'下载'**
   String get settingsDownloads;
+
+  /// No description provided for @downloadPauseAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部暂停'**
+  String get downloadPauseAll;
+
+  /// No description provided for @downloadResumeAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部开始'**
+  String get downloadResumeAll;
+
+  /// No description provided for @downloadPause.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停'**
+  String get downloadPause;
+
+  /// No description provided for @downloadResume.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续'**
+  String get downloadResume;
+
+  /// No description provided for @downloadWaitingWifi.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待 Wi-Fi'**
+  String get downloadWaitingWifi;
+
+  /// No description provided for @downloadEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有正在下载的歌'**
+  String get downloadEmpty;
+
+  /// No description provided for @downloadedEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有下载过歌'**
+  String get downloadedEmpty;
+
+  /// No description provided for @downloadConcurrency.
+  ///
+  /// In zh, this message translates to:
+  /// **'同时下载'**
+  String get downloadConcurrency;
+
+  /// No description provided for @downloadConcurrencyValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 首'**
+  String downloadConcurrencyValue(int count);
+
+  /// No description provided for @downloadWifiOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅 Wi-Fi 下载'**
+  String get downloadWifiOnly;
+
+  /// No description provided for @downloadWifiOnlyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'用流量时先排队，连上 Wi-Fi 再下'**
+  String get downloadWifiOnlyHint;
 }
 
 class _AppLocalizationsDelegate
