@@ -1239,4 +1239,26 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get downloadWifiOnlyHint => '用流量时先排队，连上 Wi-Fi 再下';
+
+  @override
+  String selectedCount(int count) {
+    return '已选 $count 首';
+  }
+
+  @override
+  String get selectAll => '全选';
+
+  @override
+  String get selectNone => '取消全选';
+
+  @override
+  String get multiSelect => '多选';
+
+  @override
+  String get downloadAll => '全部下载';
+
+  @override
+  String downloadBatchHint(int count) {
+    return '共 $count 首，没有这个音质的自动降一档';
+  }
 }

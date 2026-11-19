@@ -40,17 +40,23 @@ Future<void> toggleLike(BuildContext context, Song song) async {
   }
 }
 
-Future<void> addToPlaylist(BuildContext context, Song song) async {
-  if (!_requireLogin(context)) return;
+Future<void> addToPlaylist(BuildContext context, Song song) =>
+    addSongsToPlaylist(context, [song]);
+
+/// 选一个歌单，把这些歌逐首加进去；全部加完返回 true。
+Future<bool> addSongsToPlaylist(BuildContext context, List<Song> songs) async {
+  if (!_requireLogin(context)) return false;
   final l = AppLocalizations.of(context);
   final library = context.read<LibraryController>();
   final picked = await showKanadeSheet<MyPlaylist>(
     context: context,
     builder: (_) => _PlaylistPicker(load: library.myPlaylists),
   );
-  if (picked == null || !context.mounted) return;
+  if (picked == null || !context.mounted) return false;
   try {
-    await library.addToPlaylist(picked, song);
+    for (final song in songs) {
+      await library.addToPlaylist(picked, song);
+    }
     if (context.mounted) {
       showToast(
         context,
@@ -58,6 +64,7 @@ Future<void> addToPlaylist(BuildContext context, Song song) async {
         kind: ToastKind.success,
       );
     }
+    return true;
   } catch (e) {
     if (context.mounted) {
       showToast(
@@ -66,6 +73,30 @@ Future<void> addToPlaylist(BuildContext context, Song song) async {
         kind: ToastKind.error,
       );
     }
+    return false;
+  }
+}
+
+/// 多选里的「喜欢」：还没加红心的逐首加上，已经喜欢的不动。
+Future<bool> likeSongs(BuildContext context, List<Song> songs) async {
+  if (!_requireLogin(context)) return false;
+  final l = AppLocalizations.of(context);
+  final library = context.read<LibraryController>();
+  try {
+    for (final song in songs) {
+      if (!library.isLiked(song)) await library.toggleLike(song);
+    }
+    if (context.mounted) showToast(context, l.liked, kind: ToastKind.liked);
+    return true;
+  } catch (e) {
+    if (context.mounted) {
+      showToast(
+        context,
+        l.actionFailed(errorText(l, e)),
+        kind: ToastKind.error,
+      );
+    }
+    return false;
   }
 }
 

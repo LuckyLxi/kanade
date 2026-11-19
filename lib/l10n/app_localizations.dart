@@ -2324,6 +2324,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'用流量时先排队，连上 Wi-Fi 再下'**
   String get downloadWifiOnlyHint;
+
+  /// No description provided for @selectedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {count} 首'**
+  String selectedCount(int count);
+
+  /// No description provided for @selectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选'**
+  String get selectAll;
+
+  /// No description provided for @selectNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消全选'**
+  String get selectNone;
+
+  /// No description provided for @multiSelect.
+  ///
+  /// In zh, this message translates to:
+  /// **'多选'**
+  String get multiSelect;
+
+  /// No description provided for @downloadAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部下载'**
+  String get downloadAll;
+
+  /// No description provided for @downloadBatchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {count} 首，没有这个音质的自动降一档'**
+  String downloadBatchHint(int count);
 }
 
 class _AppLocalizationsDelegate

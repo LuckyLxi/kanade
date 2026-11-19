@@ -1316,4 +1316,26 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get downloadWifiOnlyHint =>
       'Queue downloads on mobile data until Wi-Fi is back';
+
+  @override
+  String selectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get selectAll => 'Select all';
+
+  @override
+  String get selectNone => 'Select none';
+
+  @override
+  String get multiSelect => 'Select';
+
+  @override
+  String get downloadAll => 'Download all';
+
+  @override
+  String downloadBatchHint(int count) {
+    return '$count songs; falls back a tier when a song lacks this quality';
+  }
 }

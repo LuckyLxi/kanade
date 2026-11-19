@@ -7,10 +7,12 @@ import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'keyed_route.dart';
 import 'comments_page.dart';
+import 'download_actions.dart';
 import 'glass.dart';
 import 'locate_current.dart';
 import 'singer_page.dart';
 import 'smooth_scroll.dart';
+import 'song_select_page.dart';
 import 'song_tile.dart';
 import 'widgets.dart';
 
@@ -92,6 +94,11 @@ class _Head extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final grey = TextStyle(fontSize: 13, color: scheme.onSurfaceVariant);
+    final side = IconButton.styleFrom(
+      fixedSize: const Size(46, 46),
+      backgroundColor: scheme.surfaceContainerHigh,
+      side: BorderSide(color: scheme.outlineVariant),
+    );
     // 和歌单详情同一种头部：居中大封面 + 标题 + 一排按钮
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -181,15 +188,31 @@ class _Head extends StatelessWidget {
               const SizedBox(width: 10),
               IconButton(
                 tooltip: l.comments,
-                style: IconButton.styleFrom(
-                  fixedSize: const Size(46, 46),
-                  backgroundColor: scheme.surfaceContainerHigh,
-                  side: BorderSide(color: scheme.outlineVariant),
-                ),
+                style: side,
                 onPressed: d.id == 0
                     ? null
                     : () => Navigator.of(context).push(CommentsPage.album(d)),
                 icon: const Icon(Icons.comment_outlined),
+              ),
+              const SizedBox(width: 10),
+              IconButton(
+                tooltip: l.multiSelect,
+                style: side,
+                onPressed: d.songs.isEmpty
+                    ? null
+                    : () =>
+                          Navigator.of(context)
+                              .push(SongSelectPage.route(d.songs)),
+                icon: const Icon(Icons.checklist_rounded),
+              ),
+              const SizedBox(width: 10),
+              IconButton(
+                tooltip: l.downloadAll,
+                style: side,
+                onPressed: d.songs.isEmpty
+                    ? null
+                    : () => downloadSongs(context, d.songs),
+                icon: const Icon(Icons.download_rounded),
               ),
             ],
           ),

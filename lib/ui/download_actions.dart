@@ -9,17 +9,48 @@ import 'kanade_dialog.dart';
 import 'sheet.dart';
 import 'toast.dart';
 
-/// 选个音质下载这首歌。
-Future<void> downloadSong(BuildContext context, Song song) async {
+/// 能选的音质，按官方顺序从免费到 SVIP 排列；缺解码器的档位不显示。设置里的默认音质也用它。
+final selectableQualities = [
+  Quality.low,
+  Quality.standard,
+  Quality.aicodec,
+  Quality.high,
+  Quality.lossless,
+  Quality.hires,
+  Quality.dolby,
+  Quality.atmos51,
+  Quality.atmos71,
+  Quality.atmos,
+  Quality.master,
+  Quality.ra360,
+  Quality.dts,
+].where((q) => api.qualitySupported(quality: q)).toList();
+
+Future<void> downloadSong(BuildContext context, Song song) =>
+    downloadSongs(context, [song]);
+
+/// 选个音质下载。一首时只列这首有的音质；多首时列全部档位，哪首没有就自动降一档。
+/// 加入了下载返回 true。
+Future<bool> downloadSongs(BuildContext context, List<Song> songs) async {
   final l = AppLocalizations.of(context);
   final downloads = context.read<DownloadController>();
+  final single = songs.length == 1 ? songs.first : null;
   final q = await showKanadeSheet<Quality>(
     context: context,
-    builder: (_) => _QualityPicker(song),
+    builder: (_) => _QualityPicker(
+      subtitle: single?.name ?? l.downloadBatchHint(songs.length),
+      load: single == null
+          ? () async => selectableQualities
+          : () async => [
+              for (final o in await api.getSongQualities(mid: single.mid))
+                if (o.available) o.quality,
+            ],
+    ),
   );
-  if (q == null) return;
-  await downloads.download([song], q);
+  if (q == null) return false;
+  await downloads.download(songs, q);
   if (context.mounted) showToast(context, l.downloadAdded);
+  return true;
 }
 
 /// 「更多」里的下载状态一行显示什么。
@@ -134,19 +165,17 @@ Future<void> confirmDeleteDownload(BuildContext context, Song song) async {
 }
 
 class _QualityPicker extends StatefulWidget {
-  const _QualityPicker(this.song);
+  const _QualityPicker({required this.subtitle, required this.load});
 
-  final Song song;
+  final String subtitle;
+  final Future<List<Quality>> Function() load;
 
   @override
   State<_QualityPicker> createState() => _QualityPickerState();
 }
 
 class _QualityPickerState extends State<_QualityPicker> {
-  late Future<List<QualityOption>> _options = _load();
-
-  Future<List<QualityOption>> _load() =>
-      api.getSongQualities(mid: widget.song.mid);
+  late Future<List<Quality>> _options = widget.load();
 
   @override
   Widget build(BuildContext context) {
@@ -156,7 +185,7 @@ class _QualityPickerState extends State<_QualityPicker> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SheetHeader(title: l.downloadQuality, subtitle: widget.song.name),
+        SheetHeader(title: l.downloadQuality, subtitle: widget.subtitle),
         FutureBuilder(
           future: _options,
           builder: (context, snap) {
@@ -167,15 +196,12 @@ class _QualityPickerState extends State<_QualityPicker> {
                     leading: const Icon(Icons.refresh_rounded),
                     title: l.qualityFailedRetry,
                     subtitle: errorText(l, snap.error!),
-                    onTap: () => setState(() => _options = _load()),
+                    onTap: () => setState(() => _options = widget.load()),
                   ),
                 ],
               );
             }
-            final options = snap.data
-                ?.where((o) => o.available)
-                .map((o) => o.quality)
-                .toList();
+            final options = snap.data;
             if (options == null) {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 32),

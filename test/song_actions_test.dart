@@ -12,6 +12,7 @@ import 'package:kanade/src/rust/frb_generated.dart';
 import 'package:kanade/ui/mv_page.dart';
 import 'package:kanade/ui/sheet.dart';
 import 'package:kanade/ui/song_list_page.dart';
+import 'package:kanade/ui/song_select_page.dart';
 import 'package:kanade/ui/song_tile.dart';
 import 'package:provider/provider.dart';
 
@@ -234,5 +235,24 @@ void main() {
       await tester.pump();
     }
     expect(player.played, isNull);
+  });
+
+  testWidgets('multi-select plays the picked songs and closes', (tester) async {
+    api.similar = () async => [_song(), _song()];
+    final player = await _show(tester, _song());
+    await _more(tester);
+    await tester.tap(find.text('查找相似歌曲'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithIcon(IconButton, Icons.checklist_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byType(SongSelectPage), findsOneWidget);
+    expect(find.text('已选 0 首'), findsOneWidget);
+    await tester.tap(find.text('全选'));
+    await tester.pump();
+    expect(find.text('已选 2 首'), findsOneWidget);
+    await tester.tap(find.text('下一首播放'));
+    await tester.pumpAndSettle();
+    expect(player.played, hasLength(2));
+    expect(find.byType(SongSelectPage), findsNothing);
   });
 }

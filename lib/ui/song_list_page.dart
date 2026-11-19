@@ -9,12 +9,14 @@ import '../library/library_controller.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
+import 'download_actions.dart';
 import 'keyed_route.dart';
 import 'glass.dart';
 import 'locate_current.dart';
 import 'playlist_actions.dart';
 import 'smooth_scroll.dart';
 import 'song_actions.dart';
+import 'song_select_page.dart';
 import 'song_tile.dart';
 import 'widgets.dart';
 
@@ -37,6 +39,7 @@ class SongListPage extends StatelessWidget {
     required this.load,
     this.ranked = false,
     this.searchable = false,
+    this.downloadable = false,
   });
 
   final String title;
@@ -48,11 +51,15 @@ class SongListPage extends StatelessWidget {
   /// 头部有搜索钮，点开后顶栏变成搜索框，按歌名、歌手筛选。
   final bool searchable;
 
+  /// 头部有「全部下载」，歌单（含我喜欢）才有。
+  final bool downloadable;
+
   static Route<void> playlist(String id, String title) => keyedPage(
     'playlist:$id',
     (context) => SongListPage(
       title: title,
       searchable: true,
+      downloadable: true,
       load: () async {
         final mine = context.read<LibraryController>().ownPlaylist(id);
         final d = await api.getPlaylistDetail(id: id);
@@ -132,19 +139,29 @@ class SongListPage extends StatelessWidget {
     return GlassBackScaffold(
       body: AsyncView<ListData>(
         load: load,
-        builder: (context, d) =>
-            _Body(d, ranked: ranked, searchable: searchable),
+        builder: (context, d) => _Body(
+          d,
+          ranked: ranked,
+          searchable: searchable,
+          downloadable: downloadable,
+        ),
       ),
     );
   }
 }
 
 class _Body extends StatefulWidget {
-  const _Body(this.d, {required this.ranked, required this.searchable});
+  const _Body(
+    this.d, {
+    required this.ranked,
+    required this.searchable,
+    required this.downloadable,
+  });
 
   final ListData d;
   final bool ranked;
   final bool searchable;
+  final bool downloadable;
 
   @override
   State<_Body> createState() => _BodyState();
@@ -314,6 +331,7 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
                         .trim(),
                     onSearch: widget.searchable ? () => _search(true) : null,
                     onEdit: onEdit,
+                    downloadable: widget.downloadable,
                   ),
                 ),
               ),
@@ -559,6 +577,7 @@ class _Actions extends StatefulWidget {
     required this.description,
     this.onSearch,
     this.onEdit,
+    this.downloadable = false,
   });
 
   final List<Song> songs;
@@ -567,6 +586,8 @@ class _Actions extends StatefulWidget {
 
   /// 自己的歌单（“我喜欢”除外）才有：改名、删除。
   final VoidCallback? onEdit;
+
+  final bool downloadable;
 
   @override
   State<_Actions> createState() => _ActionsState();
@@ -629,6 +650,23 @@ class _ActionsState extends State<_Actions> {
                   tooltip: l.more,
                   onPressed: widget.onEdit,
                   icon: const Icon(Icons.more_horiz_rounded),
+                ),
+              IconButton(
+                tooltip: l.multiSelect,
+                onPressed: songs.isEmpty
+                    ? null
+                    : () =>
+                          Navigator.of(context)
+                              .push(SongSelectPage.route(songs)),
+                icon: const Icon(Icons.checklist_rounded),
+              ),
+              if (widget.downloadable)
+                IconButton(
+                  tooltip: l.downloadAll,
+                  onPressed: songs.isEmpty
+                      ? null
+                      : () => downloadSongs(context, songs),
+                  icon: const Icon(Icons.download_rounded),
                 ),
               const Spacer(),
               IconButton(

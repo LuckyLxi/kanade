@@ -17,6 +17,7 @@ import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import '../update/app_update.dart';
 import 'foryou_settings_page.dart';
+import 'download_actions.dart';
 import 'glass_dropdown.dart';
 import 'kanade_dialog.dart';
 import 'smooth_scroll.dart';
@@ -34,23 +35,6 @@ class SettingsPage extends StatefulWidget {
   @override
   State<SettingsPage> createState() => _SettingsPageState();
 }
-
-/// 设置里能选的默认音质，按官方顺序从免费到 SVIP 排列；缺解码器的档位不显示。
-final _qualities = [
-  Quality.low,
-  Quality.standard,
-  Quality.aicodec,
-  Quality.high,
-  Quality.lossless,
-  Quality.hires,
-  Quality.dolby,
-  Quality.atmos51,
-  Quality.atmos71,
-  Quality.atmos,
-  Quality.master,
-  Quality.ra360,
-  Quality.dts,
-].where((q) => api.qualitySupported(quality: q)).toList();
 
 /// 切歌淡入淡出的档位（秒），0 表示关闭。
 const _fades = [0, 1, 2, 3, 5];
@@ -441,7 +425,7 @@ class _SettingsPageState extends State<SettingsPage> {
             value: GlassDropdown<Quality>(
               key: _qualityMenu,
               title: l.defaultQuality,
-              values: _qualities,
+              values: selectableQualities,
               selected: defaultQuality,
               label: (q) => qualityLabel(l, q),
               onSelected: context.read<PlayerController>().setDefaultQuality,

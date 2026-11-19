@@ -376,5 +376,11 @@
   "downloadConcurrency": "Simultaneous downloads",
   "downloadConcurrencyValue": "{count}",
   "downloadWifiOnly": "Download on Wi-Fi only",
-  "downloadWifiOnlyHint": "Queue downloads on mobile data until Wi-Fi is back"
+  "downloadWifiOnlyHint": "Queue downloads on mobile data until Wi-Fi is back",
+  "selectedCount": "{count} selected",
+  "selectAll": "Select all",
+  "selectNone": "Select none",
+  "multiSelect": "Select",
+  "downloadAll": "Download all",
+  "downloadBatchHint": "{count} songs; falls back a tier when a song lacks this quality"
 }

@@ -726,5 +726,25 @@
     }
   },
   "downloadWifiOnly": "仅 Wi-Fi 下载",
-  "downloadWifiOnlyHint": "用流量时先排队，连上 Wi-Fi 再下"
+  "downloadWifiOnlyHint": "用流量时先排队，连上 Wi-Fi 再下",
+  "selectedCount": "已选 {count} 首",
+  "@selectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "selectAll": "全选",
+  "selectNone": "取消全选",
+  "multiSelect": "多选",
+  "downloadAll": "全部下载",
+  "downloadBatchHint": "共 {count} 首，没有这个音质的自动降一档",
+  "@downloadBatchHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }
