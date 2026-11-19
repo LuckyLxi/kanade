@@ -305,7 +305,21 @@ pub async fn refresh_session() -> Result<Session> {
         bail!(ApiError::login("session has no refresh credentials"));
     }
     let musicid: i64 = old.uin.parse().context(ApiError::login("invalid musicid"))?;
-    let data = if old.tme || (old.pc && old.login_type == 1) {
+    let data = if let Some(mut comm) = old.login_comm.clone().filter(|_| old.tme) {
+        // Android 的 App 授权登录照官方 Android 客户端，用登录时的设备公参续期（2026-11-19 抓包）。
+        // 走 PC 的 WXLoginByToken 换来的 key 关注歌手会返回 10018（2026-11-19 实测）。
+        comm["qq"] = json!(old.uin);
+        comm["authst"] = json!(old.musickey);
+        comm["tmeLoginType"] = json!(old.login_type.to_string());
+        comm["psrf_qqopenid"] = json!(old.openid);
+        comm["psrf_access_token_expiresAt"] = json!(old.access_expires_at.to_string());
+        let param = json!({
+            "openid": old.openid, "access_token": old.access_token, "refresh_token": old.refresh_token,
+            "expired_in": old.access_expires_at, "musicid": musicid, "musickey": old.musickey,
+            "refresh_key": old.refresh_key, "loginMode": 2,
+        });
+        TmeClient { comm }.call(TME_LOGIN_MODULE, "Login", param, json!({})).await?
+    } else if old.tme || (old.pc && old.login_type == 1) {
         // 照抄 PC 客户端 22.76 的 WXLoginByToken；App 扫码登录没有 refresh_token、access_token 时也这样发。
         let param = json!({
             "access_token": old.access_token, "deviceName": device_name(), "deviceType": "Widnows",
