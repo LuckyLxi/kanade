@@ -457,6 +457,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'The screen stays on while the lyrics page is open';
 
   @override
+  String get softwareRendering => 'Disable hardware acceleration';
+
+  @override
+  String get softwareRenderingHint =>
+      'Draws the interface without the GPU, which may be slower. Takes effect after restarting Kanade';
+
+  @override
   String get modeSequence => 'Repeat all';
 
   @override

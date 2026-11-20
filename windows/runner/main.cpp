@@ -4,6 +4,7 @@
 #include <shobjidl.h>
 
 #include "flutter_window.h"
+#include "software_rendering.h"
 #include "utils.h"
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
@@ -26,6 +27,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // The Windows Impeller OpenGLES backend allocates gigabytes of transient
   // render targets during player transitions. Keep Windows on Skia.
   project.set_impeller_switch(flutter::ImpellerSwitch::Disabled);
+  ApplySoftwareRendering();
 
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();

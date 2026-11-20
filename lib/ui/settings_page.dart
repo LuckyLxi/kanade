@@ -50,6 +50,9 @@ const _themeIcons = {
   ThemeMode.dark: Icons.dark_mode_outlined,
 };
 
+/// Windows runner 存的“禁用硬件加速”。
+const _rendering = MethodChannel('kanade/rendering');
+
 /// 内容区宽过这个就左边分类、右边内容。
 const _wideWidth = 720.0;
 
@@ -100,6 +103,7 @@ class _SettingsPageState extends State<SettingsPage> {
   UpdateCheckResult? _checked;
   var _preview = AppUpdate.preview;
   var _mirror = AppUpdate.mirror;
+  var _softwareRendering = false;
   var _sectionCount = 0;
   var _current = 0;
   var _wide = false;
@@ -115,6 +119,16 @@ class _SettingsPageState extends State<SettingsPage> {
     AppUpdate.currentVersion().then((v) {
       if (mounted) setState(() => _version = v);
     });
+    if (Platform.isWindows) {
+      _rendering.invokeMethod<bool>('get').then((v) {
+        if (mounted) setState(() => _softwareRendering = v ?? false);
+      });
+    }
+  }
+
+  void _setSoftwareRendering(bool on) {
+    _rendering.invokeMethod<void>('set', on);
+    setState(() => _softwareRendering = on);
   }
 
   Future<void> _pickDownloadDir() async {
@@ -608,6 +622,18 @@ class _SettingsPageState extends State<SettingsPage> {
                 value: lyric.keepScreenOn,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 onChanged: lyric.setKeepScreenOn,
+              ),
+            ),
+          if (Platform.isWindows)
+            _Item(
+              icon: Icons.memory_rounded,
+              title: l.softwareRendering,
+              hint: l.softwareRenderingHint,
+              onTap: () => _setSoftwareRendering(!_softwareRendering),
+              trailing: Switch(
+                value: _softwareRendering,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged: _setSoftwareRendering,
               ),
             ),
         ],

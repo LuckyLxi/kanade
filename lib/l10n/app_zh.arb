@@ -227,6 +227,8 @@
   "lyricTranslationHint": "外语歌在歌词下面显示中文翻译",
   "lyricKeepScreenOn": "歌词页屏幕常亮",
   "lyricKeepScreenOnHint": "停在歌词页时屏幕不会自动熄灭",
+  "softwareRendering": "禁用硬件加速",
+  "softwareRenderingHint": "不用显卡绘制界面，可能会变卡，重启 Kanade 后生效",
   "modeSequence": "列表循环",
   "modeRepeatOne": "单曲循环",
   "modeShuffle": "随机播放",

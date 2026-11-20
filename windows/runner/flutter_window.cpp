@@ -80,6 +80,8 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   taskbar_thumbnail_ = std::make_unique<TaskbarThumbnail>(
       GetHandle(), flutter_controller_->engine()->messenger());
+  rendering_channel_ =
+      CreateSoftwareRenderingChannel(flutter_controller_->engine()->messenger());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   // The window is shown from Dart (window_manager) once the native title bar
@@ -96,6 +98,7 @@ bool FlutterWindow::OnCreate() {
 
 void FlutterWindow::OnDestroy() {
   taskbar_thumbnail_ = nullptr;
+  rendering_channel_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }

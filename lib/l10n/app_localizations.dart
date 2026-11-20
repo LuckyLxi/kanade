@@ -873,6 +873,18 @@ abstract class AppLocalizations {
   /// **'停在歌词页时屏幕不会自动熄灭'**
   String get lyricKeepScreenOnHint;
 
+  /// No description provided for @softwareRendering.
+  ///
+  /// In zh, this message translates to:
+  /// **'禁用硬件加速'**
+  String get softwareRendering;
+
+  /// No description provided for @softwareRenderingHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'不用显卡绘制界面，可能会变卡，重启 Kanade 后生效'**
+  String get softwareRenderingHint;
+
   /// No description provided for @modeSequence.
   ///
   /// In zh, this message translates to:

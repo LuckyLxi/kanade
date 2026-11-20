@@ -129,6 +129,8 @@
   "lyricTranslationHint": "Show the translation under foreign-language lyrics",
   "lyricKeepScreenOn": "Keep screen on for lyrics",
   "lyricKeepScreenOnHint": "The screen stays on while the lyrics page is open",
+  "softwareRendering": "Disable hardware acceleration",
+  "softwareRenderingHint": "Draws the interface without the GPU, which may be slower. Takes effect after restarting Kanade",
   "modeSequence": "Repeat all",
   "modeRepeatOne": "Repeat one",
   "modeShuffle": "Shuffle",

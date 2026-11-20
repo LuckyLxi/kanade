@@ -429,6 +429,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get lyricKeepScreenOnHint => '停在歌词页时屏幕不会自动熄灭';
 
   @override
+  String get softwareRendering => '禁用硬件加速';
+
+  @override
+  String get softwareRenderingHint => '不用显卡绘制界面，可能会变卡，重启 Kanade 后生效';
+
+  @override
   String get modeSequence => '列表循环';
 
   @override
