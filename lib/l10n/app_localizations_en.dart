@@ -1416,4 +1416,46 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get keepDownload => 'Keep';
+
+  @override
+  String get dislike => 'Not interested';
+
+  @override
+  String get dislikeChoose => 'What are you not interested in?';
+
+  @override
+  String dislikeSong(String name) {
+    return 'Song: $name';
+  }
+
+  @override
+  String dislikeSinger(String name) {
+    return 'Artist: $name';
+  }
+
+  @override
+  String get dislikedSong => 'This song won\'t be recommended again';
+
+  @override
+  String get dislikedSinger =>
+      'This artist\'s songs won\'t be recommended again';
+
+  @override
+  String get dislikeList => 'Not interested';
+
+  @override
+  String get dislikeListHint =>
+      'Review or undo songs and artists you\'re not interested in';
+
+  @override
+  String get dislikeSongsEmpty => 'No songs here';
+
+  @override
+  String get dislikeSingersEmpty => 'No artists here';
+
+  @override
+  String get dislikeCancel => 'Undo';
+
+  @override
+  String get dislikeCancelled => 'Undone';
 }

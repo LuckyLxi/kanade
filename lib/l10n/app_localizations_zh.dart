@@ -1331,4 +1331,44 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get keepDownload => '不取消';
+
+  @override
+  String get dislike => '不喜欢';
+
+  @override
+  String get dislikeChoose => '选择不喜欢的内容';
+
+  @override
+  String dislikeSong(String name) {
+    return '不喜欢歌曲：$name';
+  }
+
+  @override
+  String dislikeSinger(String name) {
+    return '不喜欢歌手：$name';
+  }
+
+  @override
+  String get dislikedSong => '以后不再推荐这首歌';
+
+  @override
+  String get dislikedSinger => '以后不再推荐这位歌手的歌';
+
+  @override
+  String get dislikeList => '不喜欢列表';
+
+  @override
+  String get dislikeListHint => '查看或撤销不喜欢的歌曲和歌手';
+
+  @override
+  String get dislikeSongsEmpty => '没有不喜欢的歌曲';
+
+  @override
+  String get dislikeSingersEmpty => '没有不喜欢的歌手';
+
+  @override
+  String get dislikeCancel => '撤销';
+
+  @override
+  String get dislikeCancelled => '已撤销';
 }

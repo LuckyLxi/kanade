@@ -332,6 +332,23 @@ Future<void> setUserFollowed({required String euin, required bool followed}) =>
       followed: followed,
     );
 
+/// 不喜欢这首歌，以后不再推荐（需要登录）。
+Future<void> dislikeSong({
+  required PlatformInt64 songId,
+  required String name,
+}) => RustLib.instance.api.crateApiMusicDislikeSong(songId: songId, name: name);
+
+/// 不喜欢这位歌手，以后不再推荐这位歌手的歌（需要登录）。
+Future<void> dislikeSinger({required String mid, required String name}) =>
+    RustLib.instance.api.crateApiMusicDislikeSinger(mid: mid, name: name);
+
+/// 从黑名单里移除，`id` 用 `get_dislikes` 返回的值。
+Future<void> cancelDislike({required DislikeKind kind, required String id}) =>
+    RustLib.instance.api.crateApiMusicCancelDislike(kind: kind, id: id);
+
+Future<List<DislikeItem>> getDislikes({required DislikeKind kind}) =>
+    RustLib.instance.api.crateApiMusicGetDislikes(kind: kind);
+
 Future<AlbumDetail> getAlbumDetail({required String mid}) =>
     RustLib.instance.api.crateApiMusicGetAlbumDetail(mid: mid);
 

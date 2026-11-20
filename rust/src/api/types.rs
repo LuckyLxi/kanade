@@ -733,3 +733,18 @@ pub enum UpdateEvent {
     Failed { error: ApiError },
     Cancelled,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DislikeKind {
+    Song,
+    Singer,
+}
+
+/// 黑名单里的一首歌或一位歌手。歌曲的 `name` 是“歌名 - 歌手”。
+#[derive(Debug, Clone)]
+pub struct DislikeItem {
+    pub id: String,
+    pub name: String,
+    /// 歌曲没有图片，为空。
+    pub image_url: String,
+}

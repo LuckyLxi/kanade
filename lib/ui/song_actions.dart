@@ -6,6 +6,7 @@ import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
 import '../player/player_controller.dart';
+import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'sheet.dart';
 import 'smooth_scroll.dart';
@@ -146,6 +147,73 @@ void playNext(BuildContext context, Song song) {
       showToast(context, l.alreadyPlaying);
     case PlayNextResult.started:
       break;
+  }
+}
+
+/// 每次不喜欢成功加一，开着的不喜欢列表据此刷新。
+final dislikesRevision = ValueNotifier(0);
+
+/// 选不喜欢这首歌还是其中一位歌手；正在放的歌受影响时切到下一首。
+Future<void> dislikeSong(BuildContext context, Song song) async {
+  if (onlineSongs(context, [song]).isEmpty || !_requireLogin(context)) return;
+  final l = AppLocalizations.of(context);
+  final singers = song.singers.where((s) => s.mid.isNotEmpty).toList();
+  final picked = await showKanadeSheet<Object>(
+    context: context,
+    builder: (sheet) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SheetHeader(title: l.dislikeChoose),
+        SheetGroup(
+          children: [
+            SheetRow(
+              leading: Cover(song.coverUrl, size: 32, radius: 8),
+              title: l.dislikeSong(song.name),
+              onTap: () => Navigator.pop(sheet, song),
+            ),
+            for (final s in singers)
+              SheetRow(
+                leading: Cover(singerAvatar(s.mid), size: 32, radius: 16),
+                title: l.dislikeSinger(s.name),
+                onTap: () => Navigator.pop(sheet, s),
+              ),
+          ],
+        ),
+      ],
+    ),
+  );
+  if (picked == null || !context.mounted) return;
+  final player = context.read<PlayerController>();
+  final singer = picked is Singer ? picked : null;
+  try {
+    if (singer == null) {
+      await api.dislikeSong(songId: song.id, name: song.name);
+    } else {
+      await api.dislikeSinger(mid: singer.mid, name: singer.name);
+    }
+    dislikesRevision.value++;
+    if (context.mounted) {
+      showToast(
+        context,
+        singer == null ? l.dislikedSong : l.dislikedSinger,
+        kind: ToastKind.success,
+      );
+    }
+    final current = player.current;
+    if (current != null &&
+        (singer == null
+            ? current.mid == song.mid
+            : current.singers.any((s) => s.mid == singer.mid))) {
+      await player.next();
+    }
+  } catch (e) {
+    if (context.mounted) {
+      showToast(
+        context,
+        l.actionFailed(errorText(l, e)),
+        kind: ToastKind.error,
+      );
+    }
   }
 }
 

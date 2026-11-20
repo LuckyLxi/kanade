@@ -404,5 +404,17 @@
   "downloadLyricsEmbedHint": "Written into the song file's tags, no extra file",
   "deleteDownloadedSong": "Delete song",
   "cancelDownloadConfirm": "Cancel downloading \"{name}\"? What's downloaded so far will be deleted.",
-  "keepDownload": "Keep"
+  "keepDownload": "Keep",
+  "dislike": "Not interested",
+  "dislikeChoose": "What are you not interested in?",
+  "dislikeSong": "Song: {name}",
+  "dislikeSinger": "Artist: {name}",
+  "dislikedSong": "This song won't be recommended again",
+  "dislikedSinger": "This artist's songs won't be recommended again",
+  "dislikeList": "Not interested",
+  "dislikeListHint": "Review or undo songs and artists you're not interested in",
+  "dislikeSongsEmpty": "No songs here",
+  "dislikeSingersEmpty": "No artists here",
+  "dislikeCancel": "Undo",
+  "dislikeCancelled": "Undone"
 }

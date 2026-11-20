@@ -2492,6 +2492,78 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'不取消'**
   String get keepDownload;
+
+  /// No description provided for @dislike.
+  ///
+  /// In zh, this message translates to:
+  /// **'不喜欢'**
+  String get dislike;
+
+  /// No description provided for @dislikeChoose.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择不喜欢的内容'**
+  String get dislikeChoose;
+
+  /// No description provided for @dislikeSong.
+  ///
+  /// In zh, this message translates to:
+  /// **'不喜欢歌曲：{name}'**
+  String dislikeSong(String name);
+
+  /// No description provided for @dislikeSinger.
+  ///
+  /// In zh, this message translates to:
+  /// **'不喜欢歌手：{name}'**
+  String dislikeSinger(String name);
+
+  /// No description provided for @dislikedSong.
+  ///
+  /// In zh, this message translates to:
+  /// **'以后不再推荐这首歌'**
+  String get dislikedSong;
+
+  /// No description provided for @dislikedSinger.
+  ///
+  /// In zh, this message translates to:
+  /// **'以后不再推荐这位歌手的歌'**
+  String get dislikedSinger;
+
+  /// No description provided for @dislikeList.
+  ///
+  /// In zh, this message translates to:
+  /// **'不喜欢列表'**
+  String get dislikeList;
+
+  /// No description provided for @dislikeListHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看或撤销不喜欢的歌曲和歌手'**
+  String get dislikeListHint;
+
+  /// No description provided for @dislikeSongsEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有不喜欢的歌曲'**
+  String get dislikeSongsEmpty;
+
+  /// No description provided for @dislikeSingersEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有不喜欢的歌手'**
+  String get dislikeSingersEmpty;
+
+  /// No description provided for @dislikeCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销'**
+  String get dislikeCancel;
+
+  /// No description provided for @dislikeCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已撤销'**
+  String get dislikeCancelled;
 }
 
 class _AppLocalizationsDelegate

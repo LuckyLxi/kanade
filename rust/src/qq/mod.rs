@@ -1,6 +1,7 @@
 pub mod audio_cache;
 pub mod client;
 pub mod detail;
+pub mod dislike;
 pub mod download;
 mod dts;
 mod encrypted_audio;

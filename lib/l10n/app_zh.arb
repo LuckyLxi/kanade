@@ -782,5 +782,31 @@
       }
     }
   },
-  "keepDownload": "不取消"
+  "keepDownload": "不取消",
+  "dislike": "不喜欢",
+  "dislikeChoose": "选择不喜欢的内容",
+  "dislikeSong": "不喜欢歌曲：{name}",
+  "@dislikeSong": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "dislikeSinger": "不喜欢歌手：{name}",
+  "@dislikeSinger": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "dislikedSong": "以后不再推荐这首歌",
+  "dislikedSinger": "以后不再推荐这位歌手的歌",
+  "dislikeList": "不喜欢列表",
+  "dislikeListHint": "查看或撤销不喜欢的歌曲和歌手",
+  "dislikeSongsEmpty": "没有不喜欢的歌曲",
+  "dislikeSingersEmpty": "没有不喜欢的歌手",
+  "dislikeCancel": "撤销",
+  "dislikeCancelled": "已撤销"
 }

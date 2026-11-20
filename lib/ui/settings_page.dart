@@ -16,6 +16,7 @@ import '../settings/theme_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import '../update/app_update.dart';
+import 'dislike_page.dart';
 import 'foryou_settings_page.dart';
 import 'download_actions.dart';
 import 'glass_dropdown.dart';
@@ -745,6 +746,12 @@ class _SettingsPageState extends State<SettingsPage> {
               hint: l.foryouSettingsHint,
               onTap: () =>
                   Navigator.of(context).push(ForyouSettingsPage.route()),
+            ),
+            _Item(
+              icon: Icons.heart_broken_outlined,
+              title: l.dislikeList,
+              hint: l.dislikeListHint,
+              onTap: () => Navigator.of(context).push(DislikePage.route()),
             ),
           ],
           after: _Card(

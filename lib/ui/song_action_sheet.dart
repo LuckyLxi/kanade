@@ -220,6 +220,12 @@ Future<void> showSongActions(
                 ),
               ),
             ),
+          if (!local)
+            SheetRow(
+              leading: const Icon(Icons.heart_broken_outlined),
+              title: l.dislike,
+              onTap: () => run(() => dislikeSong(context, song)),
+            ),
           if (onRemove != null)
             SheetRow(
               leading: const Icon(Icons.playlist_remove_rounded),

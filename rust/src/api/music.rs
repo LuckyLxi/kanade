@@ -6,7 +6,8 @@ use crate::api::types::*;
 use crate::frb_generated::StreamSink;
 use crate::qq::audio_cache::cache;
 use crate::qq::{
-    client, detail, download, history, library, login, music, mv, quality, recognize, social, user,
+    client, detail, dislike, download, history, library, login, music, mv, quality, recognize,
+    social, user,
 };
 
 // 错误转换与会话副作用只在 API 边界组合；复核请求不经过此处。
@@ -393,6 +394,31 @@ pub async fn set_user_followed(euin: String, followed: bool) -> Result<(), ApiEr
         .map_err(api_error)?)
 }
 
+/// 不喜欢这首歌，以后不再推荐（需要登录）。
+pub async fn dislike_song(song_id: i64, name: String) -> Result<(), ApiError> {
+    Ok(dislike::dislike_song(song_id, &name)
+        .await
+        .map_err(api_error)?)
+}
+
+/// 不喜欢这位歌手，以后不再推荐这位歌手的歌（需要登录）。
+pub async fn dislike_singer(mid: String, name: String) -> Result<(), ApiError> {
+    Ok(dislike::dislike_singer(&mid, &name)
+        .await
+        .map_err(api_error)?)
+}
+
+/// 从黑名单里移除，`id` 用 `get_dislikes` 返回的值。
+pub async fn cancel_dislike(kind: DislikeKind, id: String) -> Result<(), ApiError> {
+    Ok(dislike::cancel_dislike(kind, &id)
+        .await
+        .map_err(api_error)?)
+}
+
+pub async fn get_dislikes(kind: DislikeKind) -> Result<Vec<DislikeItem>, ApiError> {
+    Ok(dislike::dislikes(kind).await.map_err(api_error)?)
+}
+
 pub async fn get_album_detail(mid: String) -> Result<AlbumDetail, ApiError> {
     Ok(detail::album_detail(&mid).await.map_err(api_error)?)
 }
@@ -580,7 +606,9 @@ pub fn set_pref(key: String, value: String) -> Result<(), ApiError> {
 
 /// 读最新版本的清单；`preview` 时包含预览版，`mirror` 时只走镜像。
 pub async fn get_latest_update(preview: bool, mirror: bool) -> Result<UpdateInfo, ApiError> {
-    Ok(crate::update::latest(preview, mirror).await.map_err(api_error)?)
+    Ok(crate::update::latest(preview, mirror)
+        .await
+        .map_err(api_error)?)
 }
 
 /// 把 `tag` 发布里的 `asset` 下载到 `dest`，下完核对校验码。以结束事件收尾。

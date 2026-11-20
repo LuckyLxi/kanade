@@ -114,6 +114,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CommentTarget dco_decode_comment_target(dynamic raw);
 
   @protected
+  DislikeItem dco_decode_dislike_item(dynamic raw);
+
+  @protected
+  DislikeKind dco_decode_dislike_kind(dynamic raw);
+
+  @protected
   DownloadEvent dco_decode_download_event(dynamic raw);
 
   @protected
@@ -157,6 +163,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<Comment> dco_decode_list_comment(dynamic raw);
+
+  @protected
+  List<DislikeItem> dco_decode_list_dislike_item(dynamic raw);
 
   @protected
   List<DownloadItem> dco_decode_list_download_item(dynamic raw);
@@ -534,6 +543,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CommentTarget sse_decode_comment_target(SseDeserializer deserializer);
 
   @protected
+  DislikeItem sse_decode_dislike_item(SseDeserializer deserializer);
+
+  @protected
+  DislikeKind sse_decode_dislike_kind(SseDeserializer deserializer);
+
+  @protected
   DownloadEvent sse_decode_download_event(SseDeserializer deserializer);
 
   @protected
@@ -577,6 +592,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<Comment> sse_decode_list_comment(SseDeserializer deserializer);
+
+  @protected
+  List<DislikeItem> sse_decode_list_dislike_item(SseDeserializer deserializer);
 
   @protected
   List<DownloadItem> sse_decode_list_download_item(
@@ -1005,6 +1023,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_comment_target(CommentTarget self, SseSerializer serializer);
 
   @protected
+  void sse_encode_dislike_item(DislikeItem self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_dislike_kind(DislikeKind self, SseSerializer serializer);
+
+  @protected
   void sse_encode_download_event(DownloadEvent self, SseSerializer serializer);
 
   @protected
@@ -1054,6 +1078,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_comment(List<Comment> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_dislike_item(
+    List<DislikeItem> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_download_item(
