@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -167,7 +169,7 @@ class _Body extends StatefulWidget {
   State<_Body> createState() => _BodyState();
 }
 
-class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
+class _BodyState extends State<_Body> with TickerProviderStateMixin {
   static const _heroHeight = 300.0;
   static const _barHeight = 56.0;
 
@@ -177,6 +179,101 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
   /// 改名后就地更新，不重新加载。
   late MyPlaylist? _owned = widget.d.owned;
   late String _title = widget.d.title;
+
+  /// 只有“我喜欢”才监听：在哪里取消了红心，这里就把那首收起拿掉；新加的红心插到最前面。
+  LibraryController? _library;
+  StreamSubscription<Song>? _likedSub;
+
+  /// 见过是红心的歌。红心列表还没拉到时全都不算喜欢，只有从喜欢变成不喜欢才拿掉。
+  final _seenLiked = <int>{};
+
+  /// 正在收起的行，收完才从 [_songs] 里去掉。
+  final _leaving = Map<Song, CurvedAnimation>.identity();
+
+  /// 收起时用的行高，开始收起前从定高列表里取。
+  double? _extent;
+
+  @override
+  void initState() {
+    super.initState();
+    final owned = _owned;
+    if (owned != null && isLikedPlaylist(owned)) {
+      final library = _library = context.read<LibraryController>()
+        ..addListener(_onLikedChanged);
+      _likedSub = library.songLiked.listen(_onSongLiked);
+      _onLikedChanged();
+    }
+  }
+
+  void _onSongLiked(Song song) {
+    final id = song.id.toInt();
+    _seenLiked.add(id);
+    final existing = _songs.where((s) => s.id.toInt() == id).firstOrNull;
+    if (existing == null) {
+      setState(() => _songs.insert(0, song));
+      return;
+    }
+    // 收起途中又点了喜欢：原地展开回来
+    if (_leaving.containsKey(existing)) _animate(existing, out: false);
+  }
+
+  void _onLikedChanged() {
+    final library = _library!;
+    // 退出登录时红心列表清空，不算取消喜欢
+    if (!library.canLike) return;
+    final gone = <Song>[];
+    for (final s in _songs) {
+      final id = s.id.toInt();
+      if (library.isLiked(s)) {
+        _seenLiked.add(id);
+      } else if (_seenLiked.remove(id)) {
+        gone.add(s);
+      }
+    }
+    if (gone.isNotEmpty) _leave(gone);
+  }
+
+  /// 淡出并收起高度，下面的行跟着往上移，和下载页删歌一样。
+  void _leave(List<Song> songs) {
+    if (_leaving.isEmpty) {
+      final list = _listKey.currentContext?.findRenderObject();
+      _extent = list is RenderSliverFixedExtentBoxAdaptor
+          ? list.itemExtent
+          : null;
+    }
+    if (_extent == null) {
+      setState(() => _songs.removeWhere(songs.contains));
+      return;
+    }
+    setState(() {
+      for (final s in songs) {
+        _leaving[s] ??= CurvedAnimation(
+          parent: AnimationController(
+            vsync: this,
+            duration: const Duration(milliseconds: 280),
+            value: 1,
+          ),
+          curve: Curves.easeInOutCubic,
+        );
+        _animate(s, out: true);
+      }
+    });
+  }
+
+  /// 收起或展开回来；中途换方向时上一次的回调不会再触发。
+  void _animate(Song s, {required bool out}) {
+    final a = _leaving[s]!;
+    final c = a.parent as AnimationController;
+    (out ? c.reverse() : c.forward()).then((_) {
+      if (!mounted) return;
+      setState(() {
+        if (out) _songs.remove(s);
+        _leaving.remove(s);
+      });
+      a.dispose();
+      c.dispose();
+    });
+  }
 
   Future<void> _remove(Song song) async {
     if (await removeFromPlaylist(context, _owned!, song) && mounted) {
@@ -225,6 +322,12 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
 
   @override
   void dispose() {
+    _library?.removeListener(_onLikedChanged);
+    _likedSub?.cancel();
+    for (final a in _leaving.values) {
+      a.dispose();
+      (a.parent as AnimationController).dispose();
+    }
     _query.dispose();
     _scroll.dispose();
     _focus.dispose();
@@ -276,6 +379,21 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
     final shown = _searching ? _shown : _songs;
     final filtered = _searching && _query.text.trim().isNotEmpty;
     final onEdit = canEditPlaylist(_owned) ? _edit : null;
+    Widget row(int i) {
+      final song = shown[i];
+      return LocateHighlight(
+        index: i,
+        child: SongTile(
+          songs: shown,
+          index: i,
+          // 筛选后仍显示原来的名次
+          rank: widget.ranked ? _songs.indexOf(song) + 1 : null,
+          // “我喜欢”里不给删，取消喜欢就行
+          onRemove: onEdit != null ? () => _remove(song) : null,
+        ),
+      );
+    }
+
     return PopScope(
       // 搜索时返回先退出搜索
       canPop: !_searching,
@@ -331,6 +449,7 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
                         .trim(),
                     onSearch: widget.searchable ? () => _search(true) : null,
                     onEdit: onEdit,
+                    liked: _library != null,
                     downloadable: widget.downloadable,
                   ),
                 ),
@@ -379,7 +498,7 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
                 ),
               )
             // 每行一样高，定位按钮才能直接算出某一首的位置；样板行拿第一首排，空歌单不放
-            else if (shown.isNotEmpty)
+            else if (shown.isNotEmpty && _leaving.isEmpty)
               SliverPrototypeExtentList.builder(
                 key: _listKey,
                 prototypeItem: SongTile(
@@ -388,20 +507,30 @@ class _BodyState extends State<_Body> with SingleTickerProviderStateMixin {
                   rank: widget.ranked ? 1 : null,
                 ),
                 itemCount: shown.length,
-                itemBuilder: (context, i) {
-                  final song = shown[i];
-                  return LocateHighlight(
-                    index: i,
-                    child: SongTile(
-                      songs: shown,
-                      index: i,
-                      // 筛选后仍显示原来的名次
-                      rank: widget.ranked ? _songs.indexOf(song) + 1 : null,
-                      // “我喜欢”里不给删，取消喜欢就行
-                      onRemove: onEdit != null ? () => _remove(song) : null,
-                    ),
-                  );
-                },
+                itemBuilder: (context, i) => row(i),
+              )
+            // 收起途中行高不一样，暂时换成变高列表，收完换回来
+            else if (shown.isNotEmpty)
+              AnimatedBuilder(
+                animation: Listenable.merge(_leaving.values.toList()),
+                builder: (context, _) => SliverVariedExtentList.builder(
+                  key: _listKey,
+                  itemCount: shown.length,
+                  itemExtentBuilder: (i, _) => i < shown.length
+                      ? _extent! * (_leaving[shown[i]]?.value ?? 1)
+                      : null,
+                  itemBuilder: (context, i) {
+                    final a = _leaving[shown[i]];
+                    if (a == null) return row(i);
+                    return IgnorePointer(
+                      child: SizeTransition(
+                        sizeFactor: a,
+                        alignment: Alignment.topCenter,
+                        child: FadeTransition(opacity: a, child: row(i)),
+                      ),
+                    );
+                  },
+                ),
               ),
             const SliverToBoxAdapter(child: BottomSpacer()),
           ],
@@ -577,6 +706,7 @@ class _Actions extends StatefulWidget {
     required this.description,
     this.onSearch,
     this.onEdit,
+    this.liked = false,
     this.downloadable = false,
   });
 
@@ -586,6 +716,9 @@ class _Actions extends StatefulWidget {
 
   /// 自己的歌单（“我喜欢”除外）才有：改名、删除。
   final VoidCallback? onEdit;
+
+  /// 是“我喜欢”：多选里的红心按钮变成取消喜欢。
+  final bool liked;
 
   final bool downloadable;
 
@@ -655,9 +788,9 @@ class _ActionsState extends State<_Actions> {
                 tooltip: l.multiSelect,
                 onPressed: songs.isEmpty
                     ? null
-                    : () =>
-                          Navigator.of(context)
-                              .push(SongSelectPage.route(songs)),
+                    : () => Navigator.of(
+                        context,
+                      ).push(SongSelectPage.route(songs, unlike: widget.liked)),
                 icon: const Icon(Icons.checklist_rounded),
               ),
               if (widget.downloadable)

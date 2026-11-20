@@ -22,9 +22,18 @@ class LibraryController extends ChangeNotifier {
 
   bool isLiked(Song s) => _liked.contains(s.id.toInt());
 
+  /// 刚加上红心的歌，在通知之前发出；“我喜欢”页面拿它插到最前面。
+  Stream<Song> get songLiked => _songLiked.stream;
+  final _songLiked = StreamController<Song>.broadcast(sync: true);
+
+  bool _like(Song s) {
+    final added = _liked.add(s.id.toInt());
+    if (added) _songLiked.add(s);
+    return added;
+  }
+
   void updateLiked(Song song, bool liked) {
-    final id = song.id.toInt();
-    final changed = liked ? _liked.add(id) : _liked.remove(id);
+    final changed = liked ? _like(song) : _liked.remove(song.id.toInt());
     if (changed) notifyListeners();
   }
 
@@ -60,7 +69,7 @@ class LibraryController extends ChangeNotifier {
     notifyListeners();
     try {
       await api.setSongLiked(songId: s.id, liked: liked);
-      liked ? _liked.add(id) : _liked.remove(id);
+      liked ? _like(s) : _liked.remove(id);
       return liked;
     } finally {
       _pending.remove(id);
@@ -83,7 +92,7 @@ class LibraryController extends ChangeNotifier {
 
   Future<void> addToPlaylist(MyPlaylist p, Song s) async {
     await api.addSongToPlaylist(dirId: p.dirId, songId: s.id);
-    if (isLikedPlaylist(p)) _liked.add(s.id.toInt());
+    if (isLikedPlaylist(p)) _like(s);
     _playlistsVersion++;
     notifyListeners();
   }
@@ -111,7 +120,9 @@ class LibraryController extends ChangeNotifier {
   Future<MyPlaylist?> ownPlaylist(String id) async {
     if (!_auth.loggedIn) return null;
     try {
-      return (await api.getMyPlaylists()).where((p) => p.tid.toString() == id).firstOrNull;
+      return (await api.getMyPlaylists())
+          .where((p) => p.tid.toString() == id)
+          .firstOrNull;
     } catch (_) {
       return null;
     }
@@ -120,6 +131,7 @@ class LibraryController extends ChangeNotifier {
   @override
   void dispose() {
     _auth.removeListener(_onAuthChanged);
+    _songLiked.close();
     super.dispose();
   }
 }

@@ -95,6 +95,7 @@ class _LocateCurrentSongState extends State<LocateCurrentSong>
   RenderSliverFixedExtentBoxAdaptor? get _sliver {
     final sliver = widget.listKey.currentContext?.findRenderObject();
     return sliver is RenderSliverFixedExtentBoxAdaptor &&
+            sliver.itemExtent != null &&
             sliver.geometry != null
         ? sliver
         : null;
@@ -125,6 +126,11 @@ class _LocateCurrentSongState extends State<LocateCurrentSong>
 
   void _update() {
     if (!mounted) return;
+    final list = widget.listKey.currentContext?.findRenderObject();
+    // 删歌动画途中行高不一，按钮先保持原样，免得闪一下
+    if (list is RenderSliverFixedExtentBoxAdaptor && list.itemExtent == null) {
+      return;
+    }
     final sliver = _sliver;
     final show = _index >= 0 && sliver != null && !_onScreen(sliver, _index);
     if (show != _show) setState(() => _show = show);

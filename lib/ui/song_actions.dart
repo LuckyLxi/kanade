@@ -113,6 +113,30 @@ Future<bool> likeSongs(BuildContext context, List<Song> songs) async {
   }
 }
 
+/// 逐首取消红心，跳过本来就没喜欢的；全部完成返回 true。
+Future<bool> unlikeSongs(BuildContext context, List<Song> songs) async {
+  songs = onlineSongs(context, songs);
+  if (songs.isEmpty || !_requireLogin(context)) return false;
+  final l = AppLocalizations.of(context);
+  final library = context.read<LibraryController>();
+  try {
+    for (final song in songs) {
+      if (library.isLiked(song)) await library.toggleLike(song);
+    }
+    if (context.mounted) showToast(context, l.unliked);
+    return true;
+  } catch (e) {
+    if (context.mounted) {
+      showToast(
+        context,
+        l.actionFailed(errorText(l, e)),
+        kind: ToastKind.error,
+      );
+    }
+    return false;
+  }
+}
+
 void playNext(BuildContext context, Song song) {
   final l = AppLocalizations.of(context);
   switch (context.read<PlayerController>().playNext(song)) {

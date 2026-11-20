@@ -11,14 +11,17 @@ import 'song_actions.dart';
 import 'toast.dart';
 import 'widgets.dart';
 
-/// 多选：勾几首歌，一起下一首播放、加入歌单、加红心或下载。
+/// 多选：勾几首歌，一起下一首播放、加入歌单、加红心（在“我喜欢”里是取消红心）或下载。
 class SongSelectPage extends StatefulWidget {
-  const SongSelectPage(this.songs, {super.key});
+  const SongSelectPage(this.songs, {this.unlike = false, super.key});
 
   final List<Song> songs;
 
-  static Route<void> route(List<Song> songs) =>
-      MaterialPageRoute(builder: (_) => SongSelectPage(songs));
+  /// 从“我喜欢”进来时红心按钮改成取消喜欢。
+  final bool unlike;
+
+  static Route<void> route(List<Song> songs, {bool unlike = false}) =>
+      MaterialPageRoute(builder: (_) => SongSelectPage(songs, unlike: unlike));
 
   @override
   State<SongSelectPage> createState() => _SongSelectPageState();
@@ -145,13 +148,22 @@ class _SongSelectPageState extends State<SongSelectPage> {
                           ? () => _run((s) => addSongsToPlaylist(context, s))
                           : null,
                     ),
-                    _Action(
-                      icon: Icons.favorite_border_rounded,
-                      label: l.likeShort,
-                      onTap: enabled
-                          ? () => _run((s) => likeSongs(context, s))
-                          : null,
-                    ),
+                    if (widget.unlike)
+                      _Action(
+                        icon: Icons.heart_broken_rounded,
+                        label: l.unlike,
+                        onTap: enabled
+                            ? () => _run((s) => unlikeSongs(context, s))
+                            : null,
+                      )
+                    else
+                      _Action(
+                        icon: Icons.favorite_border_rounded,
+                        label: l.likeShort,
+                        onTap: enabled
+                            ? () => _run((s) => likeSongs(context, s))
+                            : null,
+                      ),
                     _Action(
                       icon: Icons.download_rounded,
                       label: l.download,
