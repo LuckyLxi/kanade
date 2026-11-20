@@ -116,13 +116,7 @@ Future<void> showDownloadActions(
                     ? l.deleteDownload
                     : l.cancelDownload,
                 destructive: true,
-                onTap: () => run(() {
-                  if (d.state == DownloadState.done) {
-                    confirmDeleteDownload(context, song);
-                  } else {
-                    downloads.remove(song.mid);
-                  }
-                }),
+                onTap: () => run(() => confirmDeleteDownload(context, song)),
               ),
             ],
           ),
@@ -132,26 +126,29 @@ Future<void> showDownloadActions(
   );
 }
 
-/// 删掉下好的文件和歌词，先问一次。
+/// 删掉下好的文件和歌词，或者取消没下完的，先问一次。
 Future<void> confirmDeleteDownload(BuildContext context, Song song) async {
   final l = AppLocalizations.of(context);
   final downloads = context.read<DownloadController>();
+  final done = downloads.item(song.mid)?.state == DownloadState.done;
   final ok = await showKanadeDialog<bool>(
     context,
     builder: (context) => KanadeDialog(
-      icon: Icons.delete_outline_rounded,
+      icon: done ? Icons.delete_outline_rounded : Icons.close_rounded,
       danger: true,
-      title: l.deleteDownload,
-      message: l.deleteDownloadConfirm(song.name),
+      title: done ? l.deleteDownload : l.cancelDownload,
+      message: done
+          ? l.deleteDownloadConfirm(song.name)
+          : l.cancelDownloadConfirm(song.name),
       actions: [
         KanadeDialogAction(
-          label: l.delete,
+          label: done ? l.delete : l.cancelDownload,
           primary: true,
           danger: true,
           onPressed: () => Navigator.of(context).pop(true),
         ),
         KanadeDialogAction(
-          label: l.cancel,
+          label: done ? l.cancel : l.keepDownload,
           onPressed: () => Navigator.of(context).pop(false),
         ),
       ],
@@ -159,7 +156,7 @@ Future<void> confirmDeleteDownload(BuildContext context, Song song) async {
   );
   if (ok != true) return;
   await downloads.remove(song.mid);
-  if (context.mounted) {
+  if (done && context.mounted) {
     showToast(context, l.downloadDeleted, kind: ToastKind.success);
   }
 }

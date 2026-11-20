@@ -2396,6 +2396,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'删除歌曲'**
   String get deleteDownloadedSong;
+
+  /// No description provided for @cancelDownloadConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消下载「{name}」？已经下了的部分会删掉。'**
+  String cancelDownloadConfirm(String name);
+
+  /// No description provided for @keepDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'不取消'**
+  String get keepDownload;
 }
 
 class _AppLocalizationsDelegate

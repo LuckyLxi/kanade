@@ -752,5 +752,14 @@
   "downloadLyricsEmbed": "写进歌曲",
   "downloadLyricsLrcHint": "另存一个和歌曲同名的 .lrc 文件",
   "downloadLyricsEmbedHint": "写进歌曲文件的标签里，不另存文件",
-  "deleteDownloadedSong": "删除歌曲"
+  "deleteDownloadedSong": "删除歌曲",
+  "cancelDownloadConfirm": "取消下载「{name}」？已经下了的部分会删掉。",
+  "@cancelDownloadConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "keepDownload": "不取消"
 }

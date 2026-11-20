@@ -9,6 +9,7 @@ import 'package:kanade/library/library_controller.dart';
 import 'package:kanade/player/player_controller.dart';
 import 'package:kanade/src/rust/api/types.dart';
 import 'package:kanade/src/rust/frb_generated.dart';
+import 'package:kanade/ui/kanade_dialog.dart';
 import 'package:kanade/ui/mv_page.dart';
 import 'package:kanade/ui/sheet.dart';
 import 'package:kanade/ui/song_list_page.dart';
@@ -282,6 +283,39 @@ void main() {
     expect(downloads.removed, ['song-mid']);
     await _more(tester);
     expect(find.text('删除歌曲'), findsNothing);
+  });
+
+  testWidgets('cancelling an unfinished download asks first', (tester) async {
+    final song = _song();
+    final downloads = _Downloads()
+      ..done = DownloadItem(
+        song: song,
+        quality: Quality.high,
+        state: DownloadState.running,
+        received: BigInt.one,
+        total: BigInt.two,
+        file: '',
+      );
+    await _show(tester, song, downloads: downloads);
+    Future<void> cancel() async {
+      await _more(tester);
+      expect(find.text('删除歌曲'), findsNothing);
+      await tester.tap(find.text('下载中'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('取消下载'));
+      await tester.pumpAndSettle();
+      expect(find.text('取消下载「Turning Around」？已经下了的部分会删掉。'), findsOneWidget);
+    }
+
+    await cancel();
+    await tester.tap(find.text('不取消'));
+    await tester.pumpAndSettle();
+    expect(downloads.removed, isEmpty);
+
+    await cancel();
+    await tester.tap(find.widgetWithText(KanadeDialogAction, '取消下载'));
+    await tester.pumpAndSettle();
+    expect(downloads.removed, ['song-mid']);
   });
 
   testWidgets('multi-select plays the picked songs and closes', (tester) async {

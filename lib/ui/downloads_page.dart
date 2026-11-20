@@ -6,6 +6,7 @@ import '../download/download_controller.dart';
 import '../l10n/l10n_ext.dart';
 import '../player/player_controller.dart';
 import '../src/rust/api/types.dart';
+import 'download_actions.dart';
 import 'glass.dart';
 import 'sliding_segments.dart';
 import 'song_tile.dart';
@@ -245,7 +246,7 @@ class _ActiveRow extends StatelessWidget {
           IconButton(
             tooltip: l.cancelDownload,
             icon: const Icon(Icons.close_rounded),
-            onPressed: () => downloads.remove(mid),
+            onPressed: () => confirmDeleteDownload(context, d.song),
           ),
         ],
       ),

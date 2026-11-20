@@ -1358,4 +1358,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deleteDownloadedSong => 'Delete song';
+
+  @override
+  String cancelDownloadConfirm(String name) {
+    return 'Cancel downloading \"$name\"? What\'s downloaded so far will be deleted.';
+  }
+
+  @override
+  String get keepDownload => 'Keep';
 }

@@ -1279,4 +1279,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deleteDownloadedSong => '删除歌曲';
+
+  @override
+  String cancelDownloadConfirm(String name) {
+    return '取消下载「$name」？已经下了的部分会删掉。';
+  }
+
+  @override
+  String get keepDownload => '不取消';
 }
