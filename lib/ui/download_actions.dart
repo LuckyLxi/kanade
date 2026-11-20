@@ -8,6 +8,7 @@ import '../src/rust/api/types.dart';
 import 'kanade_dialog.dart';
 import 'sheet.dart';
 import 'toast.dart';
+import 'widgets.dart';
 
 /// 能选的音质，按官方顺序从免费到 SVIP 排列；缺解码器的档位不显示。设置里的默认音质也用它。
 final selectableQualities = [
@@ -172,6 +173,7 @@ class _QualityPicker extends StatefulWidget {
 }
 
 class _QualityPickerState extends State<_QualityPicker> {
+  static const _transition = Duration(milliseconds: 250);
   late Future<List<Quality>> _options = widget.load();
 
   @override
@@ -186,8 +188,11 @@ class _QualityPickerState extends State<_QualityPicker> {
         FutureBuilder(
           future: _options,
           builder: (context, snap) {
+            final options = snap.data;
+            final Widget body;
             if (snap.hasError) {
-              return SheetGroup(
+              body = SheetGroup(
+                key: const ValueKey('error'),
                 children: [
                   SheetRow(
                     leading: const Icon(Icons.refresh_rounded),
@@ -197,16 +202,19 @@ class _QualityPickerState extends State<_QualityPicker> {
                   ),
                 ],
               );
-            }
-            final options = snap.data;
-            if (options == null) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
-                child: Center(child: CircularProgressIndicator()),
+            } else if (options == null) {
+              // PageLoading 外层的 Center 会撑满高度，这里放开纵向约束让它只占自身高度
+              body = const UnconstrainedBox(
+                key: ValueKey('loading'),
+                constrainedAxis: Axis.horizontal,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: PageLoading(),
+                ),
               );
-            }
-            if (options.isEmpty) {
-              return Padding(
+            } else if (options.isEmpty) {
+              body = Padding(
+                key: const ValueKey('empty'),
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Text(
                   l.qualityNoneForSong,
@@ -214,9 +222,9 @@ class _QualityPickerState extends State<_QualityPicker> {
                   style: TextStyle(color: scheme.onSurfaceVariant),
                 ),
               );
-            }
-            return Flexible(
-              child: SingleChildScrollView(
+            } else {
+              body = SingleChildScrollView(
+                key: const ValueKey('list'),
                 child: SheetGroup(
                   children: [
                     for (final q in options)
@@ -227,6 +235,28 @@ class _QualityPickerState extends State<_QualityPicker> {
                         onTap: () => Navigator.pop(context, q),
                       ),
                   ],
+                ),
+              );
+            }
+            // 加载完弹窗顶边平滑升到列表高度，转圈淡出、列表淡入
+            return Flexible(
+              child: AnimatedSize(
+                duration: _transition,
+                curve: Curves.easeInOutCubic,
+                alignment: Alignment.topCenter,
+                child: AnimatedSwitcher(
+                  duration: _transition,
+                  // 高度只按新内容算，旧内容淡出时超出的部分由外面的 AnimatedSize 裁掉
+                  layoutBuilder: (current, previous) => Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.topCenter,
+                    children: [
+                      for (final child in previous)
+                        Positioned(top: 0, left: 0, right: 0, child: child),
+                      ?current,
+                    ],
+                  ),
+                  child: body,
                 ),
               ),
             );
