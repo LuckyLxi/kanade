@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
+import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
 import '../player/player_controller.dart';
@@ -17,7 +18,17 @@ bool _requireLogin(BuildContext context) {
   return false;
 }
 
+/// 本地歌没有 QQ 音乐的歌曲 id，红心、歌单、评论都用不了；去掉后一首不剩时提示。
+List<Song> onlineSongs(BuildContext context, List<Song> songs) {
+  final online = songs.where((s) => !isLocalSong(s)).toList();
+  if (online.isEmpty && songs.isNotEmpty) {
+    showToast(context, AppLocalizations.of(context).localSongUnsupported);
+  }
+  return online;
+}
+
 Future<void> toggleLike(BuildContext context, Song song) async {
+  if (onlineSongs(context, [song]).isEmpty) return;
   if (!_requireLogin(context)) return;
   final l = AppLocalizations.of(context);
   try {
@@ -45,7 +56,8 @@ Future<void> addToPlaylist(BuildContext context, Song song) =>
 
 /// 选一个歌单，把这些歌逐首加进去；全部加完返回 true。
 Future<bool> addSongsToPlaylist(BuildContext context, List<Song> songs) async {
-  if (!_requireLogin(context)) return false;
+  songs = onlineSongs(context, songs);
+  if (songs.isEmpty || !_requireLogin(context)) return false;
   final l = AppLocalizations.of(context);
   final library = context.read<LibraryController>();
   final picked = await showKanadeSheet<MyPlaylist>(
@@ -79,7 +91,8 @@ Future<bool> addSongsToPlaylist(BuildContext context, List<Song> songs) async {
 
 /// 多选里的「喜欢」：还没加红心的逐首加上，已经喜欢的不动。
 Future<bool> likeSongs(BuildContext context, List<Song> songs) async {
-  if (!_requireLogin(context)) return false;
+  songs = onlineSongs(context, songs);
+  if (songs.isEmpty || !_requireLogin(context)) return false;
   final l = AppLocalizations.of(context);
   final library = context.read<LibraryController>();
   try {

@@ -78,7 +78,7 @@ class TaskbarThumbnail {
     if (s != null && s.coverUrl.isNotEmpty) {
       try {
         // 和迷你播放器的 Cover 同一个地址，通常直接命中图片缓存
-        final image = await _resolve(NetworkImage(httpsUrl(s.coverUrl)));
+        final image = await _resolve(coverImage(s.coverUrl));
         try {
           final data = await image.toByteData(
             format: ui.ImageByteFormat.rawRgba,

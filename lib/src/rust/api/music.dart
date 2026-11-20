@@ -185,6 +185,11 @@ void setDownloadEmbedLyrics({required bool enabled}) =>
 bool downloadWaitingForWifi() =>
     RustLib.instance.api.crateApiMusicDownloadWaitingForWifi();
 
+/// 重装后按下载文件夹里的文件补回下载记录，返回补回的首数。
+/// 没有 Kanade 标记的文件当本地歌导入（mid 以 `local:` 开头）。
+Future<int> restoreDownloads() =>
+    RustLib.instance.api.crateApiMusicRestoreDownloads();
+
 /// 下载进度和状态变化。
 Stream<DownloadEvent> watchDownloads() =>
     RustLib.instance.api.crateApiMusicWatchDownloads();

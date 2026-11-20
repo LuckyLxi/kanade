@@ -16,9 +16,9 @@ use tokio::runtime::Handle;
 use super::client::{core, UA};
 use super::error::ApiError;
 use super::qmc::Qmc;
-use super::{dts, music, nac, parse, quality, ra360};
+use super::{dts, lyric, music, nac, parse, quality, ra360};
 use crate::api::types::{
-    DownloadEvent, DownloadItem, DownloadState, Lyric, Quality, Song, SongUrl,
+    DownloadEvent, DownloadItem, DownloadState, Lyric, Quality, Singer, Song, SongUrl,
 };
 use crate::frb_generated::StreamSink;
 
@@ -33,6 +33,14 @@ pub const MAX_CONCURRENCY: u32 = 5;
 const DEFAULT_CONCURRENCY: u32 = 2;
 /// 进度写库和通知界面的最短间隔。
 const REPORT_EVERY: Duration = Duration::from_millis(300);
+/// 写在文件注释标签里：`kanade:歌曲 id:音质`。重装后数据库没了，靠它认回是哪首歌。
+const MARK: &str = "kanade:";
+/// 下载文件夹里没有标记的歌当本地歌导入，mid 用这个开头。
+const LOCAL: &str = "local:";
+
+pub fn is_local(mid: &str) -> bool {
+    mid.starts_with(LOCAL)
+}
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 enum State {
@@ -56,11 +64,18 @@ struct Record {
     lrc: Option<String>,
     error: Option<String>,
     created: i64,
+    /// 本地歌从标签里取出来的封面，存在数据目录里。
+    #[serde(default)]
+    cover: Option<String>,
 }
 
 impl Record {
     fn song(&self) -> Option<Song> {
-        parse::song(&self.song)
+        let mut song = parse::song(&self.song)?;
+        if let Some(cover) = &self.cover {
+            song.cover_url = cover.clone();
+        }
+        Some(song)
     }
 
     fn item(&self) -> Option<DownloadItem> {
@@ -363,6 +378,335 @@ pub fn set_dir(dir: &str) -> Result<()> {
     }
 }
 
+/// 下载文件夹里的一个文件；[file] 是之后读、删用的地址。
+pub struct Entry {
+    pub file: String,
+    pub name: String,
+    pub size: u64,
+    /// 同一个文件的另一种写法（Android 上的 `media:<MediaStore id>`），用来认出已有的记录。
+    pub alias: Option<String>,
+}
+
+struct Info {
+    mark: Option<(i64, String)>,
+    title: String,
+    artist: String,
+    album: String,
+    secs: u32,
+    /// 没有标记时按格式和码率估的音质。
+    quality: Quality,
+    /// 内嵌封面和扩展名。
+    picture: Option<(Vec<u8>, &'static str)>,
+}
+
+fn is_audio(name: &str) -> bool {
+    let ext = name.rsplit_once('.').map_or("", |(_, e)| e);
+    ["flac", "mp3", "m4a", "ogg", "wav"]
+        .iter()
+        .any(|e| ext.eq_ignore_ascii_case(e))
+}
+
+fn stem_of(name: &str) -> &str {
+    name.rsplit_once('.').map_or(name, |(s, _)| s)
+}
+
+/// 下载时存的 MediaStore 地址换成 `media:<id>`，和文件夹授权列出来的文件对得上。
+fn media_alias(file: &str) -> Option<String> {
+    let id = file.strip_prefix("content://media/")?.rsplit('/').next()?;
+    id.parse::<u64>().ok().map(|id| format!("media:{id}"))
+}
+
+fn parse_mark(comment: &str) -> Option<(i64, String)> {
+    let (id, q) = comment.trim().strip_prefix(MARK)?.split_once(':')?;
+    quality::from_cache_key(q)?;
+    Some((id.parse().ok().filter(|&id| id > 0)?, q.to_owned()))
+}
+
+fn read_tagged(file: &str) -> Option<lofty::file::TaggedFile> {
+    lofty::probe::Probe::new(std::io::BufReader::new(platform::open(file).ok()?))
+        .guess_file_type()
+        .ok()?
+        .read()
+        .ok()
+}
+
+fn read_info(entry: &Entry) -> Option<Info> {
+    use lofty::file::{AudioFile, TaggedFileExt};
+    use lofty::picture::{MimeType, PictureType};
+    use lofty::tag::ItemKey;
+
+    let tagged = read_tagged(&entry.file)?;
+    let tag = tagged.primary_tag().or_else(|| tagged.first_tag());
+    let text = |key: ItemKey| {
+        tag.and_then(|t| t.get_string(&key))
+            .map_or_else(String::new, |s| s.trim().to_owned())
+    };
+    let props = tagged.properties();
+    let kbps = props.audio_bitrate().unwrap_or(0);
+    let ext = entry.name.rsplit_once('.').map_or(String::new(), |(_, e)| e.to_ascii_lowercase());
+    let quality = match ext.as_str() {
+        "flac" if props.bit_depth().unwrap_or(16) > 16 || props.sample_rate().unwrap_or(0) > 48000 => {
+            Quality::Hires
+        }
+        "flac" | "wav" => Quality::Lossless,
+        "mp3" if kbps >= 256 => Quality::High,
+        "mp3" => Quality::Standard,
+        "ogg" if kbps >= 256 => Quality::Ogg320,
+        "ogg" => Quality::Ogg192,
+        _ => Quality::Low,
+    };
+    let picture = tag.and_then(|t| {
+        let pics = t.pictures();
+        let p = pics
+            .iter()
+            .find(|p| p.pic_type() == PictureType::CoverFront)
+            .or_else(|| pics.first())?;
+        let ext = if p.mime_type() == Some(&MimeType::Png) { "png" } else { "jpg" };
+        Some((p.data().to_vec(), ext))
+    });
+    Some(Info {
+        mark: tag.and_then(|t| t.get_strings(&ItemKey::Comment).find_map(parse_mark)),
+        title: text(ItemKey::TrackTitle),
+        artist: text(ItemKey::TrackArtist),
+        album: text(ItemKey::AlbumTitle),
+        secs: props.duration().as_secs() as u32,
+        quality,
+        picture,
+    })
+}
+
+/// 没有标记的文件：歌名、歌手先看标签，没有时按「歌手 - 歌名」拆文件名。
+fn local_song(entry: &Entry, info: &Info) -> Song {
+    let stem = stem_of(&entry.name);
+    let (artist, title) = stem.split_once(" - ").unwrap_or(("", stem));
+    let pick = |tagged: &str, fallback: &str| {
+        (if tagged.is_empty() { fallback.trim() } else { tagged }).to_owned()
+    };
+    // 文件地址不变，mid 就不变；FNV-1a 在各平台、各版本都算得一样
+    let hash = entry
+        .file
+        .bytes()
+        .fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01b3));
+    Song {
+        id: 0,
+        mid: format!("{LOCAL}{hash:016x}"),
+        name: pick(&info.title, title),
+        singers: pick(&info.artist, artist)
+            .split(['/', ','])
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|name| Singer {
+                mid: String::new(),
+                name: name.into(),
+            })
+            .collect(),
+        album_mid: String::new(),
+        album_name: info.album.clone(),
+        duration_secs: info.secs,
+        media_mid: String::new(),
+        cover_url: String::new(),
+        vip: false,
+        has_hq: false,
+        has_flac: false,
+        mv_vid: String::new(),
+    }
+}
+
+/// 本地歌的封面存进数据目录，返回路径。
+fn save_cover(mid: &str, picture: &Option<(Vec<u8>, &str)>) -> Option<String> {
+    let (data, ext) = picture.as_ref()?;
+    let dir = STAGE.get()?.join("covers");
+    std::fs::create_dir_all(&dir).ok()?;
+    let path = dir.join(format!("{}.{ext}", mid.trim_start_matches(LOCAL)));
+    std::fs::write(&path, data).ok()?;
+    Some(path.to_string_lossy().into_owned())
+}
+
+/// 本地歌的记录：按标签重新读一遍信息；[mid] 是已有记录的就沿用，播放队列里的还认得。
+fn local_record(mid: Option<&str>, entry: &Entry, info: &Info, lrc: Option<String>, created: i64) -> (String, Record) {
+    let mut song = local_song(entry, info);
+    if let Some(mid) = mid {
+        song.mid = mid.into();
+    }
+    let cover = save_cover(&song.mid, &info.picture);
+    let key = quality::cache_key(info.quality);
+    let rec = Record {
+        song: song_json(&song),
+        want: key.clone(),
+        quality: Some(key),
+        state: State::Done,
+        received: entry.size,
+        total: entry.size,
+        file: Some(entry.file.clone()),
+        lrc,
+        error: None,
+        created,
+        cover,
+    };
+    (song.mid, rec)
+}
+
+/// 重装后数据库没了、歌还在下载文件夹里：按文件补回下载记录，返回补回的首数。
+/// 有标记的按歌曲 id 取回歌曲信息；没有的当本地歌，信息、封面从标签读。
+/// 已有记录的文件换成这次列出来的地址（Android 上文件夹授权的地址读得到也删得掉），本地歌顺便重读一遍。
+pub async fn restore() -> Result<u32> {
+    let mut known = HashMap::new();
+    for (mid, rec) in records() {
+        for file in rec.file.iter().chain(rec.lrc.iter()) {
+            known.insert(file.clone(), mid.clone());
+            if let Some(alias) = media_alias(file) {
+                known.insert(alias, mid.clone());
+            }
+        }
+    }
+    let entries = tokio::task::spawn_blocking(platform::list).await??;
+    let lrcs: HashMap<String, String> = entries
+        .iter()
+        .filter_map(|e| Some((e.name.strip_suffix(".lrc")?.to_owned(), e.file.clone())))
+        .collect();
+    let found = tokio::task::spawn_blocking(move || {
+        entries
+            .into_iter()
+            .filter(|e| is_audio(&e.name))
+            .filter_map(|e| {
+                let mid = known
+                    .get(&e.file)
+                    .or_else(|| known.get(e.alias.as_ref()?))
+                    .cloned();
+                // 已有记录、也不是本地歌的不用读标签
+                let info = match &mid {
+                    Some(mid) if !is_local(mid) => None,
+                    _ => Some(read_info(&e)?),
+                };
+                Some((e, mid, info))
+            })
+            .collect::<Vec<_>>()
+    })
+    .await?;
+
+    let ids: Vec<i64> = found
+        .iter()
+        .filter(|(_, mid, _)| mid.is_none())
+        .filter_map(|(_, _, i)| Some(i.as_ref()?.mark.as_ref()?.0))
+        .collect();
+    let mut tracks = HashMap::new();
+    for chunk in ids.chunks(50) {
+        for t in music::tracks_by_id(chunk).await?.as_array().into_iter().flatten() {
+            tracks.insert(parse::n(&t["id"]), t.clone());
+        }
+    }
+
+    let now = super::client::now_ms() as i64;
+    let mut restored = 0;
+    for (i, (entry, mid, info)) in found.into_iter().enumerate() {
+        let lrc = lrcs.get(stem_of(&entry.name)).cloned();
+        let (mid, rec) = match (mid, info) {
+            (Some(mid), info) => {
+                let Some(mut rec) = load(&mid) else { continue };
+                match &info {
+                    Some(info) if is_local(&mid) => {
+                        rec = local_record(Some(&mid), &entry, info, lrc, rec.created).1;
+                        restored += 1;
+                    }
+                    _ => {
+                        if rec.file.as_deref() == Some(entry.file.as_str()) {
+                            continue;
+                        }
+                        rec.file = Some(entry.file);
+                        rec.lrc = lrc.or(rec.lrc);
+                    }
+                }
+                (mid, rec)
+            }
+            (None, Some(info)) => {
+                let created = now + i as i64;
+                let marked = info.mark.as_ref().and_then(|(id, q)| {
+                    let song = tracks.get(id)?.clone();
+                    let mid = parse::song(&song)?.mid;
+                    Some((mid, song, q.clone()))
+                });
+                let (mid, rec) = match marked {
+                    Some((mid, song, key)) => (
+                        mid,
+                        Record {
+                            song,
+                            want: key.clone(),
+                            quality: Some(key),
+                            state: State::Done,
+                            received: entry.size,
+                            total: entry.size,
+                            file: Some(entry.file),
+                            lrc,
+                            error: None,
+                            created,
+                            cover: None,
+                        },
+                    ),
+                    None => local_record(None, &entry, &info, lrc, created),
+                };
+                // 这首已经有记录（比如重装后又下了一遍）就不动它
+                if load(&mid).is_some() {
+                    continue;
+                }
+                restored += 1;
+                (mid, rec)
+            }
+            (None, None) => continue,
+        };
+        save(&mid, &rec);
+        if let Some(d) = DOWNLOADER.get() {
+            d.emit_record(&rec);
+        }
+    }
+    Ok(restored)
+}
+
+fn read_text(file: &str) -> Option<String> {
+    use std::io::Read;
+    let mut data = Vec::new();
+    platform::open(file).ok()?.read_to_end(&mut data).ok()?;
+    let text = String::from_utf8_lossy(&data);
+    Some(text.trim_start_matches('\u{feff}').to_owned())
+}
+
+/// 下载时写的 .lrc 每个时间先一行原文，同一时间再跟一行翻译；拆回两份交给歌词解析。
+fn split_translation(text: &str) -> (String, String) {
+    let (mut orig, mut trans) = (String::new(), String::new());
+    let mut last = None;
+    for line in text.lines() {
+        let stamp = line
+            .strip_prefix('[')
+            .and_then(|r| r.split_once(']'))
+            .map(|(s, _)| s)
+            .filter(|s| s.starts_with(|c: char| c.is_ascii_digit()));
+        let out = if stamp.is_some() && stamp == last { &mut trans } else { &mut orig };
+        out.push_str(line);
+        out.push('\n');
+        last = stamp;
+    }
+    (orig, trans)
+}
+
+/// 本地歌的歌词：先读同名 .lrc，没有再读标签里的歌词。
+pub fn local_lyric(mid: &str) -> Result<Lyric> {
+    use lofty::file::TaggedFileExt;
+    use lofty::tag::ItemKey;
+
+    let rec = load(mid).context("download record is missing")?;
+    let text = rec
+        .lrc
+        .as_deref()
+        .and_then(read_text)
+        .or_else(|| {
+            let tagged = read_tagged(rec.file.as_deref()?)?;
+            let tag = tagged.primary_tag().or_else(|| tagged.first_tag())?;
+            tag.get_string(&ItemKey::Lyrics).map(str::to_owned)
+        })
+        .unwrap_or_default();
+    let (orig, trans) = split_translation(&text);
+    Ok(lyric::build(&orig, &trans, ""))
+}
+
 impl Downloader {
     pub fn watch(&self, sink: StreamSink<DownloadEvent>) {
         self.sinks.lock().unwrap().push(sink);
@@ -386,6 +730,9 @@ impl Downloader {
         let key = quality::cache_key(want);
         let now = super::client::now_ms() as i64;
         for (i, song) in songs.iter().enumerate() {
+            if is_local(&song.mid) {
+                continue;
+            }
             let live = self
                 .running
                 .lock()
@@ -417,6 +764,7 @@ impl Downloader {
                     total: 0,
                     file: None,
                     lrc: None,
+                    cover: None,
                     error: None,
                     created: now + i as i64,
                 },
@@ -436,6 +784,9 @@ impl Downloader {
         if let Some(rec) = load(mid) {
             for file in rec.file.iter().chain(rec.lrc.iter()) {
                 platform::delete(file);
+            }
+            if let Some(cover) = &rec.cover {
+                let _ = std::fs::remove_file(cover);
             }
         }
         core().store.download_delete(mid);
@@ -649,9 +1000,12 @@ impl Downloader {
         };
         {
             let (part, song) = (part.clone(), song.clone());
+            let mark = format!("{MARK}{}:{}", song.id, quality::cache_key(src.quality));
             // 标签写不进去不影响下载
-            let _ = tokio::task::spawn_blocking(move || write_tags(&part, &song, cover, embedded))
-                .await;
+            let _ = tokio::task::spawn_blocking(move || {
+                write_tags(&part, &song, &mark, cover, embedded)
+            })
+            .await;
         }
 
         let stem = file_stem(&song);
@@ -828,6 +1182,7 @@ fn sniff(path: &Path) -> Option<(&'static str, &'static str)> {
 fn write_tags(
     path: &Path,
     song: &Song,
+    mark: &str,
     cover: Option<Vec<u8>>,
     lyrics: Option<String>,
 ) -> Result<()> {
@@ -855,6 +1210,7 @@ fn write_tags(
     if !song.album_name.is_empty() {
         tag.set_album(song.album_name.clone());
     }
+    tag.insert_text(ItemKey::Comment, mark.into());
     if let Some(text) = lyrics {
         tag.insert_text(ItemKey::Lyrics, text);
     }
@@ -993,6 +1349,28 @@ mod platform {
         Path::new(file).is_file()
     }
 
+    pub fn list() -> Result<Vec<super::Entry>> {
+        let Ok(dir) = std::fs::read_dir(super::dir()) else {
+            return Ok(Vec::new());
+        };
+        Ok(dir
+            .flatten()
+            .filter_map(|e| {
+                let meta = e.metadata().ok().filter(|m| m.is_file())?;
+                Some(super::Entry {
+                    file: e.path().to_string_lossy().into_owned(),
+                    name: e.file_name().to_string_lossy().into_owned(),
+                    size: meta.len(),
+                    alias: None,
+                })
+            })
+            .collect())
+    }
+
+    pub fn open(file: &str) -> Result<std::fs::File> {
+        Ok(std::fs::File::open(file)?)
+    }
+
     pub fn notify(_done: u32, _total: u32) {}
 }
 
@@ -1124,6 +1502,48 @@ mod platform {
         })
         .unwrap_or(false)
     }
+
+    /// 授权的文件夹里的文件，一行一个「地址\t文件名\t大小\tmedia:<id>」，最后一项可能为空。
+    /// 没授权文件夹时只列得出这次安装存的。
+    pub fn list() -> Result<Vec<super::Entry>> {
+        let text = call(|env, class| {
+            let v = env
+                .call_static_method(class, "list", "()Ljava/lang/String;", &[])?
+                .l()?;
+            string(env, v)
+        })?;
+        Ok(text
+            .lines()
+            .filter_map(|line| {
+                let mut parts = line.split('\t');
+                Some(super::Entry {
+                    file: parts.next()?.to_owned(),
+                    name: parts.next()?.to_owned(),
+                    size: parts.next()?.parse().ok()?,
+                    alias: parts.next().filter(|a| !a.is_empty()).map(str::to_owned),
+                })
+            })
+            .collect())
+    }
+
+    pub fn open(file: &str) -> Result<std::fs::File> {
+        use std::os::fd::FromRawFd;
+        let fd = call(|env, class| {
+            let file = env.new_string(file)?;
+            env.call_static_method(
+                class,
+                "openFd",
+                "(Ljava/lang/String;)I",
+                &[JValue::Object(&file)],
+            )?
+            .i()
+        })?;
+        if fd < 0 {
+            bail!("cannot open {file}");
+        }
+        // Kotlin 那边 detachFd 交出了所有权，File 关掉时一起关
+        Ok(unsafe { std::fs::File::from_raw_fd(fd) })
+    }
 }
 
 #[cfg(test)]
@@ -1204,14 +1624,69 @@ mod tests {
         wav.extend(data);
         std::fs::write(&path, wav).unwrap();
 
-        write_tags(&path, &song(), None, Some("[00:01.00]hello\n".into())).unwrap();
+        let png = b"\x89PNG\r\n\x1a\nfake".to_vec();
+        write_tags(
+            &path,
+            &song(),
+            "kanade:7:Lossless",
+            Some(png.clone()),
+            Some("[00:01.00]hello\n".into()),
+        )
+        .unwrap();
         let file = lofty::read_from_path(&path).unwrap();
         let lyrics = file
             .primary_tag()
             .and_then(|t| t.get_string(&ItemKey::Lyrics))
             .map(str::to_owned);
+        let entry = Entry {
+            file: path.to_string_lossy().into_owned(),
+            name: "X, Y - A_B_.wav".into(),
+            size: 0,
+            alias: None,
+        };
+        let info = read_info(&entry).unwrap();
         let _ = std::fs::remove_file(&path);
         assert_eq!(lyrics.as_deref(), Some("[00:01.00]hello\n"));
+        assert_eq!(info.mark, Some((7, "Lossless".into())));
+        assert_eq!((info.title.as_str(), info.artist.as_str()), ("A/B?", "X/Y"));
+        assert_eq!(info.picture, Some((png, "png")));
+    }
+
+    #[test]
+    fn lrc_translation_lines_split_back() {
+        let text = "[ti:A]\n[00:01.00]hello\n[00:01.00]你好\n[00:02.00]bye\n";
+        let (orig, trans) = split_translation(text);
+        let l = lyric::build(&orig, &trans, "");
+        assert_eq!(l.lines.len(), 2);
+        assert_eq!((l.lines[0].text.as_str(), l.lines[0].trans.as_str()), ("hello", "你好"));
+        assert_eq!((l.lines[1].text.as_str(), l.lines[1].trans.as_str()), ("bye", ""));
+        assert_eq!(
+            media_alias("content://media/external_primary/audio/media/42").as_deref(),
+            Some("media:42")
+        );
+    }
+
+    #[test]
+    fn unmarked_files_become_local_songs() {
+        let entry = Entry {
+            file: "/music/Kanade/Singer - Title.mp3".into(),
+            name: "Singer - Title.mp3".into(),
+            size: 0,
+            alias: None,
+        };
+        let info = Info {
+            mark: None,
+            title: String::new(),
+            artist: String::new(),
+            album: String::new(),
+            secs: 90,
+            quality: Quality::High,
+            picture: None,
+        };
+        let back = parse::song(&song_json(&local_song(&entry, &info))).unwrap();
+        assert!(is_local(&back.mid));
+        assert_eq!((back.name.as_str(), back.singers[0].name.as_str()), ("Title", "Singer"));
+        assert_eq!((back.id, back.duration_secs, back.cover_url.as_str()), (0, 90, ""));
     }
 
     #[test]

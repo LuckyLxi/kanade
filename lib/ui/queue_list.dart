@@ -90,7 +90,7 @@ class QueueList extends StatelessWidget {
 /// 队列封面只有 46px，按显示尺寸解码，不用解出整张 300px 原图。
 /// 提前加载和列表显示用同一个对象，图片缓存才对得上。
 ImageProvider queueCover(BuildContext context, Song song) => ResizeImage(
-  NetworkImage(httpsUrl(song.coverUrl)),
+  coverImage(song.coverUrl),
   width: (46 * MediaQuery.devicePixelRatioOf(context)).round(),
 );
 

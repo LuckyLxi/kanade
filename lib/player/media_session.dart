@@ -218,7 +218,7 @@ class _AndroidSink extends BaseAudioHandler with SeekHandler implements _Sink {
             artist: singerNames(s),
             album: s.albumName,
             duration: duration,
-            artUri: Uri.parse(bigCoverUrl(s)),
+            artUri: coverUri(s),
           ),
   );
 
@@ -360,7 +360,7 @@ class _WindowsSink implements _Sink {
         title: s.name,
         artist: singerNames(s),
         album: s.albumName,
-        thumbnail: bigCoverUrl(s),
+        thumbnail: coverUri(s).toString(),
       ),
     );
   }

@@ -129,6 +129,43 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _embedLyrics = on);
   }
 
+  var _restoring = false;
+
+  Future<void> _restoreDownloads() async {
+    if (_restoring) return;
+    final l = AppLocalizations.of(context);
+    final downloads = context.read<DownloadController>();
+    if (Platform.isAndroid &&
+        await const MethodChannel('kanade/downloads')
+                .invokeMethod<bool>('pickFolder') !=
+            true) {
+      if (mounted) showToast(context, l.restoreDownloadsDenied);
+      return;
+    }
+    setState(() => _restoring = true);
+    try {
+      final n = await downloads.restore();
+      if (!mounted) return;
+      n == 0
+          ? showToast(context, l.restoreDownloadsNone)
+          : showToast(
+              context,
+              l.restoreDownloadsDone(n),
+              kind: ToastKind.success,
+            );
+    } catch (e) {
+      if (mounted) {
+        showToast(
+          context,
+          l.actionFailed(errorText(l, e)),
+          kind: ToastKind.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _restoring = false);
+    }
+  }
+
   Future<void> _checkUpdate() async {
     if (_checking) return;
     setState(() => _checking = true);
@@ -662,6 +699,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 onChanged: downloads.setWifiOnly,
               ),
             ),
+          _Item(
+            icon: Icons.restore_rounded,
+            title: l.restoreDownloads,
+            hint: l.restoreDownloadsHint,
+            onTap: _restoring ? null : _restoreDownloads,
+          ),
         ],
         after: null,
       ),

@@ -2361,6 +2361,42 @@ abstract class AppLocalizations {
   /// **'用流量时先排队，连上 Wi-Fi 再下'**
   String get downloadWifiOnlyHint;
 
+  /// No description provided for @restoreDownloads.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复已下载的歌'**
+  String get restoreDownloads;
+
+  /// No description provided for @restoreDownloadsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'重装后找回下载文件夹里的歌，不是 Kanade 下载的当作本地歌'**
+  String get restoreDownloadsHint;
+
+  /// No description provided for @restoreDownloadsDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已恢复 {count} 首'**
+  String restoreDownloadsDone(int count);
+
+  /// No description provided for @restoreDownloadsNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有找到需要恢复的歌'**
+  String get restoreDownloadsNone;
+
+  /// No description provided for @restoreDownloadsDenied.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有授权下载文件夹，无法恢复'**
+  String get restoreDownloadsDenied;
+
+  /// No description provided for @localSongUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地歌曲不支持这个操作'**
+  String get localSongUnsupported;
+
   /// No description provided for @selectedCount.
   ///
   /// In zh, this message translates to:

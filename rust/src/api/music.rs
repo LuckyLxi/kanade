@@ -230,6 +230,12 @@ pub fn download_waiting_for_wifi() -> bool {
     download::waiting_for_wifi()
 }
 
+/// 重装后按下载文件夹里的文件补回下载记录，返回补回的首数。
+/// 没有 Kanade 标记的文件当本地歌导入（mid 以 `local:` 开头）。
+pub async fn restore_downloads() -> Result<u32, ApiError> {
+    Ok(download::restore().await.map_err(api_error)?)
+}
+
 /// 下载进度和状态变化。
 pub fn watch_downloads(sink: StreamSink<DownloadEvent>) {
     download::downloader().watch(sink)
@@ -252,6 +258,9 @@ pub async fn get_song_qualities(mid: String) -> Result<Vec<QualityOption>, ApiEr
 }
 
 pub async fn get_lyric(mid: String, id: i64) -> Result<Lyric, ApiError> {
+    if download::is_local(&mid) {
+        return Ok(download::local_lyric(&mid).map_err(api_error)?);
+    }
     Ok(music::lyric(&mid, id).await.map_err(api_error)?)
 }
 

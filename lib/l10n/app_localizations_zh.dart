@@ -1259,6 +1259,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadWifiOnlyHint => '用流量时先排队，连上 Wi-Fi 再下';
 
   @override
+  String get restoreDownloads => '恢复已下载的歌';
+
+  @override
+  String get restoreDownloadsHint => '重装后找回下载文件夹里的歌，不是 Kanade 下载的当作本地歌';
+
+  @override
+  String restoreDownloadsDone(int count) {
+    return '已恢复 $count 首';
+  }
+
+  @override
+  String get restoreDownloadsNone => '没有找到需要恢复的歌';
+
+  @override
+  String get restoreDownloadsDenied => '没有授权下载文件夹，无法恢复';
+
+  @override
+  String get localSongUnsupported => '本地歌曲不支持这个操作';
+
+  @override
   String selectedCount(int count) {
     return '已选 $count 首';
   }

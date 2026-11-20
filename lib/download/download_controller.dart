@@ -88,6 +88,15 @@ class DownloadController extends ChangeNotifier {
     null => api.resumeDownloads(mids: mids),
   };
 
+  /// 按下载文件夹里的文件补回记录（重装后用），返回补回的首数。
+  /// Android 上两个进程共用数据库，在这边做完直接重读。
+  Future<int> restore() async {
+    final n = await api.restoreDownloads();
+    _reload();
+    notifyListeners();
+    return n;
+  }
+
   Future<void> remove(String mid) => switch (_remote) {
     final r? => r.send(PlaybackOp.removeDownload, mid),
     null => api.removeDownload(mid: mid),

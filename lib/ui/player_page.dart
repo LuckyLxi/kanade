@@ -897,7 +897,9 @@ class _ControlsArea extends StatelessWidget {
               accent: accent,
               onTap: song == null
                   ? () {}
-                  : () => Navigator.of(context).push(CommentsPage.song(song)),
+                  : () => onlineSongs(context, [song]).isEmpty
+                        ? null
+                        : Navigator.of(context).push(CommentsPage.song(song)),
             ),
             const _SleepButton(),
             if (onQueue != null)

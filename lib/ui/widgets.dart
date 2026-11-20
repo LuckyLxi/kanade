@@ -77,12 +77,11 @@ class _CoverState extends State<Cover> {
       }
     }
 
-    Widget image(String source, {bool retained = false}) => Image.network(
-      source,
+    Widget image(String source, {bool retained = false}) => Image(
+      image: ResizeImage.resizeIfNeeded(cacheWidth, null, coverImage(source)),
       key: keepPrevious ? ValueKey(source) : null,
       width: size,
       height: size,
-      cacheWidth: cacheWidth,
       fit: BoxFit.cover,
       // 网络加载完才淡入；内存缓存里同步拿到的直接显示，滚回来不会再闪一次
       frameBuilder: (_, child, frame, sync) {

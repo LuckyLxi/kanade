@@ -60,10 +60,14 @@ Future<void> showSongActions(
   bool lyricOptions = false,
 }) {
   final l = AppLocalizations.of(context);
+  // 本地歌没有 QQ 音乐的歌曲 id，只留播放队列和删除
+  final local = isLocalSong(song);
   // 拿不到评论数就不显示
-  final commentTotal = api
-      .getSongCommentCount(id: song.id)
-      .then<int?>((n) => n, onError: (_) => null);
+  final commentTotal = local
+      ? Future<int?>.value()
+      : api
+            .getSongCommentCount(id: song.id)
+            .then<int?>((n) => n, onError: (_) => null);
   return showKanadeSheet<void>(
     context: context,
     builder: (sheet) {
@@ -96,11 +100,13 @@ Future<void> showSongActions(
               singerNames(song),
               if (song.albumName.isNotEmpty) song.albumName,
             ].join(' · '),
-            trailing: _LikeButton(
-              liked: liked,
-              tooltip: liked ? l.likedShort : l.likeShort,
-              onTap: () => run(() => toggleLike(context, song)),
-            ),
+            trailing: local
+                ? null
+                : _LikeButton(
+                    liked: liked,
+                    tooltip: liked ? l.likedShort : l.likeShort,
+                    onTap: () => run(() => toggleLike(context, song)),
+                  ),
           ),
           SheetPills(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
@@ -111,11 +117,12 @@ Future<void> showSongActions(
                   label: l.playNext,
                   onTap: () => run(() => playNext(context, song)),
                 ),
-              SheetPill(
-                icon: Icons.playlist_add_rounded,
-                label: l.addToPlaylist,
-                onTap: () => run(() => addToPlaylist(context, song)),
-              ),
+              if (!local)
+                SheetPill(
+                  icon: Icons.playlist_add_rounded,
+                  label: l.addToPlaylist,
+                  onTap: () => run(() => addToPlaylist(context, song)),
+                ),
             ],
           ),
           Divider(
@@ -125,41 +132,44 @@ Future<void> showSongActions(
             endIndent: 14,
             color: scheme.outlineVariant,
           ),
-          SheetRow(
-            leading: Icon(
-              download?.state == DownloadState.done
-                  ? Icons.download_done_rounded
-                  : Icons.download_rounded,
+          if (!local) ...[
+            SheetRow(
+              leading: Icon(
+                download?.state == DownloadState.done
+                    ? Icons.download_done_rounded
+                    : Icons.download_rounded,
+              ),
+              title: download == null
+                  ? l.download
+                  : downloadStateText(l, download.state),
+              trailing: download == null
+                  ? null
+                  : label(
+                      download.state == DownloadState.running
+                          ? downloadProgressText(download)
+                          : qualityLabel(l, download.quality),
+                    ),
+              onTap: () => run(
+                () => download == null
+                    ? downloadSong(context, song)
+                    : showDownloadActions(context, song, download),
+              ),
             ),
-            title: download == null
-                ? l.download
-                : downloadStateText(l, download.state),
-            trailing: download == null
-                ? null
-                : label(
-                    download.state == DownloadState.running
-                        ? downloadProgressText(download)
-                        : qualityLabel(l, download.quality),
-                  ),
-            onTap: () => run(
-              () => download == null
-                  ? downloadSong(context, song)
-                  : showDownloadActions(context, song, download),
+            SheetRow(
+              leading: const Icon(Icons.chat_bubble_outline_rounded),
+              title: l.comments,
+              trailing: FutureBuilder(
+                future: commentTotal,
+                builder: (_, snap) => switch (snap.data) {
+                  final n? when n > 0 => label(formatCount(l, n)),
+                  _ => const SizedBox.shrink(),
+                },
+              ),
+              onTap: () => run(
+                () => Navigator.of(context).push(CommentsPage.song(song)),
+              ),
             ),
-          ),
-          SheetRow(
-            leading: const Icon(Icons.chat_bubble_outline_rounded),
-            title: l.comments,
-            trailing: FutureBuilder(
-              future: commentTotal,
-              builder: (_, snap) => switch (snap.data) {
-                final n? when n > 0 => label(formatCount(l, n)),
-                _ => const SizedBox.shrink(),
-              },
-            ),
-            onTap: () =>
-                run(() => Navigator.of(context).push(CommentsPage.song(song))),
-          ),
+          ],
           if (lyricOptions)
             SheetRow(
               leading: const Icon(Icons.lyrics_outlined),
@@ -177,16 +187,17 @@ Future<void> showSongActions(
                         .push(MvPage.route(song.mvVid, song.name)),
               ),
             ),
-          SheetRow(
-            leading: const Icon(Icons.manage_search_rounded),
-            title: l.findSimilarSongs,
-            onTap: () => run(
-              () => pushFromPlayer(
-                context,
-                SongListPage.similar(song, l.similarSongsTitle(song.name)),
+          if (!local)
+            SheetRow(
+              leading: const Icon(Icons.manage_search_rounded),
+              title: l.findSimilarSongs,
+              onTap: () => run(
+                () => pushFromPlayer(
+                  context,
+                  SongListPage.similar(song, l.similarSongsTitle(song.name)),
+                ),
               ),
             ),
-          ),
           if (singers.isNotEmpty)
             SheetRow(
               // 多位歌手时没有哪张头像能代表全部

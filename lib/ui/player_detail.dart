@@ -87,7 +87,7 @@ class _SongDetailViewState extends State<SongDetailView> {
   @override
   Widget build(BuildContext context) {
     final song = context.select<PlayerController, Song?>((p) => p.current);
-    if (song == null) return const SizedBox.shrink();
+    if (song == null || isLocalSong(song)) return const SizedBox.shrink();
     final l = AppLocalizations.of(context);
     return FutureBuilder<SongPage>(
       future: _load(song),

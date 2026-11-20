@@ -733,6 +733,19 @@
   },
   "downloadWifiOnly": "仅 Wi-Fi 下载",
   "downloadWifiOnlyHint": "用流量时先排队，连上 Wi-Fi 再下",
+  "restoreDownloads": "恢复已下载的歌",
+  "restoreDownloadsHint": "重装后找回下载文件夹里的歌，不是 Kanade 下载的当作本地歌",
+  "restoreDownloadsDone": "已恢复 {count} 首",
+  "@restoreDownloadsDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "restoreDownloadsNone": "没有找到需要恢复的歌",
+  "restoreDownloadsDenied": "没有授权下载文件夹，无法恢复",
+  "localSongUnsupported": "本地歌曲不支持这个操作",
   "selectedCount": "已选 {count} 首",
   "@selectedCount": {
     "placeholders": {

@@ -63,7 +63,7 @@ pub fn song(v: &Value) -> Option<Song> {
     let cover_url = if !album_mid.is_empty() {
         album_cover(&album_mid)
     } else {
-        singers.first().map(|x: &Singer| singer_cover(&x.mid)).unwrap_or_default()
+        singers.first().filter(|x| !x.mid.is_empty()).map(|x: &Singer| singer_cover(&x.mid)).unwrap_or_default()
     };
     Some(Song {
         id: n(&v["id"]).max(n(&v["songid"])),

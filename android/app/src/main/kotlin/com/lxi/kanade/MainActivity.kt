@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.DocumentsContract
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.ryanheise.audioservice.AudioService
@@ -22,6 +23,7 @@ class MainActivity : AudioServiceActivity() {
     private var pendingCapture: MethodChannel.Result? = null
     private var captureTitle = ""
     private var downloads: MethodChannel? = null
+    private var pendingFolder: MethodChannel.Result? = null
     /** 从下载通知冷启动，等 Dart 起来后来取。 */
     private var openDownloads = false
 
@@ -48,6 +50,19 @@ class MainActivity : AudioServiceActivity() {
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_FOLDER) {
+            val tree = data?.data.takeIf { resultCode == RESULT_OK }
+            if (tree != null) {
+                contentResolver.takePersistableUriPermission(
+                    tree,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+                MediaStoreBridge.setTree(tree)
+            }
+            pendingFolder?.success(tree != null)
+            pendingFolder = null
+            return
+        }
         if (requestCode != REQUEST_CAPTURE) return
         val result = pendingCapture ?: return
         pendingCapture = null
@@ -197,6 +212,22 @@ class MainActivity : AudioServiceActivity() {
                         result.success(openDownloads)
                         openDownloads = false
                     }
+                    // 恢复下载：让用户授权下载文件夹，重装后的旧文件和 .lrc 才读得到
+                    "pickFolder" -> {
+                        pendingFolder?.success(false)
+                        pendingFolder = result
+                        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, MediaStoreBridge.initialFolder())
+                        }
+                        try {
+                            @Suppress("DEPRECATION")
+                            startActivityForResult(intent, REQUEST_FOLDER)
+                        } catch (_: Exception) {
+                            pendingFolder = null
+                            result.success(false)
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -228,5 +259,6 @@ class MainActivity : AudioServiceActivity() {
 
     companion object {
         private const val REQUEST_CAPTURE = 7301
+        private const val REQUEST_FOLDER = 7302
     }
 }

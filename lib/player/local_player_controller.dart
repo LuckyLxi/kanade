@@ -245,7 +245,9 @@ class _LocalPlayerController extends PlayerController {
         _player.state.duration <= Duration.zero) {
       return;
     }
-    if (_reportedToken == _token || !_auth.loggedIn) return;
+    if (_reportedToken == _token || !_auth.loggedIn || isLocalSong(song)) {
+      return;
+    }
     _reportedToken = _token;
     api.reportPlay(songId: song.id).ignore();
   }

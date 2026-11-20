@@ -1339,6 +1339,28 @@ class AppLocalizationsEn extends AppLocalizations {
       'Queue downloads on mobile data until Wi-Fi is back';
 
   @override
+  String get restoreDownloads => 'Restore downloaded songs';
+
+  @override
+  String get restoreDownloadsHint =>
+      'Find songs in the download folder after reinstalling; files not downloaded by Kanade become local songs';
+
+  @override
+  String restoreDownloadsDone(int count) {
+    return 'Restored $count songs';
+  }
+
+  @override
+  String get restoreDownloadsNone => 'No songs to restore';
+
+  @override
+  String get restoreDownloadsDenied =>
+      'The download folder was not granted, cannot restore';
+
+  @override
+  String get localSongUnsupported => 'Not available for local songs';
+
+  @override
   String selectedCount(int count) {
     return '$count selected';
   }

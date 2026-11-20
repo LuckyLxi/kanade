@@ -9,6 +9,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../auth/auth_controller.dart';
+import '../data/data_ext.dart';
 import '../data/song_json.dart';
 import '../download/download_controller.dart';
 import '../library/library_controller.dart';
@@ -221,7 +222,7 @@ abstract class PlayerController extends ChangeNotifier {
     final song = current;
     if (song == null) return;
     unawaited(_loadLyric(song, token));
-    unawaited(_loadChorus(song, token));
+    if (!isLocalSong(song)) unawaited(_loadChorus(song, token));
   }
 
   Future<void> _loadLyric(Song song, int token) async {
@@ -249,11 +250,12 @@ abstract class PlayerController extends ChangeNotifier {
   Future<void> refreshQualities() async {
     final song = current;
     final token = ++_qualitiesToken;
+    final online = song != null && !isLocalSong(song);
     qualityOptions = [];
     qualitiesError = null;
-    qualitiesLoading = song != null;
+    qualitiesLoading = online;
     notifyListeners();
-    if (song == null) return;
+    if (!online) return;
     try {
       final options = await api.getSongQualities(mid: song.mid);
       if (token != _qualitiesToken) return;

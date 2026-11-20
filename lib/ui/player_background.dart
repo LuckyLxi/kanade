@@ -138,13 +138,13 @@ void prefetchPlayerArt(BuildContext context, Song song) {
   _prefetched = url;
   WidgetsBinding.instance.addPostFrameCallback((_) {
     if (!context.mounted) return;
-    unawaited(precacheImage(NetworkImage(url), context));
+    unawaited(precacheImage(coverImage(url), context));
     unawaited(loadCoverArt(url).then<void>((_) {}, onError: (_) {}));
   });
 }
 
 Future<CoverArt> _build(String url) async {
-  final src = await _loadSmall(NetworkImage(url));
+  final src = await _loadSmall(coverImage(url));
   try {
     final data = await src.toByteData(format: ui.ImageByteFormat.rawRgba);
     if (data == null) throw StateError('cover pixels unavailable');
