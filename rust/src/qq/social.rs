@@ -3,7 +3,7 @@
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 
-use super::{client::core, error::ApiError, music::webkit_comm, user::profile_cache_key};
+use super::{client::core, error::ApiError, client::webkit_comm, user::profile_cache_key};
 
 const MODULE: &str = "Concern.ConcernSystemServer";
 

@@ -1,7 +1,7 @@
 //! 真实接口冒烟测试：cargo test --test live -- --ignored --nocapture
 
 use rust_lib_kanade::api::types::Quality;
-use rust_lib_kanade::qq::{client, login, music};
+use rust_lib_kanade::qq::{client, login, music, recommend, search};
 
 fn desktop_test_har() -> serde_json::Value {
     let path = std::env::var_os("QQMUSIC_TEST_HAR").expect("请通过 QQMUSIC_TEST_HAR 指定本地登录抓包");
@@ -81,7 +81,7 @@ async fn desktop_singer_social_and_user_assets() {
 #[ignore]
 async fn desktop_quality_tiers_for_reported_song() {
     use_desktop_test_login();
-    let result = music::search_songs("月声尽，心灯明", 1, 10).await.unwrap();
+    let result = search::search_songs("月声尽，心灯明", 1, 10).await.unwrap();
     let song = result.songs.iter().find(|song| song.name.contains("月声尽") && song.name.contains("心灯明"))
         .expect("没有找到报告中的歌曲");
     let options = rust_lib_kanade::qq::quality::song_qualities(&song.mid).await.unwrap();
@@ -158,8 +158,8 @@ async fn desktop_dynamic_qualities() {
 #[ignore]
 async fn desktop_search_pagination() {
     use_desktop_test_login();
-    let first = music::search_songs("piano", 1, 5).await.unwrap();
-    let second = music::search_songs("piano", 2, 5).await.unwrap();
+    let first = search::search_songs("piano", 1, 5).await.unwrap();
+    let second = search::search_songs("piano", 2, 5).await.unwrap();
     assert!(first.total >= 10);
     assert_eq!(first.songs.len(), 5);
     assert_eq!(second.songs.len(), 5);
@@ -186,7 +186,7 @@ async fn desktop_category_search_pagination() {
     }
     use_desktop_test_login();
     for kind in [SearchKind::Song, SearchKind::Album, SearchKind::Playlist, SearchKind::Video, SearchKind::Lyric, SearchKind::Singer, SearchKind::User] {
-        let first = music::search("周杰伦", kind, 1, 10).await.unwrap();
+        let first = search::search("周杰伦", kind, 1, 10).await.unwrap();
         let first_ids = ids(kind, &first);
         assert!(!first_ids.is_empty(), "{kind:?} 第一页为空");
         if kind == SearchKind::Lyric {
@@ -198,7 +198,7 @@ async fn desktop_category_search_pagination() {
         if !first.has_more {
             continue;
         }
-        let second = music::search("周杰伦", kind, 2, 10).await.unwrap();
+        let second = search::search("周杰伦", kind, 2, 10).await.unwrap();
         let second_ids = ids(kind, &second);
         assert!(!second_ids.is_empty(), "{kind:?} 第二页为空");
         assert!(second_ids.iter().all(|id| !first_ids.contains(id)), "{kind:?} 第二页与第一页重复");
@@ -211,7 +211,7 @@ async fn desktop_user_homepage_playlists() {
     use rust_lib_kanade::api::types::SearchKind;
     use rust_lib_kanade::qq::user;
     use_desktop_test_login();
-    let users = music::search("周杰伦", SearchKind::User, 1, 10).await.unwrap().users;
+    let users = search::search("周杰伦", SearchKind::User, 1, 10).await.unwrap().users;
     let mut checked = false;
     for u in users.iter().filter(|u| u.playlist_count > 10).take(1) {
         let profile = user::user_profile(&u.euin).await.unwrap();
@@ -235,7 +235,7 @@ async fn desktop_mv_streams() {
     use rust_lib_kanade::api::types::SearchKind;
     use rust_lib_kanade::qq::mv;
     use_desktop_test_login();
-    let videos = music::search("周杰伦", SearchKind::Video, 1, 10).await.unwrap().videos;
+    let videos = search::search("周杰伦", SearchKind::Video, 1, 10).await.unwrap().videos;
     let official = videos.iter().find(|v| !v.uploaded).expect("没有官方 MV");
     let d = mv::mv_detail(&official.vid).await.unwrap();
     assert!(!d.name.is_empty() && d.duration_secs > 0);
@@ -247,7 +247,7 @@ async fn desktop_mv_streams() {
     assert_eq!(&bytes[4..8], b"ftyp", "不是 MP4");
     println!("{}: {:?}", d.name, d.streams.iter().map(|x| x.height).collect::<Vec<_>>());
     // 用户上传的视频走同一套接口
-    let uploaded = music::search("鸣潮", SearchKind::Video, 1, 20).await.unwrap().videos;
+    let uploaded = search::search("鸣潮", SearchKind::Video, 1, 20).await.unwrap().videos;
     for v in uploaded.iter().filter(|v| v.uploaded).take(2) {
         let d = mv::mv_detail(&v.vid).await.unwrap();
         println!("上传 {}: {:?}", d.name, d.streams.iter().map(|x| x.height).collect::<Vec<_>>());
@@ -260,7 +260,7 @@ async fn desktop_mv_streams() {
 async fn desktop_song_mv_and_similar_songs() {
     use rust_lib_kanade::{api::music as api, qq::mv};
     use_desktop_test_login();
-    let result = music::search_songs("Turning Around", 1, 40).await.unwrap();
+    let result = search::search_songs("Turning Around", 1, 40).await.unwrap();
     let song = result.songs.iter().find(|song| song.id == 667137632).expect("没有找到抓包歌曲");
     assert!(!song.mv_vid.is_empty());
     let video = mv::mv_detail(&song.mv_vid).await.unwrap();
@@ -276,7 +276,7 @@ async fn desktop_song_mv_and_similar_songs() {
 #[ignore]
 async fn desktop_search_and_stream() {
     use_desktop_test_login();
-    let result = music::search_songs("纯音乐 钢琴", 1, 20).await.unwrap();
+    let result = search::search_songs("纯音乐 钢琴", 1, 20).await.unwrap();
     let candidates: Vec<_> = result.songs.iter().filter(|song| !song.vip).take(3).collect();
     assert!(!candidates.is_empty(), "没有找到用于验证的普通歌曲");
     let mut playable = None;
@@ -306,7 +306,7 @@ async fn desktop_search_and_stream() {
 #[ignore]
 async fn anonymous_search() {
     assert!(client::core().session().is_none());
-    let result = music::search_songs("piano", 1, 5).await.unwrap();
+    let result = search::search_songs("piano", 1, 5).await.unwrap();
     assert!(result.total > 0);
     assert_eq!(result.songs.len(), 5);
 }
@@ -314,7 +314,7 @@ async fn anonymous_search() {
 #[tokio::test]
 #[ignore]
 async fn search_and_play() {
-    let r = music::search_songs("周杰伦 晴天", 1, 5).await.unwrap();
+    let r = search::search_songs("周杰伦 晴天", 1, 5).await.unwrap();
     println!("total={} first={:?}", r.total, r.songs.first());
     let song = r.songs.iter().find(|s| !s.vip).unwrap_or(&r.songs[0]).clone();
     let url = music::song_url(&song.mid, &song.media_mid, Quality::High).await;
@@ -327,7 +327,7 @@ async fn search_and_play() {
 #[ignore]
 async fn free_song_url() {
     // 搜索若干首，找一首非会员歌曲验证播放链接
-    let r = music::search_songs("纯音乐 钢琴", 1, 20).await.unwrap();
+    let r = search::search_songs("纯音乐 钢琴", 1, 20).await.unwrap();
     for s in r.songs.iter().filter(|s| !s.vip).take(3) {
         println!("{} vip={} -> {:?}", s.name, s.vip, music::song_url(&s.mid, &s.media_mid, Quality::Standard).await.map(|u| (u.quality, u.url.len())));
     }
@@ -341,7 +341,7 @@ async fn toplists_and_playlists() {
     println!("groups={} first={:?}", groups.len(), first);
     let d = music::toplist_detail(first.top_id, &first.period).await.unwrap();
     println!("toplist {} songs={} first={:?}", d.title, d.songs.len(), d.songs.first().map(|s| &s.name));
-    let feed = music::recommend_feed().await.unwrap();
+    let feed = recommend::recommend_feed().await.unwrap();
     let rec: Vec<_> = feed.sections.into_iter().flat_map(|s| s.playlists).collect();
     println!("recommend={} first={:?}", rec.len(), rec.first());
     // 未登录时“每日30首”入口的 id 是 "0"，取不到详情
@@ -362,7 +362,7 @@ async fn qr_create() {
 #[tokio::test]
 #[ignore]
 async fn print_free_url() {
-    let r = music::search_songs("夜的钢琴曲5", 1, 5).await.unwrap();
+    let r = search::search_songs("夜的钢琴曲5", 1, 5).await.unwrap();
     let s = r.songs.iter().find(|s| !s.vip).unwrap();
     println!("URL={}", music::song_url(&s.mid, &s.media_mid, Quality::High).await.unwrap().url);
 }
@@ -444,7 +444,7 @@ async fn desktop_recent_play_categories() {
         c.albums.len(), c.playlists.len(), c.videos.len(), c.books.len(), c.books.iter().filter(|b| b.episode.is_some()).count(), c.radios.len()
     );
     for r in &c.radios {
-        println!("radio {} songs={}", r.id, rust_lib_kanade::qq::music::radio_songs(r.id).await.unwrap().len());
+        println!("radio {} songs={}", r.id, rust_lib_kanade::qq::recommend::radio_songs(r.id).await.unwrap().len());
     }
 }
 
@@ -457,14 +457,14 @@ async fn desktop_refresh_recommend_sections() {
     let raw: String = db.query_row("SELECT value FROM kv WHERE key='session'", [], |row| row.get(0)).unwrap();
     drop(db);
     client::core().set_session(Some(serde_json::from_str(&raw).unwrap())).unwrap();
-    let feed = music::recommend_feed().await.unwrap();
+    let feed = recommend::recommend_feed().await.unwrap();
     // 官方首页登录后有三个歌曲栏目，第 1 页一个、第 2 页两个
     let song_sections = feed.sections.iter().filter(|s| !s.songs.is_empty()).count();
     assert!(song_sections >= 3, "{:?}", feed.sections.iter().map(|s| &s.title).collect::<Vec<_>>());
     let refreshable: Vec<_> = feed.sections.iter().filter(|s| !s.refresh.is_empty()).collect();
     assert!(!refreshable.is_empty(), "{:?}", feed.sections.iter().map(|s| &s.title).collect::<Vec<_>>());
     for old in refreshable {
-        let new = music::refresh_recommend_section(&old.refresh).await.unwrap();
+        let new = recommend::refresh_recommend_section(&old.refresh).await.unwrap();
         println!("{} -> {} songs={} playlists={}", old.title, new.title, new.songs.len(), new.playlists.len());
         assert!(!new.refresh.is_empty());
         let ids = |s: &rust_lib_kanade::api::types::RecommendSection| s.songs.iter().map(|x| x.id).collect::<Vec<_>>();

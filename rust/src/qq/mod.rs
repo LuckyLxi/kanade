@@ -20,6 +20,8 @@ mod qrc;
 pub mod quality;
 mod ra360;
 pub mod recognize;
+pub mod recommend;
+pub mod search;
 mod secret;
 pub mod sign;
 pub mod social;

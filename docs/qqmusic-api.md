@@ -97,7 +97,7 @@ uin=<musicid>; qqmusic_uin=<musicid>; qqmusic_key=<musickey>; qm_keyst=<musickey
 
 ## 搜索
 
-实现：[music.rs](../rust/src/qq/music.rs) `search`、`hot_search`、`search_suggestions`。
+实现：[search.rs](../rust/src/qq/search.rs) `search`、`hot_search`、`search_suggestions`。
 
 | 功能 | 接口 | 通道 | 参数 | 返回 |
 | --- | --- | --- | --- | --- |
@@ -296,7 +296,7 @@ GET https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=<mid>&form
 
 ## 首页推荐
 
-实现：[music.rs](../rust/src/qq/music.rs)。
+实现：[recommend.rs](../rust/src/qq/recommend.rs)。
 
 ### 推荐流
 

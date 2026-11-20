@@ -229,6 +229,26 @@ pub fn now_ms() -> u128 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()
 }
 
+/// Windows 客户端内嵌推荐页（QBCore webkit）的公参，与原生搜索的 ct=19 不同。
+/// 登录后带上账号和 g_tk，推荐结果才是个性化的。
+pub(crate) fn webkit_comm() -> Value {
+    let c = core();
+    let g_tk = c
+        .session()
+        .map(|s| hash33(&s.musickey, 5381))
+        .unwrap_or(5381);
+    json!({
+        "ct": 20,
+        "cv": 2276,
+        "platform": "wk_v17",
+        "uin": c.uin(),
+        "g_tk": g_tk,
+        "g_tk_new_20200303": g_tk,
+        "needNewCode": 1,
+        "notice": 0,
+    })
+}
+
 impl Core {
     fn new(store: Store) -> Result<Self> {
         let http = reqwest::Client::builder()

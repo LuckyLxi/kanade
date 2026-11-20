@@ -7,7 +7,7 @@ use crate::frb_generated::StreamSink;
 use crate::qq::audio_cache::cache;
 use crate::qq::{
     client, detail, dislike, download, history, library, login, music, mv, quality, recognize,
-    social, user,
+    recommend, search, social, user,
 };
 
 // 错误转换与会话副作用只在 API 边界组合；复核请求不经过此处。
@@ -41,17 +41,17 @@ pub async fn search(
     page: u32,
     page_size: u32,
 ) -> Result<SearchResult, ApiError> {
-    Ok(music::search(&keyword, kind, page, page_size)
+    Ok(search::search(&keyword, kind, page, page_size)
         .await
         .map_err(api_error)?)
 }
 
 pub async fn get_hot_search() -> Result<HotSearch, ApiError> {
-    Ok(music::hot_search().await.map_err(api_error)?)
+    Ok(search::hot_search().await.map_err(api_error)?)
 }
 
 pub async fn get_search_suggestions(query: String) -> Result<Vec<SearchSuggestion>, ApiError> {
-    Ok(music::search_suggestions(&query).await.map_err(api_error)?)
+    Ok(search::search_suggestions(&query).await.map_err(api_error)?)
 }
 
 /// 歌曲的相似推荐，`song_id` 是歌曲数字 ID。
@@ -288,47 +288,47 @@ pub async fn get_toplist_detail(top_id: i64, period: String) -> Result<TopListDe
 }
 
 pub async fn get_recommend_feed() -> Result<RecommendFeed, ApiError> {
-    Ok(music::recommend_feed().await.map_err(api_error)?)
+    Ok(recommend::recommend_feed().await.map_err(api_error)?)
 }
 
 /// 「自定义推荐页」：首页最上面那排卡片可以显示哪些（需要登录）。
 pub async fn get_foryou_config() -> Result<Vec<ForyouItem>, ApiError> {
-    Ok(music::foryou_config().await.map_err(api_error)?)
+    Ok(recommend::foryou_config().await.map_err(api_error)?)
 }
 
 /// 保存「自定义推荐页」，`chosen` 是勾选项的 id；固定项不受影响。
 pub async fn save_foryou_config(chosen: Vec<String>) -> Result<(), ApiError> {
-    Ok(music::save_foryou_config(&chosen)
+    Ok(recommend::save_foryou_config(&chosen)
         .await
         .map_err(api_error)?)
 }
 
 /// 单独刷新首页的一个栏目，`refresh` 取自该栏目的 `RecommendSection.refresh`（不能为空）。
 pub async fn refresh_recommend_section(refresh: String) -> Result<RecommendSection, ApiError> {
-    Ok(music::refresh_recommend_section(&refresh)
+    Ok(recommend::refresh_recommend_section(&refresh)
         .await
         .map_err(api_error)?)
 }
 
 /// 猜你喜欢电台的下一批歌（需要登录）。
 pub async fn get_guess_you_like() -> Result<Vec<Song>, ApiError> {
-    Ok(music::guess_you_like().await.map_err(api_error)?)
+    Ok(recommend::guess_you_like().await.map_err(api_error)?)
 }
 
 /// 刷歌模式的第 `page` 批歌，`seed` 来自 `RecommendFeed.radar_seed`。
 /// 个性电台（最近播放里的音乐雷达）的下一批歌。
 pub async fn get_radio_songs(id: i64) -> Result<Vec<Song>, ApiError> {
-    Ok(music::radio_songs(id).await.map_err(api_error)?)
+    Ok(recommend::radio_songs(id).await.map_err(api_error)?)
 }
 
 pub async fn get_radar_songs(seed: Vec<i64>, page: u32) -> Result<Vec<Song>, ApiError> {
-    Ok(music::radar_songs(&seed, page).await.map_err(api_error)?)
+    Ok(recommend::radar_songs(&seed, page).await.map_err(api_error)?)
 }
 
 /// 首页的专属乐流第 `page` 页（从 1 开始），`seen` 是之前各页 `seen` 的合集（需要登录）。
 /// 返回的卡片为空表示没有更多了。
 pub async fn get_feed_column(page: u32, seen: Vec<String>) -> Result<FeedColumnPage, ApiError> {
-    Ok(music::feed_column(page, &seen).await.map_err(api_error)?)
+    Ok(recommend::feed_column(page, &seen).await.map_err(api_error)?)
 }
 
 pub async fn get_playlist_detail(id: String) -> Result<PlaylistDetail, ApiError> {

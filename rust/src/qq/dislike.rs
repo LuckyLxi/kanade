@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 
 use super::client::core;
 use super::error::ApiError;
-use super::music::webkit_comm;
+use super::client::webkit_comm;
 use super::parse::{n, s};
 use crate::api::types::{DislikeItem, DislikeKind};
 
