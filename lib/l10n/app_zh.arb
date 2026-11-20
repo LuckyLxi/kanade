@@ -223,6 +223,8 @@
   "lyricWordByWordHint": "跟着演唱一个字一个字点亮",
   "lyricRomaji": "罗马音",
   "lyricRomajiHint": "日语、韩语歌在歌词下面显示读音",
+  "lyricTranslation": "歌词翻译",
+  "lyricTranslationHint": "外语歌在歌词下面显示中文翻译",
   "lyricKeepScreenOn": "歌词页屏幕常亮",
   "lyricKeepScreenOnHint": "停在歌词页时屏幕不会自动熄灭",
   "modeSequence": "列表循环",

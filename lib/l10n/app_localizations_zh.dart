@@ -417,6 +417,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get lyricRomajiHint => '日语、韩语歌在歌词下面显示读音';
 
   @override
+  String get lyricTranslation => '歌词翻译';
+
+  @override
+  String get lyricTranslationHint => '外语歌在歌词下面显示中文翻译';
+
+  @override
   String get lyricKeepScreenOn => '歌词页屏幕常亮';
 
   @override

@@ -550,6 +550,17 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: lyric.setRomaji,
             ),
           ),
+          _Item(
+            icon: Icons.translate_rounded,
+            title: l.lyricTranslation,
+            hint: l.lyricTranslationHint,
+            onTap: () => lyric.setTranslation(!lyric.translation),
+            trailing: Switch(
+              value: lyric.translation,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onChanged: lyric.setTranslation,
+            ),
+          ),
           if (Platform.isAndroid)
             _Item(
               icon: Icons.light_mode_outlined,

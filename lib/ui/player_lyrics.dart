@@ -51,8 +51,14 @@ class _LyricViewState extends State<LyricView> with TickerProviderStateMixin {
   /// 刚打开或换了歌词：直接停到当前行，不从第一行滚下来。
   bool _jump = true;
 
-  /// 罗马音开关一变，各行高度跟着变，要重新停到当前行。
-  bool? _romaji;
+  /// 罗马音、翻译显示到几成，0 收起、1 展开。开关一变，各行下面的小字跟着慢慢展开或收起。
+  late final AnimationController _romajiShown;
+  late final AnimationController _transShown;
+  late bool _romaji;
+  late bool _translation;
+
+  /// 展开收起期间各行高度一直在变，排版时把当前行按在原地，见 [_KeepAnchor]。
+  bool _anchoring = false;
 
   /// 换句时整页先一下跳到位，每行再从原来的位置滑过去。
   /// 每行各自记着离新位置还差多远（[_off]）、滑得多快（[_vel]）、什么时候出发（[_startAt]）。
@@ -80,10 +86,36 @@ class _LyricViewState extends State<LyricView> with TickerProviderStateMixin {
     super.initState();
     _player.position.addListener(_onPosition);
     _free.addListener(() => _free.value ? _blur.reverse() : _blur.forward());
+    final s = context.read<LyricSettings>();
+    _romaji = s.romaji;
+    _translation = s.translation;
+    _romajiShown = _revealController(_romaji);
+    _transShown = _revealController(_translation);
+  }
+
+  AnimationController _revealController(bool shown) =>
+      AnimationController(vsync: this, duration: _glide, value: shown ? 1 : 0)
+        ..addStatusListener(_onRevealStatus);
+
+  bool get _revealing => _romajiShown.isAnimating || _transShown.isAnimating;
+
+  void _reveal(AnimationController c, bool shown) {
+    _anchoring = true;
+    c.animateTo(shown ? 1 : 0, curve: Curves.easeOutCubic);
+  }
+
+  void _onRevealStatus(AnimationStatus _) {
+    if (_revealing) return;
+    // 停下的这一帧高度还在变，排完这一帧再放开
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_revealing) _anchoring = false;
+    });
   }
 
   @override
   void dispose() {
+    _romajiShown.dispose();
+    _transShown.dispose();
     _player.position.removeListener(_onPosition);
     _free.dispose();
     _blur.dispose();
@@ -185,11 +217,17 @@ class _LyricViewState extends State<LyricView> with TickerProviderStateMixin {
       _follow(_current);
     }
     final romaji = context.select<LyricSettings, bool>((s) => s.romaji);
+    final translation = context.select<LyricSettings, bool>(
+      (s) => s.translation,
+    );
     final wordByWord = context.select<LyricSettings, bool>((s) => s.wordByWord);
     if (romaji != _romaji) {
       _romaji = romaji;
-      _jump = true;
-      _follow(_current);
+      _reveal(_romajiShown, romaji);
+    }
+    if (translation != _translation) {
+      _translation = translation;
+      _reveal(_transShown, translation);
     }
     final l = AppLocalizations.of(context);
     final big = TextStyle(
@@ -254,43 +292,53 @@ class _LyricViewState extends State<LyricView> with TickerProviderStateMixin {
                 12,
                 c.maxHeight * 0.6,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final (i, line) in lyric.lines.indexed)
-                    // key 挂在平移外面：找当前行位置时不算还没滑完的那段
-                    KeyedSubtree(
-                      key: _keys[i],
-                      child: AnimatedBuilder(
-                        animation: _waveTick,
-                        builder: (_, child) => Transform.translate(
-                          offset: Offset(0, _offset(i)),
-                          child: child,
-                        ),
-                        child: _Line(
-                          line: line,
-                          nextMs: i + 1 < lyric.lines.length
-                              ? lyric.lines[i + 1].timeMs
-                              : null,
-                          distance: _current < 0 ? i + 1 : (i - _current).abs(),
-                          active: i == _current,
-                          romaji: romaji,
-                          wordByWord: wordByWord,
-                          free: _free,
-                          blur: _blur,
-                          // 上一波还没滑完又换句：大小明暗也直接接着变，不再停下来等
-                          delay: _free.value || _waveTicker.isActive
-                              ? Duration.zero
-                              : _stagger * _step(i),
-                          style: big,
-                          onTap: () {
-                            _userScrolledAt = DateTime(0);
-                            _player.seek(Duration(milliseconds: line.timeMs));
-                          },
+              child: _KeepAnchor(
+                anchor: _current >= 0 && _current < _keys.length
+                    ? _keys[_current]
+                    : null,
+                scroll: _scroll,
+                active: () => _anchoring,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (i, line) in lyric.lines.indexed)
+                      // key 挂在平移外面：找当前行位置时不算还没滑完的那段
+                      KeyedSubtree(
+                        key: _keys[i],
+                        child: AnimatedBuilder(
+                          animation: _waveTick,
+                          builder: (_, child) => Transform.translate(
+                            offset: Offset(0, _offset(i)),
+                            child: child,
+                          ),
+                          child: _Line(
+                            line: line,
+                            nextMs: i + 1 < lyric.lines.length
+                                ? lyric.lines[i + 1].timeMs
+                                : null,
+                            distance: _current < 0
+                                ? i + 1
+                                : (i - _current).abs(),
+                            active: i == _current,
+                            romaji: _romajiShown,
+                            translation: _transShown,
+                            wordByWord: wordByWord,
+                            free: _free,
+                            blur: _blur,
+                            // 上一波还没滑完又换句：大小明暗也直接接着变，不再停下来等
+                            delay: _free.value || _waveTicker.isActive
+                                ? Duration.zero
+                                : _stagger * _step(i),
+                            style: big,
+                            onTap: () {
+                              _userScrolledAt = DateTime(0);
+                              _player.seek(Duration(milliseconds: line.timeMs));
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -298,6 +346,98 @@ class _LyricViewState extends State<LyricView> with TickerProviderStateMixin {
       ),
     );
   }
+}
+
+/// 每次排版后量一下 [anchor] 这一行挪了多少，[active] 时把滚动位置补上同样的距离：
+/// 罗马音、翻译展开收起时当前行停在原地，上面的行往上长、下面的行往下推。
+/// 在排版里直接改滚动位置，这一帧画出来就是补好的，不会先跳一下再回来。
+class _KeepAnchor extends SingleChildRenderObjectWidget {
+  const _KeepAnchor({
+    required this.anchor,
+    required this.scroll,
+    required this.active,
+    super.child,
+  });
+
+  final GlobalKey? anchor;
+  final ScrollController scroll;
+  final bool Function() active;
+
+  @override
+  _RenderKeepAnchor createRenderObject(BuildContext context) =>
+      _RenderKeepAnchor(anchor, scroll, active);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderKeepAnchor renderObject,
+  ) {
+    renderObject
+      ..anchor = anchor
+      ..scroll = scroll
+      ..active = active;
+  }
+}
+
+class _RenderKeepAnchor extends RenderProxyBox {
+  _RenderKeepAnchor(this._anchor, this.scroll, this.active);
+
+  GlobalKey? _anchor;
+  set anchor(GlobalKey? value) {
+    if (_anchor == value) return;
+    _anchor = value;
+    _lastY = null;
+  }
+
+  ScrollController scroll;
+  bool Function() active;
+  double? _lastY;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final box = _anchor?.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) {
+      _lastY = null;
+      return;
+    }
+    // 不算换句时那段还没滑完的平移
+    final y = box.localToGlobal(Offset.zero, ancestor: this).dy;
+    final last = _lastY;
+    _lastY = y;
+    if (last == null || y == last || !active() || !scroll.hasClients) return;
+    final position = scroll.position;
+    if (position.hasPixels) position.correctBy(y - last);
+  }
+}
+
+/// 罗马音、翻译这种跟在歌词下面的小字：随 [shown] 从上往下展开、淡入，收起时反过来。
+/// 完全收起时不建，不排版也不画。
+class _Reveal extends StatelessWidget {
+  const _Reveal({required this.shown, required this.child});
+
+  final Animation<double> shown;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: shown,
+    builder: (_, child) {
+      final t = shown.value;
+      if (t == 0) return const SizedBox.shrink();
+      return ClipRect(
+        clipBehavior: t < 1 ? Clip.hardEdge : Clip.none,
+        child: Align(
+          alignment: AlignmentDirectional.topStart,
+          widthFactor: 1,
+          heightFactor: t,
+          // 比高度晚一点亮起来，收起时先暗下去
+          child: Opacity(opacity: t * t, child: child),
+        ),
+      );
+    },
+    child: child,
+  );
 }
 
 /// 离当前行越远越模糊：按这一行在屏幕上的位置算，当前行附近是清楚的，往上往下逐渐变糊。
@@ -539,6 +679,7 @@ class _Line extends StatelessWidget {
     required this.distance,
     required this.active,
     required this.romaji,
+    required this.translation,
     required this.wordByWord,
     required this.free,
     required this.blur,
@@ -551,7 +692,10 @@ class _Line extends StatelessWidget {
   final int? nextMs;
   final int distance;
   final bool active;
-  final bool romaji;
+
+  /// 罗马音、翻译显示到几成，见 [_Reveal]。
+  final Animation<double> romaji;
+  final Animation<double> translation;
   final bool wordByWord;
   final ValueListenable<bool> free;
 
@@ -635,20 +779,30 @@ class _Line extends StatelessWidget {
                                 line.text,
                                 style: style.copyWith(color: Colors.white),
                               ),
-                        if (romaji && line.roma.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              line.roma,
-                              style: transStyle.copyWith(color: Colors.white70),
+                        if (line.roma.isNotEmpty)
+                          _Reveal(
+                            shown: romaji,
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                line.roma,
+                                style: transStyle.copyWith(
+                                  color: Colors.white70,
+                                ),
+                              ),
                             ),
                           ),
                         if (line.trans.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              line.trans,
-                              style: transStyle.copyWith(color: Colors.white70),
+                          _Reveal(
+                            shown: translation,
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                line.trans,
+                                style: transStyle.copyWith(
+                                  color: Colors.white70,
+                                ),
+                              ),
                             ),
                           ),
                       ],

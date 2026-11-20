@@ -443,6 +443,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Show pronunciation under Japanese and Korean lyrics';
 
   @override
+  String get lyricTranslation => 'Translation';
+
+  @override
+  String get lyricTranslationHint =>
+      'Show the translation under foreign-language lyrics';
+
+  @override
   String get lyricKeepScreenOn => 'Keep screen on for lyrics';
 
   @override

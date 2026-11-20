@@ -849,6 +849,18 @@ abstract class AppLocalizations {
   /// **'日语、韩语歌在歌词下面显示读音'**
   String get lyricRomajiHint;
 
+  /// No description provided for @lyricTranslation.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌词翻译'**
+  String get lyricTranslation;
+
+  /// No description provided for @lyricTranslationHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'外语歌在歌词下面显示中文翻译'**
+  String get lyricTranslationHint;
+
   /// No description provided for @lyricKeepScreenOn.
   ///
   /// In zh, this message translates to:

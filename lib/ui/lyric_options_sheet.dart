@@ -40,6 +40,17 @@ Future<void> showLyricOptions(BuildContext context) => showKanadeSheet<void>(
               ),
               onTap: () => s.setRomaji(!s.romaji),
             ),
+            SheetRow(
+              leading: const Icon(Icons.translate_rounded),
+              title: l.lyricTranslation,
+              subtitle: l.lyricTranslationHint,
+              trailing: Switch(
+                value: s.translation,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged: s.setTranslation,
+              ),
+              onTap: () => s.setTranslation(!s.translation),
+            ),
           ],
         ),
       ],
