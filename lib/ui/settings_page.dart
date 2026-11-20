@@ -550,6 +550,18 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: lyric.setRomaji,
             ),
           ),
+          if (Platform.isAndroid)
+            _Item(
+              icon: Icons.light_mode_outlined,
+              title: l.lyricKeepScreenOn,
+              hint: l.lyricKeepScreenOnHint,
+              onTap: () => lyric.setKeepScreenOn(!lyric.keepScreenOn),
+              trailing: Switch(
+                value: lyric.keepScreenOn,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged: lyric.setKeepScreenOn,
+              ),
+            ),
         ],
         after: null,
       ),

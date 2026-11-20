@@ -8,12 +8,14 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../auth/auth_controller.dart';
 import '../data/data_ext.dart';
 import '../l10n/l10n_ext.dart';
 import '../library/library_controller.dart';
 import '../player/player_controller.dart';
+import '../settings/lyric_settings.dart';
 import '../src/rust/api/types.dart';
 import 'comments_page.dart';
 import 'cover_shadow.dart';
@@ -176,8 +178,17 @@ class _PlayerPageState extends State<PlayerPage>
     }
   }
 
+  bool _awake = false;
+
+  void _keepAwake(bool on) {
+    if (on == _awake) return;
+    _awake = on;
+    WakelockPlus.toggle(enable: on).ignore();
+  }
+
   @override
   void dispose() {
+    _keepAwake(false);
     _page.dispose();
     super.dispose();
   }
@@ -313,6 +324,10 @@ class _PlayerPageState extends State<PlayerPage>
     _loadArt(cover);
     _prefetchSingers(song);
     final wide = MediaQuery.sizeOf(context).width >= 800;
+    _keepAwake(
+      context.select<LyricSettings, bool>((s) => s.keepScreenOn) &&
+          (wide ? !_wideQueue : _page.isCompleted && _side == _Panel.lyrics),
+    );
 
     final page = Scaffold(
       backgroundColor: Colors.black,
