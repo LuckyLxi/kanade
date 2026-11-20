@@ -41,6 +41,11 @@ Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 Name: "{autoprograms}\Kanade"; Filename: "{app}\kanade.exe"; AppUserModelID: "LuckyLxi.Kanade"
 Name: "{autodesktop}\Kanade"; Filename: "{app}\kanade.exe"; AppUserModelID: "LuckyLxi.Kanade"; Tasks: desktopicon
 
+[Registry]
+; 开机自启动项由应用自己写，这里只负责卸载时删掉
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "Kanade"; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"; ValueType: none; ValueName: "Kanade"; Flags: uninsdeletevalue
+
 [Run]
 Filename: "{app}\kanade.exe"; Description: "{cm:LaunchProgram,Kanade}"; Flags: nowait postinstall skipifsilent
 ; 应用内更新用 /SILENT 运行安装包，装完自动打开新版本

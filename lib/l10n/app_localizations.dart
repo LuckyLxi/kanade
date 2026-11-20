@@ -2564,6 +2564,150 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已撤销'**
   String get dislikeCancelled;
+
+  /// No description provided for @settingsDesktop.
+  ///
+  /// In zh, this message translates to:
+  /// **'桌面'**
+  String get settingsDesktop;
+
+  /// No description provided for @closeAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭窗口时'**
+  String get closeAction;
+
+  /// No description provided for @closeActionAsk.
+  ///
+  /// In zh, this message translates to:
+  /// **'每次询问'**
+  String get closeActionAsk;
+
+  /// No description provided for @closeToTray.
+  ///
+  /// In zh, this message translates to:
+  /// **'最小化到托盘'**
+  String get closeToTray;
+
+  /// No description provided for @closeExit.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出 Kanade'**
+  String get closeExit;
+
+  /// No description provided for @closeAskTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭窗口'**
+  String get closeAskTitle;
+
+  /// No description provided for @closeAskMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'最小化到托盘后，歌会在后台继续放'**
+  String get closeAskMessage;
+
+  /// No description provided for @closeAskRemember.
+  ///
+  /// In zh, this message translates to:
+  /// **'不再询问'**
+  String get closeAskRemember;
+
+  /// No description provided for @trayShowWindow.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示窗口'**
+  String get trayShowWindow;
+
+  /// No description provided for @trayExit.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出'**
+  String get trayExit;
+
+  /// No description provided for @autostart.
+  ///
+  /// In zh, this message translates to:
+  /// **'开机自动启动'**
+  String get autostart;
+
+  /// No description provided for @autostartHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'开机后待在托盘里，不弹出窗口'**
+  String get autostartHint;
+
+  /// No description provided for @hotkeys.
+  ///
+  /// In zh, this message translates to:
+  /// **'全局快捷键'**
+  String get hotkeys;
+
+  /// No description provided for @hotkeysHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'在别的窗口里也能用快捷键控制播放'**
+  String get hotkeysHint;
+
+  /// No description provided for @hotkeyToggle.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放/暂停'**
+  String get hotkeyToggle;
+
+  /// No description provided for @hotkeyVolumeUp.
+  ///
+  /// In zh, this message translates to:
+  /// **'音量加'**
+  String get hotkeyVolumeUp;
+
+  /// No description provided for @hotkeyVolumeDown.
+  ///
+  /// In zh, this message translates to:
+  /// **'音量减'**
+  String get hotkeyVolumeDown;
+
+  /// No description provided for @hotkeyLike.
+  ///
+  /// In zh, this message translates to:
+  /// **'喜欢/取消喜欢当前歌曲'**
+  String get hotkeyLike;
+
+  /// No description provided for @hotkeyWindow.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示/隐藏窗口'**
+  String get hotkeyWindow;
+
+  /// No description provided for @hotkeyNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'未设置'**
+  String get hotkeyNone;
+
+  /// No description provided for @hotkeyTaken.
+  ///
+  /// In zh, this message translates to:
+  /// **'已被占用'**
+  String get hotkeyTaken;
+
+  /// No description provided for @hotkeyRecordTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'按下新的组合键'**
+  String get hotkeyRecordTitle;
+
+  /// No description provided for @hotkeyRecordHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'至少按住 Ctrl、Alt、Shift 中的两个，按 Esc 取消'**
+  String get hotkeyRecordHint;
+
+  /// No description provided for @hotkeyClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除'**
+  String get hotkeyClear;
 }
 
 class _AppLocalizationsDelegate

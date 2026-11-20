@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "desktop_integration.h"
 #include "software_rendering.h"
 #include "taskbar_thumbnail.h"
 #include "win32_window.h"
@@ -33,6 +34,8 @@ class FlutterWindow : public Win32Window {
 
   // Taskbar hover preview: cover thumbnail and playback buttons.
   std::unique_ptr<TaskbarThumbnail> taskbar_thumbnail_;
+
+  std::unique_ptr<DesktopIntegration> desktop_;
 
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       rendering_channel_;

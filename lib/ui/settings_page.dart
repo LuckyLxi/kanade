@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
+import '../desktop/desktop_settings.dart';
 import '../download/download_controller.dart';
 import '../l10n/l10n_ext.dart';
 import '../player/player_controller.dart';
@@ -94,17 +95,19 @@ class _SettingsPageState extends State<SettingsPage> {
   int? _audioSize;
   int? _apiSize;
   final _scroll = SmoothScrollController();
-  final _sectionKeys = List.generate(6, (_) => GlobalKey());
+  final _sectionKeys = <GlobalKey>[];
   final _themeIconKeys = {for (final m in ThemeMode.values) m: GlobalKey()};
   final _qualityMenu = GlobalKey<GlassDropdownState<Quality>>();
   final _languageMenu = GlobalKey<GlassDropdownState<String>>();
   final _limitMenu = GlobalKey<GlassDropdownState<int>>();
+  final _closeMenu = GlobalKey<GlassDropdownState<CloseAction>>();
   String? _version;
   var _checking = false;
   UpdateCheckResult? _checked;
   var _preview = AppUpdate.preview;
   var _mirror = AppUpdate.mirror;
   var _softwareRendering = false;
+  var _autostart = false;
   var _sectionCount = 0;
   var _current = 0;
   var _wide = false;
@@ -124,7 +127,137 @@ class _SettingsPageState extends State<SettingsPage> {
       _rendering.invokeMethod<bool>('get').then((v) {
         if (mounted) setState(() => _softwareRendering = v ?? false);
       });
+      context.read<DesktopSettings>().autostart().then((v) {
+        if (mounted) setState(() => _autostart = v);
+      });
     }
+  }
+
+  void _setAutostart(bool on) {
+    context.read<DesktopSettings>().setAutostart(on);
+    setState(() => _autostart = on);
+  }
+
+  List<Widget> _desktopRows(AppLocalizations l, DesktopSettings desktop) {
+    String closeText(CloseAction a) => switch (a) {
+      CloseAction.ask => l.closeActionAsk,
+      CloseAction.tray => l.closeToTray,
+      CloseAction.exit => l.closeExit,
+    };
+    final error = Theme.of(context).colorScheme.error;
+    return [
+      _Item(
+        icon: Icons.close_rounded,
+        title: l.closeAction,
+        value: GlassDropdown<CloseAction>(
+          key: _closeMenu,
+          title: l.closeAction,
+          values: CloseAction.values,
+          selected: desktop.closeAction,
+          label: closeText,
+          onSelected: desktop.setCloseAction,
+          child: _Value(closeText(desktop.closeAction)),
+        ),
+        onTap: () => _closeMenu.currentState?.open(),
+      ),
+      _Item(
+        icon: Icons.power_settings_new_rounded,
+        title: l.autostart,
+        hint: l.autostartHint,
+        onTap: () => _setAutostart(!_autostart),
+        trailing: Switch(
+          value: _autostart,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          onChanged: _setAutostart,
+        ),
+      ),
+      _Item(
+        icon: Icons.keyboard_outlined,
+        title: l.hotkeys,
+        hint: l.hotkeysHint,
+        onTap: () => desktop.setHotkeysEnabled(!desktop.hotkeysEnabled),
+        trailing: Switch(
+          value: desktop.hotkeysEnabled,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          onChanged: desktop.setHotkeysEnabled,
+        ),
+      ),
+      if (desktop.hotkeysEnabled)
+        for (final (action, icon, title) in [
+          (HotkeyAction.toggle, Icons.play_arrow_rounded, l.hotkeyToggle),
+          (HotkeyAction.previous, Icons.skip_previous_rounded, l.previousSong),
+          (HotkeyAction.next, Icons.skip_next_rounded, l.nextSong),
+          (HotkeyAction.volumeUp, Icons.volume_up_rounded, l.hotkeyVolumeUp),
+          (
+            HotkeyAction.volumeDown,
+            Icons.volume_down_rounded,
+            l.hotkeyVolumeDown,
+          ),
+          (HotkeyAction.like, Icons.favorite_border_rounded, l.hotkeyLike),
+          (HotkeyAction.window, Icons.web_asset_rounded, l.hotkeyWindow),
+        ])
+          _Item(
+            icon: icon,
+            title: title,
+            hint: desktop.taken.contains(action) ? l.hotkeyTaken : null,
+            value: _Value(desktop.hotkeys[action]?.label ?? l.hotkeyNone),
+            onTap: () => _recordHotkey(desktop, action, title),
+            trailing: desktop.taken.contains(action)
+                ? Icon(Icons.error_outline_rounded, size: 20, color: error)
+                : null,
+          ),
+    ];
+  }
+
+  Future<void> _recordHotkey(
+    DesktopSettings desktop,
+    HotkeyAction action,
+    String title,
+  ) async {
+    desktop.recording = true;
+    // 返回 (null) 是清除，直接关掉弹窗是 null
+    final picked = await showKanadeDialog<(Hotkey?,)>(
+      context,
+      builder: (context) {
+        final l = AppLocalizations.of(context);
+        return Focus(
+          autofocus: true,
+          onKeyEvent: (_, event) {
+            if (event is! KeyDownEvent) return KeyEventResult.ignored;
+            if (event.logicalKey == LogicalKeyboardKey.escape) {
+              Navigator.of(context).pop();
+              return KeyEventResult.handled;
+            }
+            Hotkey.fromEvent(event).then((key) {
+              // 换算期间可能已经按 Esc 关掉了，别把设置页也弹掉
+              if (key != null &&
+                  context.mounted &&
+                  ModalRoute.of(context)!.isCurrent) {
+                Navigator.of(context).pop((key,));
+              }
+            });
+            return KeyEventResult.handled;
+          },
+          child: KanadeDialog(
+            icon: Icons.keyboard_outlined,
+            title: l.hotkeyRecordTitle,
+            message: '$title\n${l.hotkeyRecordHint}',
+            actions: [
+              KanadeDialogAction(
+                label: l.hotkeyClear,
+                onPressed: () => Navigator.of(context).pop((null,)),
+              ),
+              KanadeDialogAction(
+                label: l.cancel,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    desktop.recording = false;
+    if (picked != null) desktop.setHotkey(action, picked.$1);
   }
 
   void _setSoftwareRendering(bool on) {
@@ -456,6 +589,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final locale = context.watch<LocaleController>().locale;
     final themeMode = context.watch<ThemeController>().mode;
     final lyric = context.watch<LyricSettings>();
+    final desktop = context.watch<DesktopSettings>();
     final downloads = context.watch<DownloadController>();
     final defaultQuality = context.select<PlayerController, Quality>(
       (p) => p.defaultQuality,
@@ -640,6 +774,14 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
         after: null,
       ),
+      if (Platform.isWindows) ...[
+        (
+          title: l.settingsDesktop,
+          icon: Icons.desktop_windows_outlined,
+          rows: _desktopRows(l, desktop),
+          after: null,
+        ),
+      ],
       (
         title: l.settingsStorage,
         icon: Icons.storage_outlined,
@@ -821,6 +963,9 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     ];
     _sectionCount = sections.length;
+    while (_sectionKeys.length < _sectionCount) {
+      _sectionKeys.add(GlobalKey());
+    }
     if (_current >= _sectionCount) _current = _sectionCount - 1;
 
     Widget group(int i, {required bool wide}) {

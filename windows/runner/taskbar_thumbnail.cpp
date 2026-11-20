@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "utils.h"
+
 namespace {
 
 enum Button { kButtonPrevious, kButtonToggle, kButtonNext, kButtonCount };
@@ -20,18 +22,6 @@ using flutter::EncodableValue;
 const EncodableValue* Find(const EncodableMap& map, const char* key) {
   auto it = map.find(EncodableValue(key));
   return it == map.end() ? nullptr : &it->second;
-}
-
-std::wstring Utf16FromUtf8(const std::string& utf8) {
-  if (utf8.empty()) {
-    return std::wstring();
-  }
-  const int length = MultiByteToWideChar(
-      CP_UTF8, 0, utf8.data(), static_cast<int>(utf8.size()), nullptr, 0);
-  std::wstring utf16(length, L'\0');
-  MultiByteToWideChar(CP_UTF8, 0, utf8.data(), static_cast<int>(utf8.size()),
-                      utf16.data(), length);
-  return utf16;
 }
 
 // Top-down 32-bit bitmap; bits points at the BGRA pixels.

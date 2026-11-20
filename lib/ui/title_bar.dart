@@ -13,8 +13,8 @@ bool get hasCustomTitleBar => Platform.isWindows || Platform.isLinux;
 const titleBarHeight = 32.0;
 
 /// 隐藏系统标题栏后再显示窗口（runner 里不再自动 Show，避免启动时闪一下）。
-/// main 和集成测试都要调用，否则窗口一直不出来。
-Future<void> setupWindow() async {
+/// main 和集成测试都要调用，否则窗口一直不出来。[show] 为 false 时先不显示，之后由托盘叫出来。
+Future<void> setupWindow({bool show = true}) async {
   if (!hasCustomTitleBar) return;
   await windowManager.ensureInitialized();
   await windowManager.waitUntilReadyToShow(
@@ -23,6 +23,7 @@ Future<void> setupWindow() async {
       minimumSize: Size(400, 560),
     ),
     () async {
+      if (!show) return;
       await windowManager.show();
       await windowManager.focus();
     },

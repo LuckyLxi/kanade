@@ -1458,4 +1458,78 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dislikeCancelled => 'Undone';
+
+  @override
+  String get settingsDesktop => 'Desktop';
+
+  @override
+  String get closeAction => 'When closing the window';
+
+  @override
+  String get closeActionAsk => 'Ask every time';
+
+  @override
+  String get closeToTray => 'Minimize to tray';
+
+  @override
+  String get closeExit => 'Quit Kanade';
+
+  @override
+  String get closeAskTitle => 'Close window';
+
+  @override
+  String get closeAskMessage =>
+      'In the tray, music keeps playing in the background';
+
+  @override
+  String get closeAskRemember => 'Don\'t ask again';
+
+  @override
+  String get trayShowWindow => 'Show window';
+
+  @override
+  String get trayExit => 'Quit';
+
+  @override
+  String get autostart => 'Start at login';
+
+  @override
+  String get autostartHint => 'Stays in the tray without opening a window';
+
+  @override
+  String get hotkeys => 'Global shortcuts';
+
+  @override
+  String get hotkeysHint => 'Control playback while using other apps';
+
+  @override
+  String get hotkeyToggle => 'Play/Pause';
+
+  @override
+  String get hotkeyVolumeUp => 'Volume up';
+
+  @override
+  String get hotkeyVolumeDown => 'Volume down';
+
+  @override
+  String get hotkeyLike => 'Like or unlike the current song';
+
+  @override
+  String get hotkeyWindow => 'Show or hide the window';
+
+  @override
+  String get hotkeyNone => 'Not set';
+
+  @override
+  String get hotkeyTaken => 'In use';
+
+  @override
+  String get hotkeyRecordTitle => 'Press a new shortcut';
+
+  @override
+  String get hotkeyRecordHint =>
+      'Hold at least two of Ctrl, Alt and Shift. Press Esc to cancel';
+
+  @override
+  String get hotkeyClear => 'Clear';
 }

@@ -10,7 +10,7 @@ import 'ui/glass.dart';
 @pragma('vm:entry-point')
 Future<void> androidPlaybackMain() => runAndroidPlayback();
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   if (Platform.isAndroid) {
     final cache = PaintingBinding.instance.imageCache;
@@ -33,6 +33,8 @@ Future<void> main() async {
   await initApp(
     dataDir: androidPlaybackDirectory,
     separateAndroidPlayback: separateAndroidPlayback,
+    // 开机自启动时 runner 带上这个参数
+    hidden: args.contains('--autostart'),
   );
   runApp(
     // Windows 引擎同步无障碍信息时会崩（flutter_windows.dll 里的

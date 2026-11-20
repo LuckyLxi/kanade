@@ -87,7 +87,7 @@ class MediaSession {
     try {
       final _Sink? sink;
       if (Platform.isAndroid || Platform.isIOS) {
-        sink = await _AndroidSink.create(p, () => _toggleLike(p, library));
+        sink = await _AndroidSink.create(p, () => toggleLike(p, library));
       } else if (Platform.isWindows) {
         sink = await _WindowsSink.create(p, locale);
       } else {
@@ -99,7 +99,8 @@ class MediaSession {
     }
   }
 
-  static Future<void> _toggleLike(
+  /// 切换当前歌曲的红心，系统媒体卡片和全局快捷键共用。
+  static Future<void> toggleLike(
     PlayerController p,
     LibraryController library,
   ) async {
@@ -109,7 +110,7 @@ class MediaSession {
       await library.toggleLike(song);
     } catch (e) {
       // 失败时红心状态不变，卡片上的图标也就不变
-      debugPrint('like from media card failed: $e');
+      debugPrint('like current song failed: $e');
     }
   }
 

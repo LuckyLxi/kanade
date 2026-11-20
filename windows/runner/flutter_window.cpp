@@ -82,6 +82,9 @@ bool FlutterWindow::OnCreate() {
       GetHandle(), flutter_controller_->engine()->messenger());
   rendering_channel_ =
       CreateSoftwareRenderingChannel(flutter_controller_->engine()->messenger());
+  desktop_ = std::make_unique<DesktopIntegration>(
+      GetHandle(), flutter_controller_->engine()->messenger(),
+      taskbar_thumbnail_.get());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   // The window is shown from Dart (window_manager) once the native title bar
@@ -97,6 +100,8 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  // desktop_ reads the thumbnail's cover.
+  desktop_ = nullptr;
   taskbar_thumbnail_ = nullptr;
   rendering_channel_ = nullptr;
   if (flutter_controller_) {
@@ -113,6 +118,14 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   // window_manager consumes WM_EXITSIZEMOVE, so save before forwarding it.
   if (message == WM_EXITSIZEMOVE || message == WM_CLOSE) {
     SaveWindowPosition(hwnd);
+  }
+
+  if (desktop_) {
+    std::optional<LRESULT> result =
+        desktop_->HandleMessage(message, wparam, lparam);
+    if (result) {
+      return *result;
+    }
   }
 
   if (taskbar_thumbnail_) {

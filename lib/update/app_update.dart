@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../desktop/desktop_settings.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 
@@ -98,6 +99,8 @@ abstract final class AppUpdate {
     } on ProcessException {
       return false;
     }
+    // exit 不走原生的析构，托盘图标要自己删，不然残留到鼠标划过才消失
+    await DesktopSettings.channel.invokeMethod('removeTray');
     exit(0);
   }
 

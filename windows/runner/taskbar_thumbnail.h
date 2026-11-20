@@ -27,6 +27,9 @@ class TaskbarThumbnail {
   std::optional<LRESULT> HandleMessage(UINT message, WPARAM wparam,
                                        LPARAM lparam);
 
+  // Current song's cover as a 32-bit DIB, or null.
+  HBITMAP cover() const { return cover_; }
+
  private:
   enum Icon { kPrevious, kPlay, kPause, kNext, kIconCount };
 

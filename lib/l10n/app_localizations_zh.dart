@@ -1371,4 +1371,76 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dislikeCancelled => '已撤销';
+
+  @override
+  String get settingsDesktop => '桌面';
+
+  @override
+  String get closeAction => '关闭窗口时';
+
+  @override
+  String get closeActionAsk => '每次询问';
+
+  @override
+  String get closeToTray => '最小化到托盘';
+
+  @override
+  String get closeExit => '退出 Kanade';
+
+  @override
+  String get closeAskTitle => '关闭窗口';
+
+  @override
+  String get closeAskMessage => '最小化到托盘后，歌会在后台继续放';
+
+  @override
+  String get closeAskRemember => '不再询问';
+
+  @override
+  String get trayShowWindow => '显示窗口';
+
+  @override
+  String get trayExit => '退出';
+
+  @override
+  String get autostart => '开机自动启动';
+
+  @override
+  String get autostartHint => '开机后待在托盘里，不弹出窗口';
+
+  @override
+  String get hotkeys => '全局快捷键';
+
+  @override
+  String get hotkeysHint => '在别的窗口里也能用快捷键控制播放';
+
+  @override
+  String get hotkeyToggle => '播放/暂停';
+
+  @override
+  String get hotkeyVolumeUp => '音量加';
+
+  @override
+  String get hotkeyVolumeDown => '音量减';
+
+  @override
+  String get hotkeyLike => '喜欢/取消喜欢当前歌曲';
+
+  @override
+  String get hotkeyWindow => '显示/隐藏窗口';
+
+  @override
+  String get hotkeyNone => '未设置';
+
+  @override
+  String get hotkeyTaken => '已被占用';
+
+  @override
+  String get hotkeyRecordTitle => '按下新的组合键';
+
+  @override
+  String get hotkeyRecordHint => '至少按住 Ctrl、Alt、Shift 中的两个，按 Esc 取消';
+
+  @override
+  String get hotkeyClear => '清除';
 }
