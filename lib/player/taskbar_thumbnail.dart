@@ -80,9 +80,15 @@ class TaskbarThumbnail {
         // 和迷你播放器的 Cover 同一个地址，通常直接命中图片缓存
         final image = await _resolve(NetworkImage(httpsUrl(s.coverUrl)));
         try {
-          final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+          final data = await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          );
           if (data != null) {
-            cover = {'width': image.width, 'height': image.height, 'rgba': data.buffer.asUint8List()};
+            cover = {
+              'width': image.width,
+              'height': image.height,
+              'rgba': data.buffer.asUint8List(),
+            };
           }
         } finally {
           image.dispose();
@@ -98,9 +104,13 @@ class TaskbarThumbnail {
   /// 图标按任务栏当前的小图标尺寸和深浅色画，主题或缩放变了原生那边会通知重画。
   Future<void> _loadIcons() async {
     try {
-      final spec = (await _channel.invokeMapMethod<String, Object?>('iconSpec'))!;
+      final spec = (await _channel.invokeMapMethod<String, Object?>(
+        'iconSpec',
+      ))!;
       final size = spec['size']! as int;
-      final color = spec['light']! as bool ? const Color(0xFF1A1A1A) : Colors.white;
+      final color = spec['light']! as bool
+          ? const Color(0xFF1A1A1A)
+          : Colors.white;
       await _channel.invokeMethod('setIcons', {
         'size': size,
         'previous': await _drawIcon(Icons.skip_previous_rounded, size, color),
@@ -129,14 +139,19 @@ Future<Uint8List> _drawIcon(IconData icon, int size, Color color) async {
     textDirection: TextDirection.ltr,
   )..layout();
   final recorder = ui.PictureRecorder();
-  painter.paint(Canvas(recorder), Offset((size - painter.width) / 2, (size - painter.height) / 2));
+  painter.paint(
+    Canvas(recorder),
+    Offset((size - painter.width) / 2, (size - painter.height) / 2),
+  );
   painter.dispose();
   final picture = recorder.endRecording();
   final image = await picture.toImage(size, size);
   picture.dispose();
   try {
     // 原生那边做 32 位图标，要不预乘透明度的像素
-    final data = await image.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
+    final data = await image.toByteData(
+      format: ui.ImageByteFormat.rawStraightRgba,
+    );
     return data!.buffer.asUint8List();
   } finally {
     image.dispose();
