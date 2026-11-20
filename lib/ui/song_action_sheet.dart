@@ -37,7 +37,7 @@ void openSinger(BuildContext context, Song song) {
       children: [
         for (final s in singers)
           SheetRow(
-            leading: const Icon(Icons.person_outline_rounded),
+            leading: Cover(singerAvatar(s.mid), size: 32, radius: 16),
             title: s.name,
             trailing: _SingerFollow(s.mid),
             chevron: true,
