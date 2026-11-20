@@ -387,5 +387,6 @@
   "downloadLyricsLrc": "LRC file",
   "downloadLyricsEmbed": "In the song",
   "downloadLyricsLrcHint": "Saved next to the song as a .lrc file with the same name",
-  "downloadLyricsEmbedHint": "Written into the song file's tags, no extra file"
+  "downloadLyricsEmbedHint": "Written into the song file's tags, no extra file",
+  "deleteDownloadedSong": "Delete song"
 }

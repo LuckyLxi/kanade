@@ -2390,6 +2390,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'写进歌曲文件的标签里，不另存文件'**
   String get downloadLyricsEmbedHint;
+
+  /// No description provided for @deleteDownloadedSong.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除歌曲'**
+  String get deleteDownloadedSong;
 }
 
 class _AppLocalizationsDelegate

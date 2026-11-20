@@ -216,6 +216,13 @@ Future<void> showSongActions(
               destructive: true,
               onTap: () => run(onRemove),
             ),
+          if (download?.state == DownloadState.done)
+            SheetRow(
+              leading: const Icon(Icons.delete_outline_rounded),
+              title: l.deleteDownloadedSong,
+              destructive: true,
+              onTap: () => run(() => confirmDeleteDownload(context, song)),
+            ),
         ],
       );
     },

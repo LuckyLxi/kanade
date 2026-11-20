@@ -41,8 +41,18 @@ class _Api implements RustLibApi {
 }
 
 class _Downloads extends ChangeNotifier implements DownloadController {
+  DownloadItem? done;
+  final removed = <String>[];
+
   @override
-  DownloadItem? item(String mid) => null;
+  DownloadItem? item(String mid) => done?.song.mid == mid ? done : null;
+
+  @override
+  Future<void> remove(String mid) async {
+    removed.add(mid);
+    done = null;
+    notifyListeners();
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -92,7 +102,12 @@ Song _song({String vid = 'video-vid', String coverUrl = ''}) => Song(
   mvVid: vid,
 );
 
-Future<_Player> _show(WidgetTester tester, Song song, {double dpr = 1}) async {
+Future<_Player> _show(
+  WidgetTester tester,
+  Song song, {
+  double dpr = 1,
+  _Downloads? downloads,
+}) async {
   tester.view.physicalSize = const Size(430, 900) * dpr;
   tester.view.devicePixelRatio = dpr;
   addTearDown(tester.view.resetPhysicalSize);
@@ -101,7 +116,7 @@ Future<_Player> _show(WidgetTester tester, Song song, {double dpr = 1}) async {
   final library = _Library();
   addTearDown(player.dispose);
   addTearDown(library.dispose);
-  final downloads = _Downloads();
+  downloads ??= _Downloads();
   addTearDown(downloads.dispose);
   await tester.pumpWidget(
     MultiProvider(
@@ -235,6 +250,38 @@ void main() {
       await tester.pump();
     }
     expect(player.played, isNull);
+  });
+
+  testWidgets('downloaded song can be deleted after confirming', (
+    tester,
+  ) async {
+    final song = _song();
+    final downloads = _Downloads()
+      ..done = DownloadItem(
+        song: song,
+        quality: Quality.high,
+        state: DownloadState.done,
+        received: BigInt.one,
+        total: BigInt.one,
+        file: 'x.mp3',
+      );
+    await _show(tester, song, downloads: downloads);
+    await _more(tester);
+    await tester.tap(find.text('删除歌曲'));
+    await tester.pumpAndSettle();
+    expect(find.text('删除「Turning Around」下载的歌曲文件和歌词？'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(downloads.removed, isEmpty);
+
+    await _more(tester);
+    await tester.tap(find.text('删除歌曲'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+    expect(downloads.removed, ['song-mid']);
+    await _more(tester);
+    expect(find.text('删除歌曲'), findsNothing);
   });
 
   testWidgets('multi-select plays the picked songs and closes', (tester) async {

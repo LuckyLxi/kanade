@@ -1276,4 +1276,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get downloadLyricsEmbedHint => '写进歌曲文件的标签里，不另存文件';
+
+  @override
+  String get deleteDownloadedSong => '删除歌曲';
 }

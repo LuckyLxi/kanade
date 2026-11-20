@@ -1355,4 +1355,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get downloadLyricsEmbedHint =>
       'Written into the song file\'s tags, no extra file';
+
+  @override
+  String get deleteDownloadedSong => 'Delete song';
 }
