@@ -4,7 +4,7 @@ import 'package:kanade/l10n/app_localizations.dart';
 import 'package:kanade/l10n/localizations_delegates.dart';
 import 'package:kanade/player/player_controller.dart';
 import 'package:kanade/src/rust/api/types.dart';
-import 'package:kanade/ui/player_page.dart';
+import 'package:kanade/ui/quality_menu.dart';
 import 'package:provider/provider.dart';
 
 class _Player extends ChangeNotifier implements PlayerController {

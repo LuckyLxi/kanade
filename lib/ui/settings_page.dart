@@ -582,15 +582,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final locale = context.watch<LocaleController>().locale;
-    final themeMode = context.watch<ThemeController>().mode;
-    final lyric = context.watch<LyricSettings>();
-    final desktop = context.watch<DesktopSettings>();
-    final downloads = context.watch<DownloadController>();
+  List<Widget> _playbackRows(AppLocalizations l) {
     final defaultQuality = context.select<PlayerController, Quality>(
       (p) => p.defaultQuality,
     );
@@ -598,7 +590,57 @@ class _SettingsPageState extends State<SettingsPage> {
     final floatOutput = context.select<PlayerController, bool>(
       (p) => p.floatOutput,
     );
-    final loggedIn = context.select<AuthController, bool>((a) => a.loggedIn);
+    return [
+      _Item(
+        icon: Icons.high_quality_outlined,
+        title: l.defaultQuality,
+        hint: l.defaultQualityHint,
+        value: GlassDropdown<Quality>(
+          key: _qualityMenu,
+          title: l.defaultQuality,
+          values: selectableQualities,
+          selected: defaultQuality,
+          label: (q) => qualityLabel(l, q),
+          onSelected: context.read<PlayerController>().setDefaultQuality,
+          child: _Value(qualityLabel(l, defaultQuality)),
+        ),
+        onTap: () => _qualityMenu.currentState?.open(),
+      ),
+      _SegmentedItem(
+        icon: Icons.graphic_eq,
+        title: l.songFade,
+        hint: l.songFadeHint,
+        segments: [
+          for (final s in _fades)
+            _Segment(
+              selected: s == fade,
+              onTap: () => context.read<PlayerController>().setFade(
+                Duration(seconds: s),
+              ),
+              child: Text(_fadeText(l, s)),
+            ),
+        ],
+      ),
+      if (Platform.isAndroid)
+        _Item(
+          icon: Icons.equalizer_rounded,
+          title: l.floatOutput,
+          hint: l.floatOutputHint,
+          onTap: () =>
+              context.read<PlayerController>().setFloatOutput(!floatOutput),
+          trailing: Switch(
+            value: floatOutput,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            onChanged: context.read<PlayerController>().setFloatOutput,
+          ),
+        ),
+    ];
+  }
+
+  List<Widget> _appearanceRows(AppLocalizations l, ColorScheme scheme) {
+    final locale = context.watch<LocaleController>().locale;
+    final themeMode = context.watch<ThemeController>().mode;
+    final lyric = context.watch<LyricSettings>();
     // 空字符串表示跟随系统
     final languageCodes = [
       '',
@@ -607,171 +649,300 @@ class _SettingsPageState extends State<SettingsPage> {
     ];
     String languageText(String c) =>
         c.isEmpty ? l.languageSystem : _languageNames[c] ?? c;
+    return [
+      _SegmentedItem(
+        icon: Icons.contrast,
+        title: l.theme,
+        segments: [
+          for (final m in ThemeMode.values)
+            _Segment(
+              selected: m == themeMode,
+              onTap: () => ThemeModeIcon.select(
+                _themeIconKeys[m]!.currentContext!,
+                m,
+                _themeIcons[m]!,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ThemeModeIcon(
+                    _themeIcons[m]!,
+                    key: _themeIconKeys[m],
+                    size: 17,
+                    color: m == themeMode
+                        ? scheme.onSecondaryContainer
+                        : scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      _themeText(l, m),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+      _Item(
+        icon: Icons.translate,
+        title: l.language,
+        value: GlassDropdown<String>(
+          key: _languageMenu,
+          title: l.language,
+          values: languageCodes,
+          selected: locale?.languageCode ?? '',
+          label: languageText,
+          onSelected: (c) => context.read<LocaleController>().setLocale(
+            c.isEmpty ? null : Locale(c),
+          ),
+          child: _Value(languageText(locale?.languageCode ?? '')),
+        ),
+        onTap: () => _languageMenu.currentState?.open(),
+      ),
+      _Item(
+        icon: Icons.lyrics_outlined,
+        title: l.lyricWordByWord,
+        hint: l.lyricWordByWordHint,
+        onTap: () => lyric.setWordByWord(!lyric.wordByWord),
+        trailing: Switch(
+          value: lyric.wordByWord,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          onChanged: lyric.setWordByWord,
+        ),
+      ),
+      _Item(
+        icon: Icons.abc_rounded,
+        title: l.lyricRomaji,
+        hint: l.lyricRomajiHint,
+        onTap: () => lyric.setRomaji(!lyric.romaji),
+        trailing: Switch(
+          value: lyric.romaji,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          onChanged: lyric.setRomaji,
+        ),
+      ),
+      _Item(
+        icon: Icons.translate_rounded,
+        title: l.lyricTranslation,
+        hint: l.lyricTranslationHint,
+        onTap: () => lyric.setTranslation(!lyric.translation),
+        trailing: Switch(
+          value: lyric.translation,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          onChanged: lyric.setTranslation,
+        ),
+      ),
+      if (Platform.isAndroid)
+        _Item(
+          icon: Icons.light_mode_outlined,
+          title: l.lyricKeepScreenOn,
+          hint: l.lyricKeepScreenOnHint,
+          onTap: () => lyric.setKeepScreenOn(!lyric.keepScreenOn),
+          trailing: Switch(
+            value: lyric.keepScreenOn,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            onChanged: lyric.setKeepScreenOn,
+          ),
+        ),
+      if (Platform.isWindows)
+        _Item(
+          icon: Icons.memory_rounded,
+          title: l.softwareRendering,
+          hint: l.softwareRenderingHint,
+          onTap: () => _setSoftwareRendering(!_softwareRendering),
+          trailing: Switch(
+            value: _softwareRendering,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            onChanged: _setSoftwareRendering,
+          ),
+        ),
+    ];
+  }
+
+  List<Widget> _storageRows(AppLocalizations l, ColorScheme scheme) => [
+    _storage(l, scheme),
+    _Item(
+      icon: Icons.tune,
+      title: l.audioCacheLimit,
+      value: GlassDropdown<int>(
+        key: _limitMenu,
+        title: l.audioCacheLimit,
+        values: const [..._limits, -1],
+        selected: _limits.contains(_limitMb) ? _limitMb : -1,
+        label: (mb) => mb < 0
+            ? '${l.audioCacheCustom}${_limits.contains(_limitMb) ? '' : ' (${_limitText(l, _limitMb)})'}'
+            : _limitText(l, mb),
+        onSelected: _selectLimit,
+        child: _Value(_limitText(l, _limitMb)),
+      ),
+      onTap: () => _limitMenu.currentState?.open(),
+    ),
+    _Item(
+      icon: Icons.dataset_outlined,
+      title: l.apiCacheSize,
+      hint:
+          '${l.apiCacheSizeHint} · ${_apiSize == null ? '…' : _sizeText(_apiSize!)}',
+      trailing: _ClearButton(
+        onPressed: _apiSize == null || _apiSize == 0 ? null : _clearApi,
+      ),
+    ),
+  ];
+
+  List<Widget> _downloadRows(AppLocalizations l) {
+    final downloads = context.watch<DownloadController>();
+    return [
+      _Item(
+        icon: Icons.folder_outlined,
+        title: l.downloadDir,
+        hint: Platform.isAndroid ? l.downloadDirAndroid : _downloadDir,
+        onTap: Platform.isAndroid ? null : _pickDownloadDir,
+      ),
+      _SegmentedItem(
+        icon: Icons.downloading_rounded,
+        title: l.downloadConcurrency,
+        segments: [
+          for (var n = 1; n <= 5; n++)
+            _Segment(
+              selected: n == downloads.concurrency,
+              onTap: () => downloads.setConcurrency(n),
+              child: Text(l.downloadConcurrencyValue(n)),
+            ),
+        ],
+      ),
+      _SegmentedItem(
+        icon: Icons.lyrics_outlined,
+        title: l.downloadLyrics,
+        hint: _embedLyrics
+            ? l.downloadLyricsEmbedHint
+            : l.downloadLyricsLrcHint,
+        segments: [
+          _Segment(
+            selected: !_embedLyrics,
+            onTap: () => _setEmbedLyrics(false),
+            child: Text(l.downloadLyricsLrc),
+          ),
+          _Segment(
+            selected: _embedLyrics,
+            onTap: () => _setEmbedLyrics(true),
+            child: Text(l.downloadLyricsEmbed),
+          ),
+        ],
+      ),
+      if (Platform.isAndroid)
+        _Item(
+          icon: Icons.wifi_rounded,
+          title: l.downloadWifiOnly,
+          hint: l.downloadWifiOnlyHint,
+          onTap: () => downloads.setWifiOnly(!downloads.wifiOnly),
+          trailing: Switch(
+            value: downloads.wifiOnly,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            onChanged: downloads.setWifiOnly,
+          ),
+        ),
+      _Item(
+        icon: Icons.restore_rounded,
+        title: l.restoreDownloads,
+        hint: l.restoreDownloadsHint,
+        onTap: _restoring ? null : _restoreDownloads,
+      ),
+    ];
+  }
+
+  List<Widget> _accountRows(AppLocalizations l) => [
+    _Item(
+      icon: Icons.dashboard_customize_outlined,
+      title: l.foryouSettings,
+      hint: l.foryouSettingsHint,
+      onTap: () => Navigator.of(context).push(ForyouSettingsPage.route()),
+    ),
+    _Item(
+      icon: Icons.heart_broken_outlined,
+      title: l.dislikeList,
+      hint: l.dislikeListHint,
+      onTap: () => Navigator.of(context).push(DislikePage.route()),
+    ),
+  ];
+
+  Widget _logoutCard(AppLocalizations l, ColorScheme scheme) => _Card(
+    children: [
+      InkWell(
+        onTap: _logout,
+        child: SizedBox(
+          height: 52,
+          child: Center(
+            child: Text(
+              l.logout,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: scheme.error,
+              ),
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+
+  List<Widget> _aboutRows(AppLocalizations l) => [
+    _Item(
+      icon: Icons.system_update_alt_rounded,
+      title: l.checkUpdate,
+      hint: _version == null ? null : l.currentVersion("v$_version"),
+      value: _Value(
+        _checking
+            ? l.updateChecking
+            : _checked == UpdateCheckResult.upToDate
+            ? l.upToDate
+            : "",
+      ),
+      onTap: _checkUpdate,
+    ),
+    _Item(
+      icon: Icons.science_outlined,
+      title: l.updatePreview,
+      hint: l.updatePreviewHint,
+      onTap: () => setState(() => AppUpdate.preview = _preview = !_preview),
+      trailing: Switch(
+        value: _preview,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        onChanged: (v) => setState(() => AppUpdate.preview = _preview = v),
+      ),
+    ),
+    _Item(
+      icon: Icons.public,
+      title: l.updateMirror,
+      hint: l.updateMirrorHint,
+      onTap: () => setState(() => AppUpdate.mirror = _mirror = !_mirror),
+      trailing: Switch(
+        value: _mirror,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        onChanged: (v) => setState(() => AppUpdate.mirror = _mirror = v),
+      ),
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final desktop = context.watch<DesktopSettings>();
+    final loggedIn = context.select<AuthController, bool>((a) => a.loggedIn);
 
     final List<_Section> sections = [
       (
         title: l.settingsPlayback,
         icon: Icons.play_circle_outline,
-        rows: [
-          _Item(
-            icon: Icons.high_quality_outlined,
-            title: l.defaultQuality,
-            hint: l.defaultQualityHint,
-            value: GlassDropdown<Quality>(
-              key: _qualityMenu,
-              title: l.defaultQuality,
-              values: selectableQualities,
-              selected: defaultQuality,
-              label: (q) => qualityLabel(l, q),
-              onSelected: context.read<PlayerController>().setDefaultQuality,
-              child: _Value(qualityLabel(l, defaultQuality)),
-            ),
-            onTap: () => _qualityMenu.currentState?.open(),
-          ),
-          _SegmentedItem(
-            icon: Icons.graphic_eq,
-            title: l.songFade,
-            hint: l.songFadeHint,
-            segments: [
-              for (final s in _fades)
-                _Segment(
-                  selected: s == fade,
-                  onTap: () => context.read<PlayerController>().setFade(
-                    Duration(seconds: s),
-                  ),
-                  child: Text(_fadeText(l, s)),
-                ),
-            ],
-          ),
-          if (Platform.isAndroid)
-            _Item(
-              icon: Icons.equalizer_rounded,
-              title: l.floatOutput,
-              hint: l.floatOutputHint,
-              onTap: () =>
-                  context.read<PlayerController>().setFloatOutput(!floatOutput),
-              trailing: Switch(
-                value: floatOutput,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                onChanged: context.read<PlayerController>().setFloatOutput,
-              ),
-            ),
-        ],
+        rows: _playbackRows(l),
         after: null,
       ),
       (
         title: l.settingsAppearance,
         icon: Icons.palette_outlined,
-        rows: [
-          _SegmentedItem(
-            icon: Icons.contrast,
-            title: l.theme,
-            segments: [
-              for (final m in ThemeMode.values)
-                _Segment(
-                  selected: m == themeMode,
-                  onTap: () => ThemeModeIcon.select(
-                    _themeIconKeys[m]!.currentContext!,
-                    m,
-                    _themeIcons[m]!,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ThemeModeIcon(
-                        _themeIcons[m]!,
-                        key: _themeIconKeys[m],
-                        size: 17,
-                        color: m == themeMode
-                            ? scheme.onSecondaryContainer
-                            : scheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 5),
-                      Flexible(
-                        child: Text(
-                          _themeText(l, m),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-          _Item(
-            icon: Icons.translate,
-            title: l.language,
-            value: GlassDropdown<String>(
-              key: _languageMenu,
-              title: l.language,
-              values: languageCodes,
-              selected: locale?.languageCode ?? '',
-              label: languageText,
-              onSelected: (c) => context.read<LocaleController>().setLocale(
-                c.isEmpty ? null : Locale(c),
-              ),
-              child: _Value(languageText(locale?.languageCode ?? '')),
-            ),
-            onTap: () => _languageMenu.currentState?.open(),
-          ),
-          _Item(
-            icon: Icons.lyrics_outlined,
-            title: l.lyricWordByWord,
-            hint: l.lyricWordByWordHint,
-            onTap: () => lyric.setWordByWord(!lyric.wordByWord),
-            trailing: Switch(
-              value: lyric.wordByWord,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onChanged: lyric.setWordByWord,
-            ),
-          ),
-          _Item(
-            icon: Icons.abc_rounded,
-            title: l.lyricRomaji,
-            hint: l.lyricRomajiHint,
-            onTap: () => lyric.setRomaji(!lyric.romaji),
-            trailing: Switch(
-              value: lyric.romaji,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onChanged: lyric.setRomaji,
-            ),
-          ),
-          _Item(
-            icon: Icons.translate_rounded,
-            title: l.lyricTranslation,
-            hint: l.lyricTranslationHint,
-            onTap: () => lyric.setTranslation(!lyric.translation),
-            trailing: Switch(
-              value: lyric.translation,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onChanged: lyric.setTranslation,
-            ),
-          ),
-          if (Platform.isAndroid)
-            _Item(
-              icon: Icons.light_mode_outlined,
-              title: l.lyricKeepScreenOn,
-              hint: l.lyricKeepScreenOnHint,
-              onTap: () => lyric.setKeepScreenOn(!lyric.keepScreenOn),
-              trailing: Switch(
-                value: lyric.keepScreenOn,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                onChanged: lyric.setKeepScreenOn,
-              ),
-            ),
-          if (Platform.isWindows)
-            _Item(
-              icon: Icons.memory_rounded,
-              title: l.softwareRendering,
-              hint: l.softwareRenderingHint,
-              onTap: () => _setSoftwareRendering(!_softwareRendering),
-              trailing: Switch(
-                value: _softwareRendering,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                onChanged: _setSoftwareRendering,
-              ),
-            ),
-        ],
+        rows: _appearanceRows(l, scheme),
         after: null,
       ),
       if (Platform.isWindows) ...[
@@ -785,180 +956,26 @@ class _SettingsPageState extends State<SettingsPage> {
       (
         title: l.settingsStorage,
         icon: Icons.storage_outlined,
-        rows: [
-          _storage(l, scheme),
-          _Item(
-            icon: Icons.tune,
-            title: l.audioCacheLimit,
-            value: GlassDropdown<int>(
-              key: _limitMenu,
-              title: l.audioCacheLimit,
-              values: const [..._limits, -1],
-              selected: _limits.contains(_limitMb) ? _limitMb : -1,
-              label: (mb) => mb < 0
-                  ? '${l.audioCacheCustom}${_limits.contains(_limitMb) ? '' : ' (${_limitText(l, _limitMb)})'}'
-                  : _limitText(l, mb),
-              onSelected: _selectLimit,
-              child: _Value(_limitText(l, _limitMb)),
-            ),
-            onTap: () => _limitMenu.currentState?.open(),
-          ),
-          _Item(
-            icon: Icons.dataset_outlined,
-            title: l.apiCacheSize,
-            hint:
-                '${l.apiCacheSizeHint} · ${_apiSize == null ? '…' : _sizeText(_apiSize!)}',
-            trailing: _ClearButton(
-              onPressed: _apiSize == null || _apiSize == 0 ? null : _clearApi,
-            ),
-          ),
-        ],
+        rows: _storageRows(l, scheme),
         after: null,
       ),
       (
         title: l.settingsDownloads,
         icon: Icons.download_outlined,
-        rows: [
-          _Item(
-            icon: Icons.folder_outlined,
-            title: l.downloadDir,
-            hint: Platform.isAndroid ? l.downloadDirAndroid : _downloadDir,
-            onTap: Platform.isAndroid ? null : _pickDownloadDir,
-          ),
-          _SegmentedItem(
-            icon: Icons.downloading_rounded,
-            title: l.downloadConcurrency,
-            segments: [
-              for (var n = 1; n <= 5; n++)
-                _Segment(
-                  selected: n == downloads.concurrency,
-                  onTap: () => downloads.setConcurrency(n),
-                  child: Text(l.downloadConcurrencyValue(n)),
-                ),
-            ],
-          ),
-          _SegmentedItem(
-            icon: Icons.lyrics_outlined,
-            title: l.downloadLyrics,
-            hint: _embedLyrics
-                ? l.downloadLyricsEmbedHint
-                : l.downloadLyricsLrcHint,
-            segments: [
-              _Segment(
-                selected: !_embedLyrics,
-                onTap: () => _setEmbedLyrics(false),
-                child: Text(l.downloadLyricsLrc),
-              ),
-              _Segment(
-                selected: _embedLyrics,
-                onTap: () => _setEmbedLyrics(true),
-                child: Text(l.downloadLyricsEmbed),
-              ),
-            ],
-          ),
-          if (Platform.isAndroid)
-            _Item(
-              icon: Icons.wifi_rounded,
-              title: l.downloadWifiOnly,
-              hint: l.downloadWifiOnlyHint,
-              onTap: () => downloads.setWifiOnly(!downloads.wifiOnly),
-              trailing: Switch(
-                value: downloads.wifiOnly,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                onChanged: downloads.setWifiOnly,
-              ),
-            ),
-          _Item(
-            icon: Icons.restore_rounded,
-            title: l.restoreDownloads,
-            hint: l.restoreDownloadsHint,
-            onTap: _restoring ? null : _restoreDownloads,
-          ),
-        ],
+        rows: _downloadRows(l),
         after: null,
       ),
       if (loggedIn)
         (
           title: l.settingsAccount,
           icon: Icons.person_outline,
-          rows: [
-            _Item(
-              icon: Icons.dashboard_customize_outlined,
-              title: l.foryouSettings,
-              hint: l.foryouSettingsHint,
-              onTap: () =>
-                  Navigator.of(context).push(ForyouSettingsPage.route()),
-            ),
-            _Item(
-              icon: Icons.heart_broken_outlined,
-              title: l.dislikeList,
-              hint: l.dislikeListHint,
-              onTap: () => Navigator.of(context).push(DislikePage.route()),
-            ),
-          ],
-          after: _Card(
-            children: [
-              InkWell(
-                onTap: _logout,
-                child: SizedBox(
-                  height: 52,
-                  child: Center(
-                    child: Text(
-                      l.logout,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: scheme.error,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          rows: _accountRows(l),
+          after: _logoutCard(l, scheme),
         ),
       (
         title: l.settingsAbout,
         icon: Icons.info_outline,
-        rows: [
-          _Item(
-            icon: Icons.system_update_alt_rounded,
-            title: l.checkUpdate,
-            hint: _version == null ? null : l.currentVersion("v$_version"),
-            value: _Value(
-              _checking
-                  ? l.updateChecking
-                  : _checked == UpdateCheckResult.upToDate
-                  ? l.upToDate
-                  : "",
-            ),
-            onTap: _checkUpdate,
-          ),
-          _Item(
-            icon: Icons.science_outlined,
-            title: l.updatePreview,
-            hint: l.updatePreviewHint,
-            onTap: () =>
-                setState(() => AppUpdate.preview = _preview = !_preview),
-            trailing: Switch(
-              value: _preview,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onChanged: (v) =>
-                  setState(() => AppUpdate.preview = _preview = v),
-            ),
-          ),
-          _Item(
-            icon: Icons.public,
-            title: l.updateMirror,
-            hint: l.updateMirrorHint,
-            onTap: () => setState(() => AppUpdate.mirror = _mirror = !_mirror),
-            trailing: Switch(
-              value: _mirror,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onChanged: (v) => setState(() => AppUpdate.mirror = _mirror = v),
-            ),
-          ),
-        ],
+        rows: _aboutRows(l),
         after: null,
       ),
     ];

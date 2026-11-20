@@ -10,6 +10,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:kanade/ui/mini_player.dart';
 import 'package:kanade/ui/player_page.dart';
 import 'package:kanade/ui/player_route.dart';
+import 'package:kanade/ui/quality_menu.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'harness.dart';
