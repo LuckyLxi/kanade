@@ -12,6 +12,7 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 
 - `rust/src/api/music.rs` is the only Rust surface Dart calls (via flutter_rust_bridge 2.13.0, configured in `flutter_rust_bridge.yaml`: `rust_input: crate::api`, output `lib/src/rust`). Each function is a thin wrapper around `crate::qq::*` (or `crate::update` for app updates). Shared data types live in `rust/src/api/types.rs`.
 - Every API error passes through `api_error()`, which maps it to an `ApiError` code that Dart translates, and calls `client::suspect_session()` when the server rejects auth. New API functions should use the same `.map_err(api_error)` pattern.
+- Rust pushes events to Dart through frb `StreamSink` parameters (`watch_downloads`, `watch_session_end`, update progress, device-capture PCM).
 - After changing anything in `rust/src/api/`, run `flutter_rust_bridge_codegen generate`. Dart imports the generated code as `src/rust/api/music.dart as api`.
 - `rust/src/qq/client.rs` is the single place for the network client, login session (`Session`: uin/musickey/login_type) and request signing (`sign.rs`). `store.rs` is one SQLite DB (`kanade.db` in the app support dir) that holds API response cache, song cache index and key-value prefs, login included.
 
@@ -31,9 +32,15 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 
 ### Audio sources and caching
 
-- `AudioSource.resolve` (`lib/player/audio_source.dart`) tries the local cache first, then an online URL, then any cached quality when offline.
+- `AudioSource.resolve` (`lib/player/audio_source.dart`) tries a downloaded file first, then the local cache, then an online URL, then any cached quality when offline.
 - Online audio never reaches media_kit directly. `rust/src/qq/audio_cache.rs` runs a local relay that streams to the player while it writes the whole file to the cache, and evicts least-recently-played songs above the size limit (`pref:audio_cache_limit_mb`, default 1024 MB). Encrypted formats are decrypted in that relay (`qmc.rs` for QMCv2 ekeys, `encrypted_audio.rs` for format detection and header checks), so the player and the cache only ever see plain audio.
 - `rust/src/qq/quality.rs` builds the list of quality tiers for the current account. Special formats (DTS, 360 Reality Audio, NAC) depend on optional platform decoders (`dts.rs`, `ra360.rs`, `nac.rs`), which exist only on Windows x86_64 and Android aarch64; on other targets `available()` returns false. Their C++ sources live in `native/` and are built by `windows/CMakeLists.txt` and `android/app/build.gradle.kts` (via `native/android/CMakeLists.txt`), not by cargo.
+
+### Downloads
+
+- `rust/src/qq/download.rs` owns the queue, retries, concurrency and Wi-Fi-only rules. Download records live in the DB; `lib/download/download_controller.dart` keeps a copy that updates from `watchDownloads` events. It uses the same URL lookup with quality fallback and the same in-flight decryption as playback, then saves a tagged plain file (lyrics embedded or as a sibling `.lrc`).
+- Each file carries a `kanade:<id>:<quality>` comment tag. After a reinstall, `restore_downloads` uses it to match files in the download folder back to songs. Untagged files are imported as local songs (`download::is_local`).
+- On Android, downloads run in the playback process. The UI sends commands over the playback socket (`RemoteDownloads`) and rereads the shared DB when notified. Rust calls Kotlin over JNI (`MediaStoreBridge.kt`) to write into MediaStore `Music/Kanade` (records keep `content://` URIs), to watch metered network, and to drive `DownloadService`'s foreground notification.
 
 ### UI
 
@@ -45,7 +52,7 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 
 ### Song recognition
 
-- `lib/recognition/recognition_controller.dart` records PCM and calls `api.recognizeSong` (`rust/src/qq/recognize.rs`). On Android, `android_recognition_platform.dart` drives a floating bubble and foreground service (`RecognizeBubble.kt`, `RecognizeService.kt`) over the `kanade/recognize` MethodChannel.
+- `lib/recognition/recognition_controller.dart` records PCM from the microphone or from device output (Windows: WASAPI loopback in `rust/src/device_audio.rs`; Android: playback capture over the `kanade/recognize/pcm` EventChannel) and calls `api.recognizeSong` (`rust/src/qq/recognize.rs`). On Android, `android_recognition_platform.dart` drives a floating bubble and foreground service (`RecognizeBubble.kt`, `RecognizeService.kt`) over the `kanade/recognize` MethodChannel.
 
 ### Login
 
