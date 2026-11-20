@@ -174,6 +174,13 @@ bool getDownloadWifiOnly() =>
 Future<void> setDownloadWifiOnly({required bool enabled}) =>
     RustLib.instance.api.crateApiMusicSetDownloadWifiOnly(enabled: enabled);
 
+/// 歌词写进音频标签（true）还是另存 .lrc（false）。
+bool getDownloadEmbedLyrics() =>
+    RustLib.instance.api.crateApiMusicGetDownloadEmbedLyrics();
+
+void setDownloadEmbedLyrics({required bool enabled}) =>
+    RustLib.instance.api.crateApiMusicSetDownloadEmbedLyrics(enabled: enabled);
+
 /// 开了「仅 Wi-Fi 下载」又在用流量。
 bool downloadWaitingForWifi() =>
     RustLib.instance.api.crateApiMusicDownloadWaitingForWifi();

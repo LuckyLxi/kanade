@@ -1338,4 +1338,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String downloadBatchHint(int count) {
     return '$count songs; falls back a tier when a song lacks this quality';
   }
+
+  @override
+  String get downloadLyrics => 'Lyrics';
+
+  @override
+  String get downloadLyricsLrc => 'LRC file';
+
+  @override
+  String get downloadLyricsEmbed => 'In the song';
+
+  @override
+  String get downloadLyricsLrcHint =>
+      'Saved next to the song as a .lrc file with the same name';
+
+  @override
+  String get downloadLyricsEmbedHint =>
+      'Written into the song file\'s tags, no extra file';
 }

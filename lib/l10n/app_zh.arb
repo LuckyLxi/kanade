@@ -746,5 +746,10 @@
         "type": "int"
       }
     }
-  }
+  },
+  "downloadLyrics": "歌词",
+  "downloadLyricsLrc": "LRC 文件",
+  "downloadLyricsEmbed": "写进歌曲",
+  "downloadLyricsLrcHint": "另存一个和歌曲同名的 .lrc 文件",
+  "downloadLyricsEmbedHint": "写进歌曲文件的标签里，不另存文件"
 }

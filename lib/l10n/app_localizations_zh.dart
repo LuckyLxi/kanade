@@ -1261,4 +1261,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String downloadBatchHint(int count) {
     return '共 $count 首，没有这个音质的自动降一档';
   }
+
+  @override
+  String get downloadLyrics => '歌词';
+
+  @override
+  String get downloadLyricsLrc => 'LRC 文件';
+
+  @override
+  String get downloadLyricsEmbed => '写进歌曲';
+
+  @override
+  String get downloadLyricsLrcHint => '另存一个和歌曲同名的 .lrc 文件';
+
+  @override
+  String get downloadLyricsEmbedHint => '写进歌曲文件的标签里，不另存文件';
 }

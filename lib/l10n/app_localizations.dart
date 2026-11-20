@@ -2360,6 +2360,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'共 {count} 首，没有这个音质的自动降一档'**
   String downloadBatchHint(int count);
+
+  /// No description provided for @downloadLyrics.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌词'**
+  String get downloadLyrics;
+
+  /// No description provided for @downloadLyricsLrc.
+  ///
+  /// In zh, this message translates to:
+  /// **'LRC 文件'**
+  String get downloadLyricsLrc;
+
+  /// No description provided for @downloadLyricsEmbed.
+  ///
+  /// In zh, this message translates to:
+  /// **'写进歌曲'**
+  String get downloadLyricsEmbed;
+
+  /// No description provided for @downloadLyricsLrcHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'另存一个和歌曲同名的 .lrc 文件'**
+  String get downloadLyricsLrcHint;
+
+  /// No description provided for @downloadLyricsEmbedHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'写进歌曲文件的标签里，不另存文件'**
+  String get downloadLyricsEmbedHint;
 }
 
 class _AppLocalizationsDelegate

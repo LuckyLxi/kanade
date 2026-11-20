@@ -213,6 +213,17 @@ pub fn set_download_wifi_only(enabled: bool) -> Result<(), ApiError> {
     Ok(download::set_wifi_only(enabled).map_err(api_error)?)
 }
 
+/// 歌词写进音频标签（true）还是另存 .lrc（false）。
+#[flutter_rust_bridge::frb(sync)]
+pub fn get_download_embed_lyrics() -> bool {
+    download::embed_lyrics()
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn set_download_embed_lyrics(enabled: bool) -> Result<(), ApiError> {
+    Ok(download::set_embed_lyrics(enabled).map_err(api_error)?)
+}
+
 /// 开了「仅 Wi-Fi 下载」又在用流量。
 #[flutter_rust_bridge::frb(sync)]
 pub fn download_waiting_for_wifi() -> bool {

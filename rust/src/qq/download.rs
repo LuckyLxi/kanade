@@ -26,6 +26,7 @@ const REFERER: &str = "https://y.qq.com/";
 const DIR_PREF: &str = "pref:download_dir";
 const CONCURRENCY_PREF: &str = "pref:download_concurrency";
 const WIFI_ONLY_PREF: &str = "pref:download_wifi_only";
+const EMBED_LYRICS_PREF: &str = "pref:download_embed_lyrics";
 /// 网络或临时错误自动重试的次数。
 const RETRIES: u32 = 2;
 pub const MAX_CONCURRENCY: u32 = 5;
@@ -301,6 +302,17 @@ pub fn set_wifi_only(on: bool) -> Result<()> {
         d.network_changed();
     }
     Ok(())
+}
+
+/// 歌词写进音频文件的标签里，而不是另存 .lrc。
+pub fn embed_lyrics() -> bool {
+    core().store.kv_get(EMBED_LYRICS_PREF).as_deref() == Some("true")
+}
+
+pub fn set_embed_lyrics(on: bool) -> Result<()> {
+    core()
+        .store
+        .kv_set(EMBED_LYRICS_PREF, if on { "true" } else { "false" })
 }
 
 /// 开了「仅 Wi-Fi 下载」又在用流量：排队的先不开始。
@@ -626,15 +638,21 @@ impl Downloader {
 
         let (ext, mime) = sniff(&part).unwrap_or((quality::extension(src.quality), "audio/*"));
         let cover = self.cover(&song).await;
-        {
-            let (part, song) = (part.clone(), song.clone());
-            // 标签写不进去不影响下载
-            let _ = tokio::task::spawn_blocking(move || write_tags(&part, &song, cover)).await;
-        }
-        let lrc = music::lyric(&song.mid, song.id)
+        let lyric = music::lyric(&song.mid, song.id)
             .await
             .ok()
             .and_then(|l| lrc_text(&l, &song));
+        let (embedded, lrc) = if embed_lyrics() {
+            (lyric, None)
+        } else {
+            (None, lyric)
+        };
+        {
+            let (part, song) = (part.clone(), song.clone());
+            // 标签写不进去不影响下载
+            let _ = tokio::task::spawn_blocking(move || write_tags(&part, &song, cover, embedded))
+                .await;
+        }
 
         let stem = file_stem(&song);
         // 换音质重下：先删旧文件，新文件才能用回同一个名字
@@ -807,11 +825,16 @@ fn sniff(path: &Path) -> Option<(&'static str, &'static str)> {
     })
 }
 
-fn write_tags(path: &Path, song: &Song, cover: Option<Vec<u8>>) -> Result<()> {
+fn write_tags(
+    path: &Path,
+    song: &Song,
+    cover: Option<Vec<u8>>,
+    lyrics: Option<String>,
+) -> Result<()> {
     use lofty::config::{ParseOptions, WriteOptions};
     use lofty::file::{AudioFile, TaggedFileExt};
     use lofty::picture::{MimeType, Picture, PictureType};
-    use lofty::tag::{Accessor, Tag};
+    use lofty::tag::{Accessor, ItemKey, Tag};
 
     let mut file = lofty::probe::Probe::open(path)?
         .options(ParseOptions::new().read_properties(false))
@@ -831,6 +854,9 @@ fn write_tags(path: &Path, song: &Song, cover: Option<Vec<u8>>) -> Result<()> {
     );
     if !song.album_name.is_empty() {
         tag.set_album(song.album_name.clone());
+    }
+    if let Some(text) = lyrics {
+        tag.insert_text(ItemKey::Lyrics, text);
     }
     if let Some(data) = cover {
         let mime = if data.starts_with(&[0x89, b'P', b'N', b'G']) {
@@ -1154,6 +1180,38 @@ mod tests {
         };
         let text = lrc_text(&lyric, &song()).unwrap();
         assert!(text.ends_with("[01:01.23]hello\n[01:01.23]你好\n"));
+    }
+
+    #[test]
+    fn embeds_lyrics() {
+        use lofty::file::TaggedFileExt;
+        use lofty::tag::ItemKey;
+
+        let path = std::env::temp_dir().join(format!("kanade-tags-{}.wav", std::process::id()));
+        let data = [0u8; 400];
+        let mut wav = b"RIFF".to_vec();
+        wav.extend((36 + data.len() as u32).to_le_bytes());
+        wav.extend(b"WAVEfmt ");
+        wav.extend(16u32.to_le_bytes());
+        wav.extend(1u16.to_le_bytes()); // PCM
+        wav.extend(1u16.to_le_bytes());
+        wav.extend(8000u32.to_le_bytes());
+        wav.extend(16000u32.to_le_bytes());
+        wav.extend(2u16.to_le_bytes());
+        wav.extend(16u16.to_le_bytes());
+        wav.extend(b"data");
+        wav.extend((data.len() as u32).to_le_bytes());
+        wav.extend(data);
+        std::fs::write(&path, wav).unwrap();
+
+        write_tags(&path, &song(), None, Some("[00:01.00]hello\n".into())).unwrap();
+        let file = lofty::read_from_path(&path).unwrap();
+        let lyrics = file
+            .primary_tag()
+            .and_then(|t| t.get_string(&ItemKey::Lyrics))
+            .map(str::to_owned);
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(lyrics.as_deref(), Some("[00:01.00]hello\n"));
     }
 
     #[test]

@@ -86,6 +86,7 @@ typedef _Section = ({
 class _SettingsPageState extends State<SettingsPage> {
   int _limitMb = api.getAudioCacheLimitMb();
   String _downloadDir = api.getDownloadDir();
+  bool _embedLyrics = api.getDownloadEmbedLyrics();
   int? _audioSize;
   int? _apiSize;
   final _scroll = SmoothScrollController();
@@ -121,6 +122,11 @@ class _SettingsPageState extends State<SettingsPage> {
     if (dir == null || !mounted) return;
     api.setDownloadDir(dir: dir);
     setState(() => _downloadDir = api.getDownloadDir());
+  }
+
+  void _setEmbedLyrics(bool on) {
+    api.setDownloadEmbedLyrics(enabled: on);
+    setState(() => _embedLyrics = on);
   }
 
   Future<void> _checkUpdate() async {
@@ -584,6 +590,25 @@ class _SettingsPageState extends State<SettingsPage> {
                   onTap: () => downloads.setConcurrency(n),
                   child: Text(l.downloadConcurrencyValue(n)),
                 ),
+            ],
+          ),
+          _SegmentedItem(
+            icon: Icons.lyrics_outlined,
+            title: l.downloadLyrics,
+            hint: _embedLyrics
+                ? l.downloadLyricsEmbedHint
+                : l.downloadLyricsLrcHint,
+            segments: [
+              _Segment(
+                selected: !_embedLyrics,
+                onTap: () => _setEmbedLyrics(false),
+                child: Text(l.downloadLyricsLrc),
+              ),
+              _Segment(
+                selected: _embedLyrics,
+                onTap: () => _setEmbedLyrics(true),
+                child: Text(l.downloadLyricsEmbed),
+              ),
             ],
           ),
           if (Platform.isAndroid)

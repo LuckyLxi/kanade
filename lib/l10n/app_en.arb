@@ -382,5 +382,10 @@
   "selectNone": "Select none",
   "multiSelect": "Select",
   "downloadAll": "Download all",
-  "downloadBatchHint": "{count} songs; falls back a tier when a song lacks this quality"
+  "downloadBatchHint": "{count} songs; falls back a tier when a song lacks this quality",
+  "downloadLyrics": "Lyrics",
+  "downloadLyricsLrc": "LRC file",
+  "downloadLyricsEmbed": "In the song",
+  "downloadLyricsLrcHint": "Saved next to the song as a .lrc file with the same name",
+  "downloadLyricsEmbedHint": "Written into the song file's tags, no extra file"
 }
