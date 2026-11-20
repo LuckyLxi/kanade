@@ -203,6 +203,7 @@ PlaybackMessage _snapshot(List<Song> queue, int index) => {
   'fade': 0,
   'sleepAt': null,
   'sleepAfterSong': false,
+  'floatOutput': false,
   'error': null,
 };
 
@@ -468,6 +469,7 @@ void main() {
       ..fade = const Duration(seconds: 3)
       ..sleepAt = DateTime.fromMillisecondsSinceEpoch(1700000000000)
       ..sleepAfterSong = true
+      ..floatOutput = true
       ..error = const StreamFailed('boom');
     late _Connection connection;
     final remote = PlayerController.android(
@@ -492,6 +494,7 @@ void main() {
     expect(remote.fade, source.fade);
     expect(remote.sleepAt, source.sleepAt);
     expect(remote.sleepAfterSong, true);
+    expect(remote.floatOutput, true);
     expect((remote.error as StreamFailed).message, 'boom');
     remote.dispose();
     source.dispose();

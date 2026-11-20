@@ -727,6 +727,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Fades volume when switching songs, pausing and resuming';
 
   @override
+  String get floatOutput => '32-bit float output';
+
+  @override
+  String get floatOutputHint =>
+      'Sends audio to the system as 32-bit float; most songs sound the same';
+
+  @override
   String get songFadeOff => 'Off';
 
   @override

@@ -203,6 +203,8 @@
   "defaultQualityHint": "Falls back to a lower quality when unavailable or unplayable",
   "songFade": "Playback transition",
   "songFadeHint": "Fades volume when switching songs, pausing and resuming",
+  "floatOutput": "32-bit float output",
+  "floatOutputHint": "Sends audio to the system as 32-bit float; most songs sound the same",
   "songFadeOff": "Off",
   "songFadeSeconds": "{seconds} s",
   "audioCacheLimit": "Song cache limit",

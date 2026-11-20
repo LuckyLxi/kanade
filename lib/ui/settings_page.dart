@@ -409,6 +409,9 @@ class _SettingsPageState extends State<SettingsPage> {
       (p) => p.defaultQuality,
     );
     final fade = context.select<PlayerController, int>((p) => p.fade.inSeconds);
+    final floatOutput = context.select<PlayerController, bool>(
+      (p) => p.floatOutput,
+    );
     final loggedIn = context.select<AuthController, bool>((a) => a.loggedIn);
     // 空字符串表示跟随系统
     final languageCodes = [
@@ -454,6 +457,19 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
             ],
           ),
+          if (Platform.isAndroid)
+            _Item(
+              icon: Icons.equalizer_rounded,
+              title: l.floatOutput,
+              hint: l.floatOutputHint,
+              onTap: () =>
+                  context.read<PlayerController>().setFloatOutput(!floatOutput),
+              trailing: Switch(
+                value: floatOutput,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged: context.read<PlayerController>().setFloatOutput,
+              ),
+            ),
         ],
         after: null,
       ),

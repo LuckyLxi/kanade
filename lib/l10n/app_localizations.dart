@@ -1317,6 +1317,18 @@ abstract class AppLocalizations {
   /// **'切歌、暂停和继续播放时音量渐变'**
   String get songFadeHint;
 
+  /// No description provided for @floatOutput.
+  ///
+  /// In zh, this message translates to:
+  /// **'32 位浮点输出'**
+  String get floatOutput;
+
+  /// No description provided for @floatOutputHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'以 32 位浮点格式交给系统，多数歌听不出差别'**
+  String get floatOutputHint;
+
   /// No description provided for @songFadeOff.
   ///
   /// In zh, this message translates to:

@@ -88,6 +88,7 @@ class _LocalPlayerController extends PlayerController {
     }
     _restoredRadio = null;
     if (volume != 100) unawaited(_player.setVolume(volume));
+    if (floatOutput) _floatFilter = _applyFloatFilter();
   }
 
   final Player _player;
@@ -543,6 +544,9 @@ class _LocalPlayerController extends PlayerController {
       await _fadeOutCurrent();
       if (stale()) return;
     }
+    await _floatFilter;
+    if (_aoReloadPending) await _reloadAo();
+    if (stale()) return;
     _attempt = attempt;
     // 暂停淡到一半就换歌：不再接着淡，新歌照常按进度渐强
     _pauseRamp++;
@@ -778,6 +782,59 @@ class _LocalPlayerController extends PlayerController {
       return;
     }
     notifyListeners();
+  }
+
+  @override
+  void setFloatOutput(bool v) {
+    floatOutput = v;
+    api.setPref(key: PlayerController._floatOutputKey, value: '$v');
+    _floatFilter = _floatFilter.then((_) => _applyFloatFilter(reload: true));
+    notifyListeners();
+  }
+
+  /// 依次改浮点滤镜；[_open] 等它改完再开新歌，免得音频输出按旧格式建起来。
+  Future<void> _floatFilter = Future.value();
+  bool _floatFilterOn = false;
+  bool _aoReloadPending = false;
+
+  // 不用 audio-format：设成 float 后再也改不回自动。
+  // 只加减带标签的这一个滤镜，不动 af 里别的。
+  Future<void> _applyFloatFilter({bool reload = false}) async {
+    final native = _player.platform;
+    if (native is! NativePlayer || floatOutput == _floatFilterOn) return;
+    try {
+      await native.command(
+        floatOutput
+            ? ['af', 'add', '@kanadefloat:format=format=float']
+            : ['af', 'remove', '@kanadefloat'],
+      );
+      _floatFilterOn = floatOutput;
+    } catch (e) {
+      debugPrint('float output filter failed: $e');
+      floatOutput = _floatFilterOn;
+      api.setPref(key: PlayerController._floatOutputKey, value: '$floatOutput');
+      notifyListeners();
+      return;
+    }
+    if (!reload) return;
+    // 已经开着的音频输出会沿用原来的格式，要重建一次才换过来；
+    // 正在放就留到换歌时再重建，免得当场断音
+    if (_player.state.playing) {
+      _aoReloadPending = true;
+    } else {
+      await _reloadAo();
+    }
+  }
+
+  Future<void> _reloadAo() async {
+    _aoReloadPending = false;
+    final native = _player.platform;
+    if (native is! NativePlayer) return;
+    try {
+      await native.command(['ao-reload']);
+    } catch (e) {
+      debugPrint('ao-reload failed: $e');
+    }
   }
 
   void _clearSleep() {

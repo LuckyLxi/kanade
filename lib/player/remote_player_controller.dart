@@ -226,6 +226,13 @@ class _RemotePlayerController extends PlayerController {
   }
 
   @override
+  void setFloatOutput(bool v) {
+    floatOutput = v;
+    notifyListeners();
+    _ignore(_send(PlaybackOp.floatOutput, v));
+  }
+
+  @override
   Future<void> setVolume(double v) {
     volume = v.clamp(0, 100);
     notifyListeners();

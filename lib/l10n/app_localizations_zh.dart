@@ -691,6 +691,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get songFadeHint => '切歌、暂停和继续播放时音量渐变';
 
   @override
+  String get floatOutput => '32 位浮点输出';
+
+  @override
+  String get floatOutputHint => '以 32 位浮点格式交给系统，多数歌听不出差别';
+
+  @override
   String get songFadeOff => '关闭';
 
   @override

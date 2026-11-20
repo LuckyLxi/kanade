@@ -25,6 +25,7 @@ enum PlaybackOp {
   fade,
   sleep,
   sleepAfterSong,
+  floatOutput,
   volume,
   quality,
   auth,
@@ -59,6 +60,7 @@ PlaybackMessage encodePlayerState(
   'fade': player.fade.inSeconds,
   'sleepAt': player.sleepAt?.millisecondsSinceEpoch,
   'sleepAfterSong': player.sleepAfterSong,
+  'floatOutput': player.floatOutput,
   'error': encodePlayerError(player.error),
 };
 
@@ -87,6 +89,7 @@ void decodePlayerState(PlayerController player, PlaybackMessage message) {
     _ => null,
   };
   player.sleepAfterSong = message['sleepAfterSong'] as bool;
+  player.floatOutput = message['floatOutput'] as bool;
   player.error = decodePlayerError(message['error']);
 }
 

@@ -115,6 +115,7 @@ abstract class PlayerController extends ChangeNotifier {
   static const _volumeKey = 'volume';
   static const _fadeKey = 'song_fade_seconds';
   static const _sleepAfterSongKey = 'sleep_after_song';
+  static const _floatOutputKey = 'audio_float_output';
 
   /// Android 上下载在播放进程里跑，经这里转；其他情况为 null，直接调 Rust。
   RemoteDownloads? get downloads => null;
@@ -166,6 +167,10 @@ abstract class PlayerController extends ChangeNotifier {
 
   /// 定时到了先把当前这首放完再停。
   bool sleepAfterSong = api.getPref(key: _sleepAfterSongKey) == 'true';
+
+  /// 以 32 位浮点格式交给系统音频输出。Windows 共享模式本来就是浮点，只在 Android 上有用。
+  bool floatOutput =
+      Platform.isAndroid && api.getPref(key: _floatOutputKey) == 'true';
   int _metadataToken = 0;
   int _qualitiesToken = 0;
 
@@ -197,6 +202,7 @@ abstract class PlayerController extends ChangeNotifier {
   Future<void> setVolume(double v);
   void setSleepTimer(Duration? d);
   void setSleepAfterSong(bool v);
+  void setFloatOutput(bool v);
   Future<({int limitMb, int bytes})> audioCacheInfo();
   Future<void> setAudioCacheLimit(int mb);
   Future<void> clearAudioCache();
