@@ -14,6 +14,7 @@ import 'download/download_controller.dart';
 import 'l10n/app_localizations.dart';
 import 'l10n/localizations_delegates.dart';
 import 'library/library_controller.dart';
+import 'player/android_playback_connection.dart';
 import 'player/media_session.dart';
 import 'player/player_controller.dart';
 import 'settings/locale_controller.dart';
@@ -86,20 +87,30 @@ class AppProviders extends StatelessWidget {
               LibraryController(context.read<AuthController>()),
           lazy: false,
         ),
+        // Android 上播放和下载都在播放进程里，两边共用这条连接
+        Provider<AndroidPlaybackConnection?>(
+          create: (_) => switch (androidPlaybackDirectory) {
+            final directory? => AndroidPlaybackConnection(directory),
+            null => null,
+          },
+          dispose: (_, connection) => connection?.dispose(),
+        ),
         ChangeNotifierProvider(
           lazy: androidPlaybackDirectory == null,
-          create: (context) => androidPlaybackDirectory == null
-              ? PlayerController(context.read<AuthController>())
-              : PlayerController.android(
+          create: (context) =>
+              switch (context.read<AndroidPlaybackConnection?>()) {
+                final connection? => PlayerController.android(
                   context.read<AuthController>(),
                   context.read<LibraryController>(),
                   context.read<LocaleController>(),
-                  androidPlaybackDirectory!,
+                  connection,
                 ),
+                null => PlayerController(context.read<AuthController>()),
+              },
         ),
         ChangeNotifierProvider(
           create: (context) =>
-              DownloadController(context.read<PlayerController>().downloads),
+              DownloadController(context.read<AndroidPlaybackConnection?>()),
         ),
       ],
       child: mediaSession && androidPlaybackDirectory == null

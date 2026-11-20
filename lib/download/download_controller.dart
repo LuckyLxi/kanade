@@ -3,33 +3,31 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 
 import '../data/song_json.dart';
+import '../player/android_playback_connection.dart';
 import '../player/playback_messages.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 
-/// 下载在另一个进程里跑（Android 播放进程）：命令发过去，改动从 [changes] 回来。
-class RemoteDownloads {
-  RemoteDownloads(this.send, this.changes);
-
-  final Future<void> Function(PlaybackOp op, [Object? argument]) send;
-
-  /// 改了的那首的 mid；null 表示可能都变了（播放进程重启过）。
-  final Stream<String?> changes;
-}
-
 /// 下载列表和进度。记录在 Rust 的数据库里，这里只是一份跟着改动更新的副本。
+/// Android 上下载在播放进程里跑：命令经 [_remote] 发过去，改了哪首从它的推送里回来。
 class DownloadController extends ChangeNotifier {
   DownloadController([this._remote]) {
     _reload();
-    _sub = switch (_remote) {
-      final remote? => remote.changes.listen(_onRemote),
-      null => api.watchDownloads().listen(_onEvent),
+    _subs = switch (_remote) {
+      final remote? => [
+        remote.updates.listen((message) {
+          if (message['download'] case final String mid) _onRemote(mid);
+        }),
+        // 播放进程重启过，可能都变了
+        remote.restarts.listen((_) => _onRemote(null)),
+      ],
+      null => [api.watchDownloads().listen(_onEvent)],
     };
   }
 
-  final RemoteDownloads? _remote;
+  final AndroidPlaybackConnection? _remote;
   final _items = <String, DownloadItem>{};
-  StreamSubscription<Object?>? _sub;
+  late final List<StreamSubscription<Object?>> _subs;
   late int concurrency = api.getDownloadConcurrency();
   late bool wifiOnly = api.getDownloadWifiOnly();
 
@@ -70,7 +68,7 @@ class DownloadController extends ChangeNotifier {
   }
 
   Future<void> download(List<Song> songs, Quality quality) => switch (_remote) {
-    final r? => r.send(PlaybackOp.download, [
+    final r? => r.call(PlaybackOp.download, [
       songs.map(songToJson).toList(),
       quality.name,
     ]),
@@ -78,13 +76,13 @@ class DownloadController extends ChangeNotifier {
   };
 
   Future<void> pause(List<String> mids) => switch (_remote) {
-    final r? => r.send(PlaybackOp.pauseDownloads, mids),
+    final r? => r.call(PlaybackOp.pauseDownloads, mids),
     null => api.pauseDownloads(mids: mids),
   };
 
   /// 继续暂停的、重试失败的。
   Future<void> resume(List<String> mids) => switch (_remote) {
-    final r? => r.send(PlaybackOp.resumeDownloads, mids),
+    final r? => r.call(PlaybackOp.resumeDownloads, mids),
     null => api.resumeDownloads(mids: mids),
   };
 
@@ -98,7 +96,7 @@ class DownloadController extends ChangeNotifier {
   }
 
   Future<void> remove(String mid) => switch (_remote) {
-    final r? => r.send(PlaybackOp.removeDownload, mid),
+    final r? => r.call(PlaybackOp.removeDownload, mid),
     null => api.removeDownload(mid: mid),
   };
 
@@ -106,7 +104,7 @@ class DownloadController extends ChangeNotifier {
     concurrency = n;
     notifyListeners();
     return switch (_remote) {
-      final r? => r.send(PlaybackOp.downloadConcurrency, n),
+      final r? => r.call(PlaybackOp.downloadConcurrency, n),
       null => api.setDownloadConcurrency(n: n),
     };
   }
@@ -115,14 +113,16 @@ class DownloadController extends ChangeNotifier {
     wifiOnly = on;
     notifyListeners();
     return switch (_remote) {
-      final r? => r.send(PlaybackOp.downloadWifiOnly, on),
+      final r? => r.call(PlaybackOp.downloadWifiOnly, on),
       null => api.setDownloadWifiOnly(enabled: on),
     };
   }
 
   @override
   void dispose() {
-    unawaited(_sub?.cancel());
+    for (final sub in _subs) {
+      unawaited(sub.cancel());
+    }
     super.dispose();
   }
 }

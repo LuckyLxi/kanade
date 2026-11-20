@@ -22,14 +22,18 @@ void sendPlaybackMessage(Socket socket, PlaybackMessage message) {
 }
 
 class AndroidPlaybackConnection {
-  AndroidPlaybackConnection(String directory, this.onUpdate, {this.onRestart})
+  AndroidPlaybackConnection(String directory)
     : _address = playbackAddress(directory);
 
   final InternetAddress _address;
-  final void Function(PlaybackMessage) onUpdate;
+  final _updates = StreamController<PlaybackMessage>.broadcast(sync: true);
+  final _restarts = StreamController<void>.broadcast(sync: true);
+
+  /// 播放进程主动推来的消息：播放状态、下载改动。
+  Stream<PlaybackMessage> get updates => _updates.stream;
 
   /// 断开后重新连上：原来的播放进程已经没了，连上的是新拉起的。
-  final void Function()? onRestart;
+  Stream<void> get restarts => _restarts.stream;
   final _pending = <int, Completer<Object?>>{};
   Socket? _socket;
   Future<Socket>? _connecting;
@@ -84,7 +88,7 @@ class AndroidPlaybackConnection {
         if (_watching) sendPlaybackMessage(socket, {'watch': true});
         if (_lost) {
           _lost = false;
-          onRestart?.call();
+          _restarts.add(null);
         }
         return socket;
       } on SocketException {
@@ -119,7 +123,7 @@ class AndroidPlaybackConnection {
   void _receive(PlaybackMessage message) {
     final id = message['id'];
     if (id is! int) {
-      onUpdate(message);
+      if (!_disposed) _updates.add(message);
       return;
     }
     final pending = _pending.remove(id);
@@ -146,5 +150,7 @@ class AndroidPlaybackConnection {
     if (_socket case final socket?) {
       _disconnect(socket, StateError('Playback connection has closed'));
     }
+    unawaited(_updates.close());
+    unawaited(_restarts.close());
   }
 }

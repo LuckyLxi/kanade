@@ -11,7 +11,6 @@ import 'package:path_provider/path_provider.dart';
 import '../auth/auth_controller.dart';
 import '../data/data_ext.dart';
 import '../data/song_json.dart';
-import '../download/download_controller.dart';
 import '../library/library_controller.dart';
 import '../settings/locale_controller.dart';
 import '../src/rust/api/music.dart' as api;
@@ -98,10 +97,8 @@ abstract class PlayerController extends ChangeNotifier {
     AuthController auth,
     LibraryController library,
     LocaleController locale,
-    String directory, {
-    AndroidPlaybackConnection Function(String, void Function(PlaybackMessage))?
-    connectionFactory,
-  }) = _RemotePlayerController;
+    AndroidPlaybackConnection connection,
+  ) = _RemotePlayerController;
 
   PlayerController._(this._auth, {this.loadDisplayMetadata = true}) {
     _auth.addListener(_onAuthChanged);
@@ -117,9 +114,6 @@ abstract class PlayerController extends ChangeNotifier {
   static const _fadeKey = 'song_fade_seconds';
   static const _sleepAfterSongKey = 'sleep_after_song';
   static const _floatOutputKey = 'audio_float_output';
-
-  /// Android 上下载在播放进程里跑，经这里转；其他情况为 null，直接调 Rust。
-  RemoteDownloads? get downloads => null;
 
   List<Song> queue = [];
   int index = -1;

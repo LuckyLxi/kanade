@@ -165,10 +165,15 @@ class _Socket implements Socket {
 }
 
 class _Connection implements AndroidPlaybackConnection {
-  _Connection(this.update);
-  final void Function(PlaybackMessage) update;
+  final _updates = StreamController<PlaybackMessage>.broadcast(sync: true);
+  final _restarts = StreamController<void>.broadcast(sync: true);
   final calls = <(String, Object?)>[];
-  bool disposed = false;
+  void update(PlaybackMessage message) => _updates.add(message);
+  bool get listened => _updates.hasListener || _restarts.hasListener;
+  @override
+  Stream<PlaybackMessage> get updates => _updates.stream;
+  @override
+  Stream<void> get restarts => _restarts.stream;
   @override
   Future<Socket> connect() async => _Socket();
   @override
@@ -177,11 +182,6 @@ class _Connection implements AndroidPlaybackConnection {
   Future<Object?> call(PlaybackOp op, [Object? argument]) async {
     calls.add((op.name, argument));
     return null;
-  }
-
-  @override
-  void dispose() {
-    disposed = true;
   }
 
   @override
@@ -229,9 +229,7 @@ void main() {
               auth,
               library,
               locale,
-              'test',
-              connectionFactory: (_, update) =>
-                  connection = _Connection(update),
+              connection = _Connection(),
             )
           : PlayerController(auth, player: engine);
     }
@@ -388,7 +386,7 @@ void main() {
         await tester.pump();
         expect(player.chorus, isNull);
         expect(player.lyric, isNull);
-        expect(remote ? connection!.disposed : engine.disposed, isTrue);
+        expect(remote ? !connection!.listened : engine.disposed, isTrue);
         expect(tester.takeException(), isNull);
       },
     );
@@ -405,8 +403,7 @@ void main() {
       auth,
       library,
       locale,
-      'test',
-      connectionFactory: (_, update) => connection = _Connection(update),
+      connection = _Connection(),
     );
     await player.playList([_song(1)], 0);
     expect(connection.calls.single.$1, 'playList');
@@ -476,8 +473,7 @@ void main() {
       auth,
       library,
       locale,
-      'test',
-      connectionFactory: (_, update) => connection = _Connection(update),
+      connection = _Connection(),
     );
     connection.update(encodePlayerState(source, includeQueue: true));
     expect(remote.queue.map((s) => s.mid), ['m1', 'm2']);

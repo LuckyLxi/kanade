@@ -5,17 +5,12 @@ class _RemotePlayerController extends PlayerController {
     super.auth,
     this._library,
     this._locale,
-    String directory, {
-    AndroidPlaybackConnection Function(String, void Function(PlaybackMessage))?
-    connectionFactory,
-  }) : super._() {
-    _connection =
-        (connectionFactory ??
-        (directory, onUpdate) => AndroidPlaybackConnection(
-          directory,
-          onUpdate,
-          onRestart: _onRestart,
-        ))(directory, _applyUpdate);
+    this._connection,
+  ) : super._() {
+    _subscriptions = [
+      _connection.updates.listen(_applyUpdate),
+      _connection.restarts.listen((_) => _resumePosition()),
+    ];
     _lifecycle = AppLifecycleListener(
       onResume: _connect,
       onPause: () => _connection.setWatching(false),
@@ -28,20 +23,12 @@ class _RemotePlayerController extends PlayerController {
 
   final LibraryController _library;
   final LocaleController _locale;
-  late final AndroidPlaybackConnection _connection;
+  final AndroidPlaybackConnection _connection;
+  late final List<StreamSubscription<Object?>> _subscriptions;
   late final AppLifecycleListener _lifecycle;
   (String, bool)? _lastLike;
   bool _disposed = false;
   bool _resuming = false;
-  final _downloadChanges = StreamController<String?>.broadcast();
-
-  @override
-  late final downloads = RemoteDownloads(_send, _downloadChanges.stream);
-
-  void _onRestart() {
-    _downloadChanges.add(null);
-    _resumePosition();
-  }
 
   void _connect() {
     _connection.setWatching(true);
@@ -90,10 +77,8 @@ class _RemotePlayerController extends PlayerController {
 
   void _applyUpdate(PlaybackMessage message) {
     if (_disposed) return;
-    if (message['download'] case final String mid) {
-      _downloadChanges.add(mid);
-      return;
-    }
+    // 下载改动由 DownloadController 处理
+    if (message['download'] is String) return;
     if (message['position'] case final int milliseconds) {
       if (_resuming) return;
       position.value = Duration(milliseconds: milliseconds);
@@ -261,8 +246,9 @@ class _RemotePlayerController extends PlayerController {
     _library.removeListener(_syncLiked);
     _locale.removeListener(_syncLocale);
     _lifecycle.dispose();
-    _connection.dispose();
-    unawaited(_downloadChanges.close());
+    for (final subscription in _subscriptions) {
+      unawaited(subscription.cancel());
+    }
     super.dispose();
   }
 }
