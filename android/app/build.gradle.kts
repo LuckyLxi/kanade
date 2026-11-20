@@ -117,6 +117,10 @@ android {
                 signingConfigs.getByName("debug")
             }
         }
+        // 本地有正式签名时 debug / profile 包也用它，跑测试能直接覆盖手机上的正式版，不用卸载清数据
+        if (keystorePropertiesFile.exists()) {
+            all { signingConfig = signingConfigs.getByName("release") }
+        }
     }
 }
 
