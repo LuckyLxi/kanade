@@ -106,51 +106,207 @@ class _DownloadsPageState extends State<DownloadsPage> {
     DownloadController downloads,
     List<DownloadItem> items,
   ) {
-    if (items.isEmpty) return Center(child: Text(l.downloadEmpty));
     final waiting = downloads.waitingForWifi;
-    return ListView.builder(
+    return _RemovalList<DownloadItem>(
+      items: items,
+      keyOf: (d) => d.song.mid,
+      empty: Center(child: Text(l.downloadEmpty)),
       padding: const EdgeInsets.only(top: 8, bottom: 120),
-      itemCount: items.length,
-      itemBuilder: (context, i) =>
-          _ActiveRow(items[i], waitingForWifi: waiting),
+      itemBuilder: (items, i) => _ActiveRow(items[i], waitingForWifi: waiting),
     );
   }
 
   Widget _done(AppLocalizations l, BuildContext context, List<Song> songs) {
-    if (songs.isEmpty) return Center(child: Text(l.downloadedEmpty));
     final scheme = Theme.of(context).colorScheme;
-    return ListView.builder(
+    return _RemovalList<Song>(
+      items: songs,
+      keyOf: (s) => s.mid,
+      empty: Center(child: Text(l.downloadedEmpty)),
       padding: const EdgeInsets.only(bottom: 120),
-      itemCount: songs.length + 1,
-      itemBuilder: (context, i) {
-        if (i > 0) return SongTile(songs: songs, index: i - 1);
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: l.playAll(songs.length),
-                style: IconButton.styleFrom(
-                  fixedSize: const Size(44, 44),
-                  backgroundColor: scheme.primaryContainer,
-                  foregroundColor: scheme.onPrimaryContainer,
-                ),
-                onPressed: () =>
-                    context.read<PlayerController>().playList(songs, 0),
-                icon: const Icon(Icons.play_arrow_rounded, size: 26),
+      itemBuilder: (songs, i) => SongTile(songs: songs, index: i),
+      header: songs.isEmpty
+          ? null
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip: l.playAll(songs.length),
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size(44, 44),
+                      backgroundColor: scheme.primaryContainer,
+                      foregroundColor: scheme.onPrimaryContainer,
+                    ),
+                    onPressed: () =>
+                        context.read<PlayerController>().playList(songs, 0),
+                    icon: const Icon(Icons.play_arrow_rounded, size: 26),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '${l.playAllTitle} · ${l.songCount(songs.length)}',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '${l.playAllTitle} · ${l.songCount(songs.length)}',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+            ),
+    );
+  }
+}
+
+/// 列表里少了的行先淡出、收起高度再拿掉，下面的行跟着往上移。新增的行直接出现。
+class _RemovalList<T> extends StatefulWidget {
+  const _RemovalList({
+    required this.items,
+    required this.keyOf,
+    required this.itemBuilder,
+    required this.empty,
+    required this.padding,
+    this.header,
+  });
+
+  final List<T> items;
+  final Object Function(T item) keyOf;
+  final Widget Function(List<T> items, int index) itemBuilder;
+  final Widget empty;
+  final EdgeInsets padding;
+  final Widget? header;
+
+  @override
+  State<_RemovalList<T>> createState() => _RemovalListState<T>();
+}
+
+class _Row {
+  _Row(this.key);
+
+  final Object key;
+
+  /// 正在移出时冻结的旧行和它的动画。
+  Widget? leaving;
+  AnimationController? controller;
+  CurvedAnimation? animation;
+
+  void dispose() {
+    animation?.dispose();
+    controller?.dispose();
+  }
+}
+
+class _RemovalListState<T> extends State<_RemovalList<T>>
+    with TickerProviderStateMixin {
+  late var _rows = [for (final t in widget.items) _Row(widget.keyOf(t))];
+
+  /// 列表删空后头部也没了，最后几行收起前先留着旧的，不然它们会一下跳上去。
+  Widget? _lastHeader;
+
+  @override
+  void didUpdateWidget(_RemovalList<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.header == null && oldWidget.header != null) {
+      _lastHeader = IgnorePointer(child: oldWidget.header);
+    } else if (widget.header != null) {
+      _lastHeader = null;
+    }
+    final items = widget.items;
+    final keys = [for (final t in items) widget.keyOf(t)];
+    final keySet = keys.toSet();
+    final oldIndex = {
+      for (var i = 0; i < oldWidget.items.length; i++)
+        oldWidget.keyOf(oldWidget.items[i]): i,
+    };
+    final next = <_Row>[];
+    final placed = <Object>{};
+    var j = 0;
+    void place(int i) {
+      next.add(_Row(keys[i]));
+      placed.add(keys[i]);
+    }
+
+    // 按新列表的顺序排，正在移出的行留在原来的位置
+    for (final r in _rows) {
+      if (!keySet.contains(r.key)) {
+        if (r.controller == null) _leave(r, oldWidget, oldIndex[r.key]!);
+        next.add(r);
+        continue;
+      }
+      if (r.controller != null) {
+        // 移出途中又加回来了，按新的行放
+        r.dispose();
+        continue;
+      }
+      if (placed.contains(r.key)) continue;
+      while (keys[j] != r.key) {
+        if (!placed.contains(keys[j])) place(j);
+        j++;
+      }
+      place(j++);
+    }
+    for (; j < keys.length; j++) {
+      if (!placed.contains(keys[j])) place(j);
+    }
+    _rows = next;
+  }
+
+  void _leave(_Row r, _RemovalList<T> old, int index) {
+    final c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+      value: 1,
+    );
+    r
+      ..leaving = old.itemBuilder(old.items, index)
+      ..controller = c
+      ..animation = CurvedAnimation(parent: c, curve: Curves.easeInOutCubic);
+    c.reverse().whenComplete(() {
+      if (!mounted || !_rows.contains(r)) return;
+      setState(() => _rows.remove(r));
+      r.dispose();
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final r in _rows) {
+      r.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_rows.isEmpty) return widget.empty;
+    final header = widget.header ?? _lastHeader;
+    final offset = header == null ? 0 : 1;
+    final index = {
+      for (var i = 0; i < widget.items.length; i++)
+        widget.keyOf(widget.items[i]): i,
+    };
+    return ListView.builder(
+      padding: widget.padding,
+      itemCount: _rows.length + offset,
+      findChildIndexCallback: (key) {
+        final i = _rows.indexWhere((r) => ValueKey(r.key) == key);
+        return i < 0 ? null : i + offset;
+      },
+      itemBuilder: (context, i) {
+        if (i < offset) return header!;
+        final r = _rows[i - offset];
+        final animation = r.animation;
+        return KeyedSubtree(
+          key: ValueKey(r.key),
+          child: animation == null
+              ? widget.itemBuilder(widget.items, index[r.key]!)
+              : IgnorePointer(
+                  child: SizeTransition(
+                    sizeFactor: animation,
+                    alignment: Alignment.topCenter,
+                    child: FadeTransition(opacity: animation, child: r.leaving),
                   ),
                 ),
-              ),
-            ],
-          ),
         );
       },
     );
