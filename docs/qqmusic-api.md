@@ -233,7 +233,7 @@ DTS:X、360RA、NAC 由播放器以外的解码器先转成 WAV（缓存扩展�
 
 实现：[music.rs](../rust/src/qq/music.rs) `song_url`。
 
-下载（[download.rs](../rust/src/qq/download.rs)）也用这里拿链接，没有单独的下载接口：抓包里官方客户端下载前只调了 `music.musicmallcgi.SongDownloadTicketCgi.GetTicketCount`（`{"param":""}`，查下载券数量），实际文件和播放是同一批地址。
+下载（[download/](../rust/src/qq/download/mod.rs)）也用这里拿链接，没有单独的下载接口：抓包里官方客户端下载前只调了 `music.musicmallcgi.SongDownloadTicketCgi.GetTicketCount`（`{"param":""}`，查下载券数量），实际文件和播放是同一批地址。
 
 从用户选的音质开始按 `quality::playback_chain` 逐级降档：
 

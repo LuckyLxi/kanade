@@ -38,7 +38,7 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 
 ### Downloads
 
-- `rust/src/qq/download.rs` owns the queue, retries, concurrency and Wi-Fi-only rules. Download records live in the DB; `lib/download/download_controller.dart` keeps a copy that updates from `watchDownloads` events. It uses the same URL lookup with quality fallback and the same in-flight decryption as playback, then saves a tagged plain file (lyrics embedded or as a sibling `.lrc`).
+- `rust/src/qq/download/` owns the queue, retries, concurrency and Wi-Fi-only rules. Download records live in the DB; `lib/download/download_controller.dart` keeps a copy that updates from `watchDownloads` events. It uses the same URL lookup with quality fallback and the same in-flight decryption as playback, then saves a tagged plain file (lyrics embedded or as a sibling `.lrc`).
 - Each file carries a `kanade:<id>:<quality>` comment tag. After a reinstall, `restore_downloads` uses it to match files in the download folder back to songs. Untagged files are imported as local songs (`download::is_local`).
 - On Android, downloads run in the playback process. The UI sends commands over the playback socket (`RemoteDownloads`) and rereads the shared DB when notified. Rust calls Kotlin over JNI (`MediaStoreBridge.kt`) to write into MediaStore `Music/Kanade` (records keep `content://` URIs), to watch metered network, and to drive `DownloadService`'s foreground notification.
 
