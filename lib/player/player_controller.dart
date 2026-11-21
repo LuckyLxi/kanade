@@ -135,6 +135,9 @@ abstract class PlayerController extends ChangeNotifier {
       PlayMode.values.asNameMap()[api.getPref(key: _modeKey)] ??
       PlayMode.sequence;
   bool playing = false;
+
+  /// 进度还在走。暂停淡出时 [playing] 已经是 false，声音和进度要等淡完才停。
+  bool get advancing => playing;
   bool buffering = false;
   bool loading = false;
   Duration duration = Duration.zero;

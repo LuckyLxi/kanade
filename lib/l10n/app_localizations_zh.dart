@@ -1443,4 +1443,88 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get hotkeyClear => '清除';
+
+  @override
+  String get hotkeyLyrics => '打开/关闭桌面歌词';
+
+  @override
+  String get desktopLyrics => '桌面歌词';
+
+  @override
+  String get desktopLyricsHint => '在所有窗口上面显示歌词';
+
+  @override
+  String get desktopLyricsLock => '锁定桌面歌词';
+
+  @override
+  String get desktopLyricsLockHint => '锁定后鼠标会穿过歌词；停在歌词上点小锁即可解锁';
+
+  @override
+  String get desktopLyricsSung => '已唱颜色';
+
+  @override
+  String get desktopLyricsUnsung => '未唱颜色';
+
+  @override
+  String get desktopLyricsLines => '行数';
+
+  @override
+  String get desktopLyricsDouble => '两行交替';
+
+  @override
+  String get desktopLyricsSingle => '单行';
+
+  @override
+  String get desktopLyricsAlign => '对齐';
+
+  @override
+  String get alignLeft => '左对齐';
+
+  @override
+  String get alignCenter => '居中';
+
+  @override
+  String get alignRight => '右对齐';
+
+  @override
+  String get alignStagger => '错开';
+
+  @override
+  String get desktopLyricsShow => '打开桌面歌词';
+
+  @override
+  String get desktopLyricsHide => '关闭桌面歌词';
+
+  @override
+  String get desktopLyricsUnlock => '解锁桌面歌词';
+
+  @override
+  String get colorLime => '柠檬绿';
+
+  @override
+  String get colorWhite => '白色';
+
+  @override
+  String get colorBlue => '天蓝';
+
+  @override
+  String get colorPink => '樱粉';
+
+  @override
+  String get colorOrange => '橙色';
+
+  @override
+  String get colorPurple => '淡紫';
+
+  @override
+  String get colorCustom => '自定义…';
+
+  @override
+  String get colorHue => '色相';
+
+  @override
+  String get colorSaturation => '饱和度';
+
+  @override
+  String get colorBrightness => '亮度';
 }

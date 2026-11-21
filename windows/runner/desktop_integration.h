@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "desktop_lyrics.h"
 #include "taskbar_thumbnail.h"
 
 namespace Gdiplus {
@@ -58,6 +59,8 @@ class DesktopIntegration {
   // Close goes through WM_CLOSE again, this time without asking Dart.
   void Quit();
   flutter::EncodableList SetHotkeys(const flutter::EncodableList& hotkeys);
+  // Tells Dart what the user changed on the lyric window, to save it.
+  void SendLyricsState();
 
   HWND window_;
   const TaskbarThumbnail* thumbnail_;
@@ -69,7 +72,7 @@ class DesktopIntegration {
   HICON tray_icon_ = nullptr;
   std::wstring tip_;
   // Menu text from Dart, keyed by item: title, artist, play, pause, previous,
-  // next, show, exit.
+  // next, lyricsShow, lyricsHide, lyricsUnlock, show, exit.
   std::map<std::string, std::wstring> labels_;
   // Material Icons glyphs from Dart, keyed by item plus "song".
   std::map<std::string, std::wstring> icons_;
@@ -95,6 +98,8 @@ class DesktopIntegration {
 
   // Registered hotkey id - 1 -> action name.
   std::vector<std::string> hotkeys_;
+
+  std::unique_ptr<DesktopLyrics> lyrics_;
 };
 
 #endif  // RUNNER_DESKTOP_INTEGRATION_H_

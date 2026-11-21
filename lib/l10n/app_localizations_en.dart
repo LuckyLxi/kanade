@@ -1532,4 +1532,89 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get hotkeyClear => 'Clear';
+
+  @override
+  String get hotkeyLyrics => 'Show or hide desktop lyrics';
+
+  @override
+  String get desktopLyrics => 'Desktop lyrics';
+
+  @override
+  String get desktopLyricsHint => 'Show lyrics above all windows';
+
+  @override
+  String get desktopLyricsLock => 'Lock desktop lyrics';
+
+  @override
+  String get desktopLyricsLockHint =>
+      'Clicks pass through locked lyrics; hover them and click the small lock to unlock';
+
+  @override
+  String get desktopLyricsSung => 'Sung color';
+
+  @override
+  String get desktopLyricsUnsung => 'Unsung color';
+
+  @override
+  String get desktopLyricsLines => 'Lines';
+
+  @override
+  String get desktopLyricsDouble => 'Two, alternating';
+
+  @override
+  String get desktopLyricsSingle => 'One';
+
+  @override
+  String get desktopLyricsAlign => 'Alignment';
+
+  @override
+  String get alignLeft => 'Left';
+
+  @override
+  String get alignCenter => 'Center';
+
+  @override
+  String get alignRight => 'Right';
+
+  @override
+  String get alignStagger => 'Staggered';
+
+  @override
+  String get desktopLyricsShow => 'Show desktop lyrics';
+
+  @override
+  String get desktopLyricsHide => 'Hide desktop lyrics';
+
+  @override
+  String get desktopLyricsUnlock => 'Unlock desktop lyrics';
+
+  @override
+  String get colorLime => 'Lime';
+
+  @override
+  String get colorWhite => 'White';
+
+  @override
+  String get colorBlue => 'Sky blue';
+
+  @override
+  String get colorPink => 'Pink';
+
+  @override
+  String get colorOrange => 'Orange';
+
+  @override
+  String get colorPurple => 'Lavender';
+
+  @override
+  String get colorCustom => 'Custom…';
+
+  @override
+  String get colorHue => 'Hue';
+
+  @override
+  String get colorSaturation => 'Saturation';
+
+  @override
+  String get colorBrightness => 'Brightness';
 }

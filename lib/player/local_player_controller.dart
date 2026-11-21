@@ -662,6 +662,9 @@ class _LocalPlayerController extends PlayerController {
   }
 
   @override
+  bool get advancing => _player.state.playing;
+
+  @override
   Future<void> play() async {
     if (_restored) return _playAt(index, start: _restoredStart);
     if (!_player.state.playing) {

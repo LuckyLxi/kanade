@@ -19,6 +19,7 @@ import '../src/rust/api/types.dart';
 import '../update/app_update.dart';
 import 'dislike_page.dart';
 import 'foryou_settings_page.dart';
+import 'color_picker_dialog.dart';
 import 'download_actions.dart';
 import 'glass_dropdown.dart';
 import 'kanade_dialog.dart';
@@ -98,6 +99,10 @@ class _SettingsPageState extends State<SettingsPage> {
   final _languageMenu = GlobalKey<GlassDropdownState<String>>();
   final _limitMenu = GlobalKey<GlassDropdownState<int>>();
   final _closeMenu = GlobalKey<GlassDropdownState<CloseAction>>();
+  final _sungMenu = GlobalKey<GlassDropdownState<int>>();
+  final _unsungMenu = GlobalKey<GlassDropdownState<int>>();
+  final _linesMenu = GlobalKey<GlassDropdownState<bool>>();
+  final _alignMenu = GlobalKey<GlassDropdownState<LyricsAlign>>();
   String? _version;
   var _checking = false;
   UpdateCheckResult? _checked;
@@ -142,6 +147,18 @@ class _SettingsPageState extends State<SettingsPage> {
       CloseAction.tray => l.closeToTray,
       CloseAction.exit => l.closeExit,
     };
+    String linesText(bool single) =>
+        single ? l.desktopLyricsSingle : l.desktopLyricsDouble;
+    String alignText(LyricsAlign a) => switch (a) {
+      LyricsAlign.left => l.alignLeft,
+      LyricsAlign.center => l.alignCenter,
+      LyricsAlign.right => l.alignRight,
+      LyricsAlign.stagger => l.alignStagger,
+    };
+    final align =
+        desktop.lyricsSingleLine && desktop.lyricsAlign == LyricsAlign.stagger
+        ? LyricsAlign.center
+        : desktop.lyricsAlign;
     final error = Theme.of(context).colorScheme.error;
     return [
       _Item(
@@ -170,6 +187,98 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
       _Item(
+        icon: Icons.lyrics_outlined,
+        title: l.desktopLyrics,
+        hint: l.desktopLyricsHint,
+        onTap: () => desktop.setLyricsVisible(!desktop.lyricsVisible),
+        trailing: Switch(
+          value: desktop.lyricsVisible,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          onChanged: desktop.setLyricsVisible,
+        ),
+      ),
+      if (desktop.lyricsVisible)
+        _Item(
+          icon: Icons.lock_outline_rounded,
+          title: l.desktopLyricsLock,
+          hint: l.desktopLyricsLockHint,
+          onTap: () => desktop.setLyricsLocked(!desktop.lyricsLocked),
+          trailing: Switch(
+            value: desktop.lyricsLocked,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            onChanged: desktop.setLyricsLocked,
+          ),
+        ),
+      if (desktop.lyricsVisible)
+        for (final (menu, icon, title, color, onSelected) in [
+          (
+            _sungMenu,
+            Icons.format_color_fill_rounded,
+            l.desktopLyricsSung,
+            desktop.lyricsSung,
+            desktop.setLyricsSung,
+          ),
+          (
+            _unsungMenu,
+            Icons.format_color_text_rounded,
+            l.desktopLyricsUnsung,
+            desktop.lyricsUnsung,
+            desktop.setLyricsUnsung,
+          ),
+        ])
+          _Item(
+            icon: icon,
+            title: title,
+            value: GlassDropdown<int>(
+              key: menu,
+              title: title,
+              // 自定义颜色不在列表里，不打勾，再点“自定义”也能重新选
+              values: const [...lyricsColors, -1],
+              selected: color,
+              label: (c) => c < 0 ? l.colorCustom : _colorName(l, c),
+              onSelected: (c) => _selectColor(c, title, color, onSelected),
+              child: _ColorValue(color, _colorName(l, color)),
+            ),
+            onTap: () => menu.currentState?.open(),
+          ),
+      if (desktop.lyricsVisible) ...[
+        _Item(
+          icon: Icons.view_agenda_outlined,
+          title: l.desktopLyricsLines,
+          value: GlassDropdown<bool>(
+            key: _linesMenu,
+            title: l.desktopLyricsLines,
+            values: const [false, true],
+            selected: desktop.lyricsSingleLine,
+            label: linesText,
+            onSelected: desktop.setLyricsSingleLine,
+            child: _Value(linesText(desktop.lyricsSingleLine)),
+          ),
+          onTap: () => _linesMenu.currentState?.open(),
+        ),
+        _Item(
+          icon: Icons.format_align_center_rounded,
+          title: l.desktopLyricsAlign,
+          value: GlassDropdown<LyricsAlign>(
+            key: _alignMenu,
+            title: l.desktopLyricsAlign,
+            // 单行没有错开，显示成居中
+            values: desktop.lyricsSingleLine
+                ? const [
+                    LyricsAlign.left,
+                    LyricsAlign.center,
+                    LyricsAlign.right,
+                  ]
+                : LyricsAlign.values,
+            selected: align,
+            label: alignText,
+            onSelected: desktop.setLyricsAlign,
+            child: _Value(alignText(align)),
+          ),
+          onTap: () => _alignMenu.currentState?.open(),
+        ),
+      ],
+      _Item(
         icon: Icons.keyboard_outlined,
         title: l.hotkeys,
         hint: l.hotkeysHint,
@@ -193,6 +302,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           (HotkeyAction.like, Icons.favorite_border_rounded, l.hotkeyLike),
           (HotkeyAction.window, Icons.web_asset_rounded, l.hotkeyWindow),
+          (HotkeyAction.lyrics, Icons.lyrics_outlined, l.hotkeyLyrics),
         ])
           _Item(
             icon: icon,
@@ -431,6 +541,27 @@ class _SettingsPageState extends State<SettingsPage> {
     await player.setAudioCacheLimit(mb);
     if (!mounted) return;
     await _loadSizes();
+  }
+
+  /// -1 表示自定义。
+  Future<void> _selectColor(
+    int v,
+    String title,
+    int current,
+    void Function(int) set,
+  ) async {
+    if (v < 0) {
+      await Future<void>.delayed(const Duration(milliseconds: 450));
+      if (!mounted) return;
+      final picked = await showColorPicker(
+        context,
+        title: title,
+        initial: current,
+      );
+      if (picked != null) set(picked);
+    } else {
+      set(v);
+    }
   }
 
   Future<int?> _customLimit() {
@@ -1073,6 +1204,46 @@ class _SettingsPageState extends State<SettingsPage> {
           },
         ),
       ),
+    );
+  }
+}
+
+String _colorName(AppLocalizations l, int color) =>
+    switch (lyricsColors.indexOf(color)) {
+      0 => l.colorLime,
+      1 => l.colorWhite,
+      2 => l.colorBlue,
+      3 => l.colorPink,
+      4 => l.colorOrange,
+      5 => l.colorPurple,
+      _ => '#${(color & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}',
+    };
+
+/// 颜色选项平时的样子：色块、颜色名加箭头。
+class _ColorValue extends StatelessWidget {
+  const _ColorValue(this.color, this.name);
+
+  final int color;
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: Color(color),
+            shape: BoxShape.circle,
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+        ),
+        const SizedBox(width: 8),
+        _Value(name),
+      ],
     );
   }
 }

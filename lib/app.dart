@@ -147,6 +147,7 @@ class _MediaSessionHostState extends State<_MediaSessionHost> {
       context.read<LibraryController>(),
       context.read<LocaleController>(),
       context.read<DesktopSettings>(),
+      context.read<LyricSettings>(),
       _navigator,
     );
   }

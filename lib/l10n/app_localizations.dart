@@ -2708,6 +2708,174 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'清除'**
   String get hotkeyClear;
+
+  /// No description provided for @hotkeyLyrics.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开/关闭桌面歌词'**
+  String get hotkeyLyrics;
+
+  /// No description provided for @desktopLyrics.
+  ///
+  /// In zh, this message translates to:
+  /// **'桌面歌词'**
+  String get desktopLyrics;
+
+  /// No description provided for @desktopLyricsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'在所有窗口上面显示歌词'**
+  String get desktopLyricsHint;
+
+  /// No description provided for @desktopLyricsLock.
+  ///
+  /// In zh, this message translates to:
+  /// **'锁定桌面歌词'**
+  String get desktopLyricsLock;
+
+  /// No description provided for @desktopLyricsLockHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'锁定后鼠标会穿过歌词；停在歌词上点小锁即可解锁'**
+  String get desktopLyricsLockHint;
+
+  /// No description provided for @desktopLyricsSung.
+  ///
+  /// In zh, this message translates to:
+  /// **'已唱颜色'**
+  String get desktopLyricsSung;
+
+  /// No description provided for @desktopLyricsUnsung.
+  ///
+  /// In zh, this message translates to:
+  /// **'未唱颜色'**
+  String get desktopLyricsUnsung;
+
+  /// No description provided for @desktopLyricsLines.
+  ///
+  /// In zh, this message translates to:
+  /// **'行数'**
+  String get desktopLyricsLines;
+
+  /// No description provided for @desktopLyricsDouble.
+  ///
+  /// In zh, this message translates to:
+  /// **'两行交替'**
+  String get desktopLyricsDouble;
+
+  /// No description provided for @desktopLyricsSingle.
+  ///
+  /// In zh, this message translates to:
+  /// **'单行'**
+  String get desktopLyricsSingle;
+
+  /// No description provided for @desktopLyricsAlign.
+  ///
+  /// In zh, this message translates to:
+  /// **'对齐'**
+  String get desktopLyricsAlign;
+
+  /// No description provided for @alignLeft.
+  ///
+  /// In zh, this message translates to:
+  /// **'左对齐'**
+  String get alignLeft;
+
+  /// No description provided for @alignCenter.
+  ///
+  /// In zh, this message translates to:
+  /// **'居中'**
+  String get alignCenter;
+
+  /// No description provided for @alignRight.
+  ///
+  /// In zh, this message translates to:
+  /// **'右对齐'**
+  String get alignRight;
+
+  /// No description provided for @alignStagger.
+  ///
+  /// In zh, this message translates to:
+  /// **'错开'**
+  String get alignStagger;
+
+  /// No description provided for @desktopLyricsShow.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开桌面歌词'**
+  String get desktopLyricsShow;
+
+  /// No description provided for @desktopLyricsHide.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭桌面歌词'**
+  String get desktopLyricsHide;
+
+  /// No description provided for @desktopLyricsUnlock.
+  ///
+  /// In zh, this message translates to:
+  /// **'解锁桌面歌词'**
+  String get desktopLyricsUnlock;
+
+  /// No description provided for @colorLime.
+  ///
+  /// In zh, this message translates to:
+  /// **'柠檬绿'**
+  String get colorLime;
+
+  /// No description provided for @colorWhite.
+  ///
+  /// In zh, this message translates to:
+  /// **'白色'**
+  String get colorWhite;
+
+  /// No description provided for @colorBlue.
+  ///
+  /// In zh, this message translates to:
+  /// **'天蓝'**
+  String get colorBlue;
+
+  /// No description provided for @colorPink.
+  ///
+  /// In zh, this message translates to:
+  /// **'樱粉'**
+  String get colorPink;
+
+  /// No description provided for @colorOrange.
+  ///
+  /// In zh, this message translates to:
+  /// **'橙色'**
+  String get colorOrange;
+
+  /// No description provided for @colorPurple.
+  ///
+  /// In zh, this message translates to:
+  /// **'淡紫'**
+  String get colorPurple;
+
+  /// No description provided for @colorCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义…'**
+  String get colorCustom;
+
+  /// No description provided for @colorHue.
+  ///
+  /// In zh, this message translates to:
+  /// **'色相'**
+  String get colorHue;
+
+  /// No description provided for @colorSaturation.
+  ///
+  /// In zh, this message translates to:
+  /// **'饱和度'**
+  String get colorSaturation;
+
+  /// No description provided for @colorBrightness.
+  ///
+  /// In zh, this message translates to:
+  /// **'亮度'**
+  String get colorBrightness;
 }
 
 class _AppLocalizationsDelegate

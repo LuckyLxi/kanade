@@ -79,7 +79,15 @@ constexpr wchar_t kStartupApprovedKey[] =
     L"\\Run";
 constexpr wchar_t kRunValue[] = L"Kanade";
 
-enum MenuCommand { kMenuToggle = 1, kMenuPrevious, kMenuNext, kMenuShow, kMenuExit };
+enum MenuCommand {
+  kMenuToggle = 1,
+  kMenuPrevious,
+  kMenuNext,
+  kMenuLyrics,
+  kMenuLyricsUnlock,
+  kMenuShow,
+  kMenuExit
+};
 
 using flutter::EncodableList;
 using flutter::EncodableMap;
@@ -88,6 +96,67 @@ using flutter::EncodableValue;
 const EncodableValue* Find(const EncodableMap& map, const char* key) {
   auto it = map.find(EncodableValue(key));
   return it == map.end() ? nullptr : &it->second;
+}
+
+std::wstring Glyph(uint32_t code) {
+  std::wstring glyph;
+  if (code > 0xFFFF) {
+    glyph += static_cast<wchar_t>(0xD800 + ((code - 0x10000) >> 10));
+    glyph += static_cast<wchar_t>(0xDC00 + ((code - 0x10000) & 0x3FF));
+  } else {
+    glyph += static_cast<wchar_t>(code);
+  }
+  return glyph;
+}
+
+std::map<std::string, std::wstring> Glyphs(const EncodableMap& map) {
+  std::map<std::string, std::wstring> glyphs;
+  for (const auto& [key, value] : map) {
+    glyphs[std::get<std::string>(key)] =
+        Glyph(static_cast<uint32_t>(value.LongValue()));
+  }
+  return glyphs;
+}
+
+DesktopLyrics::Config LyricsConfig(const EncodableMap& map) {
+  DesktopLyrics::Config config;
+  config.visible = std::get<bool>(*Find(map, "visible"));
+  config.locked = std::get<bool>(*Find(map, "locked"));
+  config.font_size = static_cast<int>(Find(map, "fontSize")->LongValue());
+  config.sung = static_cast<uint32_t>(Find(map, "sung")->LongValue());
+  config.unsung = static_cast<uint32_t>(Find(map, "unsung")->LongValue());
+  config.single_line = std::get<bool>(*Find(map, "singleLine"));
+  config.align = static_cast<DesktopLyrics::Align>(Find(map, "align")->LongValue());
+  config.translation = std::get<bool>(*Find(map, "translation"));
+  config.romaji = std::get<bool>(*Find(map, "romaji"));
+  const EncodableValue* x = Find(map, "x");
+  const EncodableValue* y = Find(map, "y");
+  if (x && y && !x->IsNull() && !y->IsNull()) {
+    config.position = POINT{static_cast<LONG>(x->LongValue()),
+                            static_cast<LONG>(y->LongValue())};
+  }
+  config.icons = Glyphs(std::get<EncodableMap>(*Find(map, "icons")));
+  return config;
+}
+
+std::vector<DesktopLyrics::Line> LyricsLines(const EncodableList& list) {
+  std::vector<DesktopLyrics::Line> lines;
+  lines.reserve(list.size());
+  for (const auto& item : list) {
+    const auto& map = std::get<EncodableMap>(item);
+    DesktopLyrics::Line line;
+    line.time = static_cast<int32_t>(Find(map, "time")->LongValue());
+    line.text = Utf16FromUtf8(std::get<std::string>(*Find(map, "text")));
+    line.trans = Utf16FromUtf8(std::get<std::string>(*Find(map, "trans")));
+    line.roma = Utf16FromUtf8(std::get<std::string>(*Find(map, "roma")));
+    // start, duration, length for each word.
+    const auto& words = std::get<std::vector<int32_t>>(*Find(map, "words"));
+    for (size_t i = 0; i + 2 < words.size(); i += 3) {
+      line.words.push_back({words[i], words[i + 1], words[i + 2]});
+    }
+    lines.push_back(std::move(line));
+  }
+  return lines;
 }
 
 std::wstring ExePath() {
@@ -281,6 +350,12 @@ DesktopIntegration::DesktopIntegration(HWND window,
   channel_->SetMethodCallHandler([this](const auto& call, auto result) {
     HandleMethodCall(call, std::move(result));
   });
+  lyrics_ = std::make_unique<DesktopLyrics>(
+      icon_font_path_,
+      [this](const char* action) {
+        channel_->InvokeMethod("tray", std::make_unique<EncodableValue>(action));
+      },
+      [this] { SendLyricsState(); });
 }
 
 DesktopIntegration::~DesktopIntegration() {
@@ -331,6 +406,9 @@ std::optional<LRESULT> DesktopIntegration::HandleMessage(UINT message,
         } else {
           ShowWindow();
         }
+      } else if (hotkeys_[index] == "lyrics") {
+        lyrics_->SetVisible(!lyrics_->visible());
+        SendLyricsState();
       } else {
         channel_->InvokeMethod(
             "hotkey", std::make_unique<EncodableValue>(hotkeys_[index]));
@@ -368,6 +446,14 @@ std::optional<LRESULT> DesktopIntegration::HandleMessage(UINT message,
         case kMenuNext:
           channel_->InvokeMethod("tray",
                                  std::make_unique<EncodableValue>("next"));
+          return 0;
+        case kMenuLyrics:
+          lyrics_->SetVisible(!lyrics_->visible());
+          SendLyricsState();
+          return 0;
+        case kMenuLyricsUnlock:
+          lyrics_->SetLocked(false);
+          SendLyricsState();
           return 0;
         case kMenuShow:
           ShowWindow();
@@ -425,18 +511,25 @@ void DesktopIntegration::HandleMethodCall(
       labels_[std::get<std::string>(key)] =
           Utf16FromUtf8(std::get<std::string>(value));
     }
-    for (const auto& [key, value] : std::get<EncodableMap>(*Find(map, "icons"))) {
-      const auto code = static_cast<uint32_t>(std::get<int>(value));
-      std::wstring glyph;
-      if (code > 0xFFFF) {
-        glyph += static_cast<wchar_t>(0xD800 + ((code - 0x10000) >> 10));
-        glyph += static_cast<wchar_t>(0xDC00 + ((code - 0x10000) & 0x3FF));
-      } else {
-        glyph += static_cast<wchar_t>(code);
-      }
-      icons_[std::get<std::string>(key)] = glyph;
+    for (auto& [key, glyph] :
+         Glyphs(std::get<EncodableMap>(*Find(map, "icons")))) {
+      icons_[key] = glyph;
     }
     AddTrayIcon();
+    result->Success();
+  } else if (method == "lyricsConfig") {
+    lyrics_->SetConfig(LyricsConfig(std::get<EncodableMap>(*args)));
+    result->Success();
+  } else if (method == "lyricsContent") {
+    const auto& map = std::get<EncodableMap>(*args);
+    lyrics_->SetContent(
+        Utf16FromUtf8(std::get<std::string>(*Find(map, "title"))),
+        LyricsLines(std::get<EncodableList>(*Find(map, "lines"))));
+    result->Success();
+  } else if (method == "lyricsSync") {
+    const auto& map = std::get<EncodableMap>(*args);
+    lyrics_->Sync(Find(map, "position")->LongValue(),
+                  std::get<bool>(*Find(map, "playing")));
     result->Success();
   } else if (method == "setHotkeys") {
     result->Success(EncodableValue(SetHotkeys(std::get<EncodableList>(*args))));
@@ -528,6 +621,11 @@ void DesktopIntegration::ShowTrayMenu() {
   action(kMenuToggle, playing_ ? "pause" : "play");
   action(kMenuPrevious, "previous");
   action(kMenuNext, "next");
+  add(separator, 0);
+  action(kMenuLyrics, lyrics_->visible() ? "lyricsHide" : "lyricsShow");
+  if (lyrics_->visible() && lyrics_->locked()) {
+    action(kMenuLyricsUnlock, "lyricsUnlock");
+  }
   add(separator, 0);
   action(kMenuShow, "show");
   action(kMenuExit, "exit");
@@ -715,4 +813,20 @@ EncodableList DesktopIntegration::SetHotkeys(const EncodableList& hotkeys) {
                        modifiers | MOD_NOREPEAT, key) != 0));
   }
   return registered;
+}
+
+void DesktopIntegration::SendLyricsState() {
+  EncodableMap state = {
+      {EncodableValue("visible"), EncodableValue(lyrics_->visible())},
+      {EncodableValue("locked"), EncodableValue(lyrics_->locked())},
+      {EncodableValue("fontSize"), EncodableValue(lyrics_->font_size())},
+      {EncodableValue("translation"), EncodableValue(lyrics_->translation())},
+      {EncodableValue("romaji"), EncodableValue(lyrics_->romaji())},
+  };
+  if (const auto position = lyrics_->position()) {
+    state[EncodableValue("x")] = EncodableValue(static_cast<int>(position->x));
+    state[EncodableValue("y")] = EncodableValue(static_cast<int>(position->y));
+  }
+  channel_->InvokeMethod("lyricsState",
+                         std::make_unique<EncodableValue>(std::move(state)));
 }
