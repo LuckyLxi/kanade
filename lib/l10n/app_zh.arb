@@ -845,6 +845,7 @@
   "desktopLyricsLines": "行数",
   "desktopLyricsDouble": "两行交替",
   "desktopLyricsSingle": "单行",
+  "desktopLyricsOutline": "文字描边",
   "desktopLyricsAlign": "对齐",
   "alignLeft": "左对齐",
   "alignCenter": "居中",

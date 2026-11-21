@@ -1481,6 +1481,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get desktopLyricsSingle => '单行';
 
   @override
+  String get desktopLyricsOutline => '文字描边';
+
+  @override
   String get desktopLyricsAlign => '对齐';
 
   @override

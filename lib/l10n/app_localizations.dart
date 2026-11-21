@@ -2781,6 +2781,12 @@ abstract class AppLocalizations {
   /// **'单行'**
   String get desktopLyricsSingle;
 
+  /// No description provided for @desktopLyricsOutline.
+  ///
+  /// In zh, this message translates to:
+  /// **'文字描边'**
+  String get desktopLyricsOutline;
+
   /// No description provided for @desktopLyricsAlign.
   ///
   /// In zh, this message translates to:

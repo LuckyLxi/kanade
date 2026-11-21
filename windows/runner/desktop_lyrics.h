@@ -46,6 +46,7 @@ class DesktopLyrics {
     uint32_t sung = 0xFFD4FF3A;
     uint32_t unsung = 0xFFFFFFFF;
     bool single_line = false;
+    bool outline = true;
     Align align = Align::kStagger;
     // With either on and the song has it, the current line shows alone with
     // its romaji and translation under it.
@@ -195,6 +196,7 @@ class DesktopLyrics {
   uint32_t sung_ = 0xFFD4FF3A;
   uint32_t unsung_ = 0xFFFFFFFF;
   bool single_line_ = false;
+  bool outline_ = true;
   Align align_ = Align::kStagger;
   bool translation_ = false;
   bool romaji_ = false;

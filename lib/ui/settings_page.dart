@@ -349,6 +349,16 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           onTap: () => _alignMenu.currentState?.open(),
         ),
+        _Item(
+          icon: Icons.border_color_outlined,
+          title: l.desktopLyricsOutline,
+          onTap: () => lyrics.setLyricsOutline(!lyrics.lyricsOutline),
+          trailing: Switch(
+            value: lyrics.lyricsOutline,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            onChanged: lyrics.setLyricsOutline,
+          ),
+        ),
       ],
     ];
   }

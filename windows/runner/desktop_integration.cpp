@@ -126,6 +126,7 @@ DesktopLyrics::Config LyricsConfig(const EncodableMap& map) {
   config.sung = static_cast<uint32_t>(Find(map, "sung")->LongValue());
   config.unsung = static_cast<uint32_t>(Find(map, "unsung")->LongValue());
   config.single_line = std::get<bool>(*Find(map, "singleLine"));
+  config.outline = std::get<bool>(*Find(map, "outline"));
   config.align = static_cast<DesktopLyrics::Align>(Find(map, "align")->LongValue());
   config.translation = std::get<bool>(*Find(map, "translation"));
   config.romaji = std::get<bool>(*Find(map, "romaji"));

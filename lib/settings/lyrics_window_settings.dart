@@ -34,6 +34,7 @@ class LyricsWindowSettings extends ChangeNotifier {
   int lyricsSung = lyricsColors[0];
   int lyricsUnsung = lyricsColors[1];
   bool lyricsSingleLine = false;
+  bool lyricsOutline = true;
   LyricsAlign lyricsAlign = LyricsAlign.stagger;
 
   /// 和播放页的开关分开，在歌词窗口的工具栏上切换。
@@ -52,6 +53,7 @@ class LyricsWindowSettings extends ChangeNotifier {
       if (saved['sung'] case final int v) lyricsSung = v;
       if (saved['unsung'] case final int v) lyricsUnsung = v;
       lyricsSingleLine = saved['singleLine'] == true;
+      lyricsOutline = saved['outline'] != false;
       lyricsAlign = LyricsAlign.values.firstWhere(
         (a) => a.name == saved['align'],
         orElse: () => LyricsAlign.stagger,
@@ -73,6 +75,7 @@ class LyricsWindowSettings extends ChangeNotifier {
     'sung': lyricsSung,
     'unsung': lyricsUnsung,
     'singleLine': lyricsSingleLine,
+    'outline': lyricsOutline,
     'align': lyricsAlign.name,
     'translation': lyricsTranslation,
     'romaji': lyricsRomaji,
@@ -113,6 +116,11 @@ class LyricsWindowSettings extends ChangeNotifier {
     _lyricsChanged();
   }
 
+  void setLyricsOutline(bool v) {
+    lyricsOutline = v;
+    _lyricsChanged();
+  }
+
   void setLyricsAlign(LyricsAlign v) {
     lyricsAlign = v;
     _lyricsChanged();
@@ -145,6 +153,7 @@ class LyricsWindowSettings extends ChangeNotifier {
     'sung': lyricsSung,
     'unsung': lyricsUnsung,
     'singleLine': lyricsSingleLine,
+    'outline': lyricsOutline,
     'align': lyricsAlign.index,
     'translation': lyricsTranslation,
     'romaji': lyricsRomaji,

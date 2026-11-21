@@ -112,6 +112,7 @@ class FloatingLyrics private constructor(private val context: Context, private v
     private var sung = 0xFFD4FF3A.toInt()
     private var unsung = 0xFFFFFFFF.toInt()
     private var singleLine = false
+    private var outlined = true
     private var align = ALIGN_STAGGER
     private var translation = false
     private var romaji = false
@@ -246,6 +247,7 @@ class FloatingLyrics private constructor(private val context: Context, private v
         sung = (args["sung"] as Number).toInt()
         unsung = (args["unsung"] as Number).toInt()
         singleLine = args["singleLine"] == true
+        outlined = args["outline"] != false
         align = (args["align"] as Number? ?: ALIGN_STAGGER).toInt()
         translation = args["translation"] == true
         romaji = args["romaji"] == true
@@ -660,7 +662,7 @@ class FloatingLyrics private constructor(private val context: Context, private v
             outline.strokeWidth = max(dp(1f), slot.size / 9)
             val fm = fill.fontMetrics
             val baseline = top + (height - (fm.descent - fm.ascent)) / 2 - fm.ascent
-            canvas.drawText(slot.text, x, baseline, outline)
+            if (outlined) canvas.drawText(slot.text, x, baseline, outline)
             val shader = gradient
             if (edge < 0 || shader == null) {
                 fill.shader = null

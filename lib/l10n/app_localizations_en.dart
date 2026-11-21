@@ -1572,6 +1572,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get desktopLyricsSingle => 'One';
 
   @override
+  String get desktopLyricsOutline => 'Text outline';
+
+  @override
   String get desktopLyricsAlign => 'Alignment';
 
   @override

@@ -453,6 +453,7 @@
   "desktopLyricsLines": "Lines",
   "desktopLyricsDouble": "Two, alternating",
   "desktopLyricsSingle": "One",
+  "desktopLyricsOutline": "Text outline",
   "desktopLyricsAlign": "Alignment",
   "alignLeft": "Left",
   "alignCenter": "Center",

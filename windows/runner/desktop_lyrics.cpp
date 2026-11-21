@@ -75,7 +75,7 @@ uint32_t Mix(uint32_t a, uint32_t b, uint32_t w) {
 }
 
 // Draws text as filled glyph outlines with a stroke behind them, so the lyric
-// reads over any background.
+// reads over any background. No stroke when |outline| is null.
 class OutlineRenderer : public IDWriteTextRenderer {
  public:
   OutlineRenderer(ID2D1Factory* factory, ID2D1RenderTarget* target,
@@ -145,7 +145,9 @@ class OutlineRenderer : public IDWriteTextRenderer {
       return hr;
     }
     // Centered on the outline, so the fill covers its inner half.
-    target_->DrawGeometry(glyphs.Get(), outline_, stroke_width_ * 2, stroke_);
+    if (outline_) {
+      target_->DrawGeometry(glyphs.Get(), outline_, stroke_width_ * 2, stroke_);
+    }
     target_->FillGeometry(glyphs.Get(), fill_);
     return S_OK;
   }
@@ -263,9 +265,11 @@ void DesktopLyrics::SetConfig(const Config& config) {
     position_ = config.position;
   }
   icons_ = config.icons;
-  if (config.sung != sung_ || config.unsung != unsung_) {
+  if (config.sung != sung_ || config.unsung != unsung_ ||
+      config.outline != outline_) {
     sung_ = config.sung;
     unsung_ = config.unsung;
+    outline_ = config.outline;
     ++version_;
   }
   const bool reshape = config.single_line != single_line_ ||
@@ -711,7 +715,8 @@ void DesktopLyrics::RenderSlot(Slot& slot, int line, Part part) {
     target_->Clear(D2D1::ColorF(0, 0, 0, 0));
     brush_->SetColor(ColorF(color));
     OutlineRenderer renderer(d2d_.Get(), target_.Get(), brush_.Get(),
-                             outline_brush_.Get(), stroke_.Get(), stroke);
+                             outline_ ? outline_brush_.Get() : nullptr,
+                             stroke_.Get(), stroke);
     layout->Draw(nullptr, &renderer, left, top);
     if (target_->EndDraw() == D2DERR_RECREATE_TARGET) {
       Layout();
