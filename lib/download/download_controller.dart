@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../data/song_json.dart';
@@ -30,6 +32,10 @@ class DownloadController extends ChangeNotifier {
   late final List<StreamSubscription<Object?>> _subs;
   late int concurrency = api.getDownloadConcurrency();
   late bool wifiOnly = api.getDownloadWifiOnly();
+
+  /// 桌面的下载文件夹；Android 固定存到 MediaStore。
+  late String dir = api.getDownloadDir();
+  late bool embedLyrics = api.getDownloadEmbedLyrics();
 
   DownloadItem? item(String mid) => _items[mid];
 
@@ -87,8 +93,15 @@ class DownloadController extends ChangeNotifier {
   };
 
   /// 按下载文件夹里的文件补回记录（重装后用），返回补回的首数。
-  /// Android 上两个进程共用数据库，在这边做完直接重读。
-  Future<int> restore() async {
+  /// Android 上要先授权读文件夹，用户拒绝时返回 null。
+  /// 两个进程共用数据库，在这边做完直接重读。
+  Future<int?> restore() async {
+    if (Platform.isAndroid &&
+        await const MethodChannel('kanade/downloads')
+                .invokeMethod<bool>('pickFolder') !=
+            true) {
+      return null;
+    }
     final n = await api.restoreDownloads();
     _reload();
     notifyListeners();
@@ -116,6 +129,18 @@ class DownloadController extends ChangeNotifier {
       final r? => r.call(PlaybackOp.downloadWifiOnly, on),
       null => api.setDownloadWifiOnly(enabled: on),
     };
+  }
+
+  void setDir(String path) {
+    api.setDownloadDir(dir: path);
+    dir = api.getDownloadDir();
+    notifyListeners();
+  }
+
+  void setEmbedLyrics(bool on) {
+    api.setDownloadEmbedLyrics(enabled: on);
+    embedLyrics = on;
+    notifyListeners();
   }
 
   @override

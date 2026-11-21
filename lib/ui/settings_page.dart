@@ -53,7 +53,6 @@ const _themeIcons = {
 };
 
 /// Windows runner 存的“禁用硬件加速”。
-const _rendering = MethodChannel('kanade/rendering');
 
 /// 内容区宽过这个就左边分类、右边内容。
 const _wideWidth = 720.0;
@@ -90,8 +89,6 @@ typedef _Section = ({
 
 class _SettingsPageState extends State<SettingsPage> {
   int _limitMb = api.getAudioCacheLimitMb();
-  String _downloadDir = api.getDownloadDir();
-  bool _embedLyrics = api.getDownloadEmbedLyrics();
   int? _audioSize;
   int? _apiSize;
   final _scroll = SmoothScrollController();
@@ -124,10 +121,11 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) setState(() => _version = v);
     });
     if (Platform.isWindows) {
-      _rendering.invokeMethod<bool>('get').then((v) {
-        if (mounted) setState(() => _softwareRendering = v ?? false);
+      final desktop = context.read<DesktopSettings>();
+      desktop.softwareRendering().then((v) {
+        if (mounted) setState(() => _softwareRendering = v);
       });
-      context.read<DesktopSettings>().autostart().then((v) {
+      desktop.autostart().then((v) {
         if (mounted) setState(() => _autostart = v);
       });
     }
@@ -261,20 +259,15 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _setSoftwareRendering(bool on) {
-    _rendering.invokeMethod<void>('set', on);
+    context.read<DesktopSettings>().setSoftwareRendering(on);
     setState(() => _softwareRendering = on);
   }
 
   Future<void> _pickDownloadDir() async {
-    final dir = await getDirectoryPath(initialDirectory: _downloadDir);
+    final downloads = context.read<DownloadController>();
+    final dir = await getDirectoryPath(initialDirectory: downloads.dir);
     if (dir == null || !mounted) return;
-    api.setDownloadDir(dir: dir);
-    setState(() => _downloadDir = api.getDownloadDir());
-  }
-
-  void _setEmbedLyrics(bool on) {
-    api.setDownloadEmbedLyrics(enabled: on);
-    setState(() => _embedLyrics = on);
+    downloads.setDir(dir);
   }
 
   var _restoring = false;
@@ -283,17 +276,14 @@ class _SettingsPageState extends State<SettingsPage> {
     if (_restoring) return;
     final l = AppLocalizations.of(context);
     final downloads = context.read<DownloadController>();
-    if (Platform.isAndroid &&
-        await const MethodChannel('kanade/downloads')
-                .invokeMethod<bool>('pickFolder') !=
-            true) {
-      if (mounted) showToast(context, l.restoreDownloadsDenied);
-      return;
-    }
     setState(() => _restoring = true);
     try {
       final n = await downloads.restore();
       if (!mounted) return;
+      if (n == null) {
+        showToast(context, l.restoreDownloadsDenied);
+        return;
+      }
       n == 0
           ? showToast(context, l.restoreDownloadsNone)
           : showToast(
@@ -796,7 +786,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _Item(
         icon: Icons.folder_outlined,
         title: l.downloadDir,
-        hint: Platform.isAndroid ? l.downloadDirAndroid : _downloadDir,
+        hint: Platform.isAndroid ? l.downloadDirAndroid : downloads.dir,
         onTap: Platform.isAndroid ? null : _pickDownloadDir,
       ),
       _SegmentedItem(
@@ -814,18 +804,18 @@ class _SettingsPageState extends State<SettingsPage> {
       _SegmentedItem(
         icon: Icons.lyrics_outlined,
         title: l.downloadLyrics,
-        hint: _embedLyrics
+        hint: downloads.embedLyrics
             ? l.downloadLyricsEmbedHint
             : l.downloadLyricsLrcHint,
         segments: [
           _Segment(
-            selected: !_embedLyrics,
-            onTap: () => _setEmbedLyrics(false),
+            selected: !downloads.embedLyrics,
+            onTap: () => downloads.setEmbedLyrics(false),
             child: Text(l.downloadLyricsLrc),
           ),
           _Segment(
-            selected: _embedLyrics,
-            onTap: () => _setEmbedLyrics(true),
+            selected: downloads.embedLyrics,
+            onTap: () => downloads.setEmbedLyrics(true),
             child: Text(l.downloadLyricsEmbed),
           ),
         ],

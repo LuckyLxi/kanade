@@ -245,4 +245,12 @@ class DesktopSettings extends ChangeNotifier {
       await channel.invokeMethod<bool>('getAutostart') ?? false;
 
   Future<void> setAutostart(bool v) => channel.invokeMethod('setAutostart', v);
+
+  static const _rendering = MethodChannel('kanade/rendering');
+
+  Future<bool> softwareRendering() async =>
+      await _rendering.invokeMethod<bool>('get') ?? false;
+
+  Future<void> setSoftwareRendering(bool v) =>
+      _rendering.invokeMethod('set', v);
 }
