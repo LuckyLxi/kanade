@@ -21,7 +21,8 @@ if ($filterNames.Count -gt 0) {
     if ($LASTEXITCODE -ne 0) { throw 'Could not replace the previous capture filter.' }
 }
 
-$outputDirectory = Split-Path -Parent $PSScriptRoot
+$outputDirectory = Join-Path (Split-Path -Parent $PSScriptRoot) 'captures'
+New-Item -ItemType Directory -Force $outputDirectory | Out-Null
 $capturePath = Join-Path $outputDirectory ('qqmusic-pc-discovery-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.etl')
 $socketLogPath = [IO.Path]::ChangeExtension($capturePath, '.sockets.jsonl')
 $captureStarted = $false

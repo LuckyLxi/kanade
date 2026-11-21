@@ -179,7 +179,11 @@ jobs:
           TAG: ${{ github.ref_name }}
           PRERELEASE: ${{ contains(github.ref_name, '-') }}
           GITHUB_TOKEN: ${{ github.token }}
+          SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
         run: |
+          # 签名在管道里，openssl 失败时不能留下空签名
+          set -o pipefail
+          if [ -z "$SIGNING_KEY" ]; then echo "::error::UPDATE_SIGNING_KEY secret is missing"; exit 1; fi
           assets=$(cd dist && for f in *; do
             jq -n --arg name "$f" --argjson size "$(stat -c%s "$f")" --arg sha256 "$(sha256sum "$f" | cut -d' ' -f1)" \
               '{name: $name, size: $size, sha256: $sha256}'
@@ -188,6 +192,11 @@ jobs:
             --rawfile notes CHANGELOG.md --argjson assets "$assets" \
             '{tag: $tag, prerelease: $prerelease, date: $date, notes: $notes, assets: $assets}' > "$RUNNER_TEMP/manifest.json"
           cat "$RUNNER_TEMP/manifest.json"
+          # App 用内置公钥验这个签名（rust/src/update.rs MANIFEST_KEY），镜像改不了清单里的校验码
+          printf '%s\n' "$SIGNING_KEY" > "$RUNNER_TEMP/key.pem"
+          openssl pkeyutl -sign -inkey "$RUNNER_TEMP/key.pem" -rawin -in "$RUNNER_TEMP/manifest.json" \
+            | base64 -w0 > "$RUNNER_TEMP/manifest.json.sig"
+          rm "$RUNNER_TEMP/key.pem"
 
           dir="$RUNNER_TEMP/update-manifest"
           git init -q "$dir" && cd "$dir"
@@ -198,7 +207,11 @@ jobs:
             git checkout -q --orphan update-manifest
           fi
           cp "$RUNNER_TEMP/manifest.json" preview.json
-          if [ "$PRERELEASE" = false ]; then cp "$RUNNER_TEMP/manifest.json" stable.json; fi
+          cp "$RUNNER_TEMP/manifest.json.sig" preview.json.sig
+          if [ "$PRERELEASE" = false ]; then
+            cp "$RUNNER_TEMP/manifest.json" stable.json
+            cp "$RUNNER_TEMP/manifest.json.sig" stable.json.sig
+          fi
           git add -A
           git -c user.name="github-actions[bot]" -c user.email="41898099+github-actions[bot]@users.noreply.github.com" \
             commit -q -m "update manifest for $TAG"

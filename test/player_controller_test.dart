@@ -50,6 +50,9 @@ class _Api implements RustLibApi {
   }
 
   @override
+  void crateApiMusicActivateAudio({required String source}) {}
+
+  @override
   Future<Lyric> crateApiMusicGetLyric({required String mid, required int id}) =>
       (lyrics[id] ??= Completer<Lyric>()).future;
   @override

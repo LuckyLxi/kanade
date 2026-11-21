@@ -11,10 +11,13 @@ void main() {
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
 
   testWidgets('歌曲边播边存', (tester) async {
-    final (player, _) = await launchWithSong(tester, setup: () async {
-      api.setAudioCacheLimitMb(mb: 1024);
-      await api.clearAudioCache();
-    });
+    final (player, _) = await launchWithSong(
+      tester,
+      setup: () async {
+        await api.setAudioCacheLimitMb(mb: 1024);
+        await api.clearAudioCache();
+      },
+    );
     final song = player.current!;
     final quality = player.actualQuality!;
     expect(player.error, isNull);
@@ -29,7 +32,7 @@ void main() {
     expect(player.error, isNull);
     expect(player.position.value, greaterThan(target));
 
-    // 等整首下完进索引（不能轮询 getCachedAudio，它会停掉正在进行的下载）
+    // 等整首下完进索引
     await tester.runAsync(() async {
       for (var i = 0; i < 240 && await api.getAudioCacheSize() == 0; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 500));

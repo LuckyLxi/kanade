@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -35,10 +36,20 @@ class DownloadController extends ChangeNotifier {
   late String dir = api.getDownloadDir();
   late bool embedLyrics = api.getDownloadEmbedLyrics();
 
+  final _live = <String, ValueNotifier<DownloadItem>>{};
+
   DownloadItem? item(String mid) => _items[mid];
 
   /// 先加入的在前。
   Iterable<DownloadItem> get items => _items.values;
+
+  /// 这首歌的最新记录，下载进度也跟着变。只有进度往前走时不通知本控制器的监听者，
+  /// 免得整个下载页每 300ms 重建一次；要显示进度的地方监听这个。
+  ValueListenable<DownloadItem> live(DownloadItem d) =>
+      // 已移出列表、还在淡出的行不再登记
+      _items.containsKey(d.song.mid)
+      ? _live.putIfAbsent(d.song.mid, () => ValueNotifier(d))
+      : ValueNotifier(d);
 
   bool get waitingForWifi => api.downloadWaitingForWifi();
 
@@ -47,28 +58,52 @@ class DownloadController extends ChangeNotifier {
     for (final d in api.getDownloads()) {
       _items[d.song.mid] = d;
     }
+    _live.removeWhere((mid, live) {
+      final d = _items[mid];
+      if (d != null) live.value = d;
+      return d == null;
+    });
+  }
+
+  void _put(DownloadItem d) {
+    final old = _items[d.song.mid];
+    _items[d.song.mid] = d;
+    _live[d.song.mid]?.value = d;
+    if (old == null ||
+        old.state != d.state ||
+        old.quality != d.quality ||
+        old.error != d.error ||
+        old.file != d.file) {
+      notifyListeners();
+    }
+  }
+
+  // 移出列表的行还在淡出，可能还在监听，不 dispose
+  void _drop(String mid) {
+    _items.remove(mid);
+    _live.remove(mid);
+    notifyListeners();
   }
 
   void _onEvent(DownloadEvent e) {
     switch (e) {
       case DownloadEvent_Changed(field0: final d):
-        _items[d.song.mid] = d;
+        _put(d);
       case DownloadEvent_Removed(:final mid):
-        _items.remove(mid);
+        _drop(mid);
     }
-    notifyListeners();
   }
 
   // 两个进程共用一个数据库，播放进程写完记录才通知，这边直接读
   void _onRemote(String? mid) {
     if (mid == null) {
       _reload();
+      notifyListeners();
     } else if (api.getDownload(mid: mid) case final d?) {
-      _items[mid] = d;
+      _put(d);
     } else {
-      _items.remove(mid);
+      _drop(mid);
     }
-    notifyListeners();
   }
 
   Future<void> download(List<Song> songs, Quality quality) => switch (_remote) {

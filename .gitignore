@@ -60,6 +60,7 @@ app.*.map.json
 /windows/dts-local/
 
 # Local QQ Music captures (may contain login credentials).
+/captures/
 /qqmusic*.har
 /qqmusic*.saz
 /qqmusic-pc*.etl
@@ -70,6 +71,10 @@ app.*.map.json
 /android/key.properties
 *.jks
 *.keystore
+
+# 本地密钥：APK 签名和更新清单签名私钥
+/kanade-signing/
+/kanade-keys/
 
 # Local release build output
 /dist/

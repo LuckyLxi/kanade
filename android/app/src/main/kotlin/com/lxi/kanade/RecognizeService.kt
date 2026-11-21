@@ -58,15 +58,31 @@ class RecognizeService : Service() {
             .build()
         @Suppress("DEPRECATION")
         val grant = intent?.getParcelableExtra<Intent>(EXTRA_PROJECTION)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            var type = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-            if (grant != null || projection != null) {
-                type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+        // Android 14 起麦克风权限被收回、录屏授权失效时会抛 SecurityException，
+        // 这里是系统回调，没人接住就会崩：当作没录成
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                var type = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                if (grant != null || projection != null) {
+                    type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+                }
+                startForeground(ID, notification, type)
+            } else {
+                startForeground(ID, notification)
             }
-            startForeground(ID, notification, type)
-        } else {
-            startForeground(ID, notification)
+            foreground = true
+        } catch (_: Exception) {
+            if (grant != null) {
+                val ready = onProjection
+                onProjection = null
+                ready?.invoke(false)
+            }
+            reportStarted()
+            // 之前已经在前台的接着跑，不丢掉已有的录屏授权
+            if (!foreground) stopSelf()
+            return START_NOT_STICKY
         }
+        reportStarted()
         // 系统要求先以 mediaProjection 类型进入前台，才能拿录屏授权
         if (grant != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val ready = onProjection
@@ -100,6 +116,8 @@ class RecognizeService : Service() {
         stopCapture()
         projection?.stop()
         projection = null
+        // 不在这里回 onStarted：刚停又启动时，旧实例的销毁排在新实例启动前面，回了就把新的那次报成没起来
+        foreground = false
         super.onDestroy()
     }
 
@@ -178,7 +196,17 @@ class RecognizeService : Service() {
         var projection: MediaProjection? = null
             private set
         var onProjection: ((Boolean) -> Unit)? = null
+
+        /** 等着知道服务进没进前台；系统收下启动请求不代表进得去。 */
+        var onStarted: ((Boolean) -> Unit)? = null
+        private var foreground = false
         private var capture: PlaybackCapture? = null
+
+        private fun reportStarted() {
+            val done = onStarted
+            onStarted = null
+            done?.invoke(foreground)
+        }
 
         /** 没有录屏授权或系统低于 Android 10 时返回 false；之后建不起来在后台线程调 [onError]。 */
         fun startCapture(onData: (ByteArray) -> Unit, onError: () -> Unit): Boolean {

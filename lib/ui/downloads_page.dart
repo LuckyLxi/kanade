@@ -112,7 +112,17 @@ class _DownloadsPageState extends State<DownloadsPage> {
       keyOf: (d) => d.song.mid,
       empty: Center(child: Text(l.downloadEmpty)),
       padding: const EdgeInsets.only(top: 8, bottom: 120),
-      itemBuilder: (items, i) => _ActiveRow(items[i], waitingForWifi: waiting),
+      itemBuilder: (items, i) {
+        final item = items[i];
+        return ValueListenableBuilder(
+          valueListenable: downloads.live(item),
+          // 状态变了列表会整个重建；正在淡出的行停在移出前的样子
+          builder: (_, d, _) => _ActiveRow(
+            d.state == item.state ? d : item,
+            waitingForWifi: waiting,
+          ),
+        );
+      },
     );
   }
 

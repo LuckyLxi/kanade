@@ -142,6 +142,7 @@ fn encode_error(e: &anyhow::Error) -> String {
         Some(ApiError::UnsupportedFormat) => "unsupported".into(),
         Some(ApiError::UnverifiedFormat) => "unverified".into(),
         Some(ApiError::NotLoggedIn) => "login".into(),
+        Some(ApiError::BadResponse { detail }) => format!("bad:{detail}"),
         Some(ApiError::Network { detail }) => format!("network:{detail}"),
         Some(other) => format!("internal:{other}"),
         None if e.chain().any(|c| c.is::<reqwest::Error>()) => format!("network:{e:#}"),
@@ -156,6 +157,9 @@ fn decode_error(code: &str) -> ApiError {
         "unsupported" => ApiError::UnsupportedFormat,
         "unverified" => ApiError::UnverifiedFormat,
         "login" => ApiError::NotLoggedIn,
+        "bad" => ApiError::BadResponse {
+            detail: detail.into(),
+        },
         "network" => ApiError::Network {
             detail: detail.into(),
         },
@@ -803,11 +807,22 @@ impl Downloader {
             .await?
             .error_for_status()?;
         let total = resp.content_length().unwrap_or(0);
+        // 整首放在内存里，大小不能光信服务器给的长度；超了重试也没用
+        let max = quality::max_encoded_bytes(src.quality);
+        let too_large = || ApiError::BadResponse {
+            detail: format!("audio file over {} MB", max / 1024 / 1024),
+        };
+        if total > max as u64 {
+            bail!(too_large());
+        }
         let mut encoded = Vec::with_capacity(total as usize);
         report(rec, 0, total);
         while let Some(chunk) = resp.chunk().await? {
             if stop.stopped() {
                 bail!(Cancelled);
+            }
+            if encoded.len() + chunk.len() > max {
+                bail!(too_large());
             }
             encoded.extend_from_slice(&chunk);
             report(rec, encoded.len() as u64, total);
@@ -1010,6 +1025,12 @@ mod tests {
     fn errors_round_trip() {
         let e = anyhow::Error::new(ApiError::NoPlayableUrl).context("outer");
         assert!(matches!(decode_error(&encode_error(&e)), ApiError::NoPlayableUrl));
+        let big = anyhow::Error::new(ApiError::BadResponse { detail: "big".into() });
+        assert!(!retryable(&big));
+        assert!(matches!(
+            decode_error(&encode_error(&big)),
+            ApiError::BadResponse { detail } if detail == "big"
+        ));
         let io = anyhow::Error::new(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
         assert!(encode_error(&io).starts_with("storage:"));
     }

@@ -118,18 +118,20 @@ class MainActivity : AudioServiceActivity() {
                     )
                     result.success(null)
                 }
-                "startService" -> result.success(
+                // 服务真进了前台才回 true；回 false 时 Dart 下次回到前台再试。
+                // 起不来只是切走后录不了音，界面里照常识曲
+                "startService" -> {
+                    RecognizeService.onStarted = { ok -> result.success(ok) }
                     try {
                         startForegroundService(
                             Intent(this, RecognizeService::class.java)
                                 .putExtra(RecognizeService.EXTRA_TITLE, call.argument<String>("title")),
                         )
-                        true
                     } catch (_: Exception) {
-                        // 系统不让起前台服务时只是切走后录不了音，界面里照常识曲
-                        false
-                    },
-                )
+                        RecognizeService.onStarted = null
+                        result.success(false)
+                    }
+                }
                 "canCaptureDevice" -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
                 // 已有录屏授权就直接复用；没有时弹系统授权框，同意后由服务拿授权
                 "requestCapture" -> when {

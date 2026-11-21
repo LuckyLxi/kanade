@@ -1,6 +1,7 @@
 //! 软件更新：读发布流程生成的版本清单，下载安装文件并核对 SHA-256。
 //! 清单在仓库的 update-manifest 分支，安装文件在 GitHub 发布页。
 //! 打开镜像时两样都改从镜像取，不连 GitHub：镜像只转发文件下载，不转发 GitHub API，所以版本信息也做成文件。
+//! 清单带发布流程的 Ed25519 签名，验过签校验码才可信，镜像换不了安装文件。
 
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -8,7 +9,8 @@ use std::sync::OnceLock;
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
-use ring::digest;
+use base64::Engine;
+use ring::{digest, signature};
 use serde::Deserialize;
 use tokio::io::AsyncWriteExt;
 
@@ -19,6 +21,8 @@ const REPO: &str = "LuckyLxi/kanade";
 const MANIFEST_BRANCH: &str = "update-manifest";
 /// 按顺序尝试，前一个连不上或出错就换下一个。
 const MIRRORS: &[&str] = &["https://ghfast.top/", "https://gh-proxy.com/"];
+/// 验清单签名的公钥，私钥在仓库的 UPDATE_SIGNING_KEY secret 里。
+const MANIFEST_KEY: &str = "1zs5jl3XtnuSsU/pCMmlUtg4qvVzRuMGA4HKpIXJVhg=";
 
 /// 每次下载加一；正在下载的发现它变了就停下。
 static GENERATION: AtomicU64 = AtomicU64::new(0);
@@ -66,7 +70,7 @@ pub async fn latest(preview: bool, mirror: bool) -> Result<UpdateInfo> {
     let url = format!("https://raw.githubusercontent.com/{REPO}/{MANIFEST_BRANCH}/{channel}.json");
     let mut last = None;
     for (prefix, _) in sources(mirror) {
-        match fetch_manifest(&format!("{prefix}{url}")).await {
+        match fetch_manifest(&format!("{prefix}{url}"), preview).await {
             Ok(m) => return Ok(m),
             Err(e) => last = Some(e),
         }
@@ -74,16 +78,33 @@ pub async fn latest(preview: bool, mirror: bool) -> Result<UpdateInfo> {
     Err(last.unwrap())
 }
 
-async fn fetch_manifest(url: &str) -> Result<UpdateInfo> {
-    let text = http()
+/// 原样的字节：`.text()` 会按响应头的编码转码、去掉 BOM，验签就对不上了。
+async fn fetch_bytes(url: &str) -> Result<Vec<u8>> {
+    Ok(http()
         .get(url)
         .timeout(Duration::from_secs(15))
         .send()
         .await?
         .error_for_status()?
-        .text()
-        .await?;
-    let m: Manifest = serde_json::from_str(&text)?;
+        .bytes()
+        .await?
+        .to_vec())
+}
+
+async fn fetch_manifest(url: &str, preview: bool) -> Result<UpdateInfo> {
+    let text = fetch_bytes(url).await?;
+    let sig = fetch_bytes(&format!("{url}.sig")).await?;
+    let sig = std::str::from_utf8(&sig).map_err(|_| bad("bad signature encoding"))?;
+    verify_manifest(&text, sig.trim())?;
+    let m: Manifest = serde_json::from_slice(&text)?;
+    // 签名不分渠道，正式版渠道拿到预览版清单就是被换了
+    if !preview && m.prerelease {
+        bail!(bad("stable manifest is a prerelease"));
+    }
+    // 文件名会拼进下载地址和本地路径
+    if let Some(a) = m.assets.iter().find(|a| !safe_name(&a.name)) {
+        bail!(bad(&format!("unsafe asset name {:?}", a.name)));
+    }
     Ok(UpdateInfo {
         tag: m.tag,
         prerelease: m.prerelease,
@@ -165,4 +186,45 @@ async fn fetch_file(
     }
     let actual: String = hash.finish().as_ref().iter().map(|b| format!("{b:02x}")).collect();
     Ok(if actual == asset.sha256 { UpdateEvent::Done } else { UpdateEvent::Corrupted })
+}
+
+fn bad(detail: &str) -> ApiError {
+    ApiError::BadResponse { detail: format!("update manifest: {detail}") }
+}
+
+fn verify_manifest(text: &[u8], sig: &str) -> Result<()> {
+    let engine = base64::engine::general_purpose::STANDARD;
+    let key = engine.decode(MANIFEST_KEY).expect("manifest key");
+    let sig = engine.decode(sig).map_err(|_| bad("bad signature encoding"))?;
+    signature::UnparsedPublicKey::new(&signature::ED25519, key)
+        .verify(text, &sig)
+        .map_err(|_| bad("signature mismatch"))?;
+    Ok(())
+}
+
+fn safe_name(name: &str) -> bool {
+    !name.is_empty()
+        && !name.starts_with('.')
+        && name.bytes().all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_unsafe_names() {
+        assert!(safe_name("kanade-v1.2.0-windows-x64-setup.exe"));
+        assert!(!safe_name(r"..\evil.exe"));
+        assert!(!safe_name("../evil.apk"));
+        assert!(!safe_name(".."));
+        assert!(!safe_name(""));
+    }
+
+    #[test]
+    fn rejects_bad_signature() {
+        let sig = "1dVdKHxLBrWYBXtwAtxBHXqztDmw+cJliYv8HSZ0zFJE65ICFCCO0RX75c9bIrKYuwG2I5/hkeMU2wdJWapFCA==";
+        assert!(verify_manifest(b"{\"a\":1}\n", sig).is_ok());
+        assert!(verify_manifest(b"{\"a\":2}\n", sig).is_err());
+    }
 }

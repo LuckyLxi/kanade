@@ -183,6 +183,11 @@ pub(super) fn requires_pcm(quality: Quality) -> bool {
     matches!(quality, Quality::Dts | Quality::Aicodec | Quality::Ra360)
 }
 
+/// 要解码的音质整首读进内存再解，超过这么大就不要了。360RA 码率远高于其他几种。
+pub(super) fn max_encoded_bytes(quality: Quality) -> usize {
+    (if quality == Quality::Ra360 { 128 } else { 32 }) * 1024 * 1024
+}
+
 fn ensure_playable(quality: Quality) -> Result<()> {
     match unsupported_reason(quality) {
         Some(Reason::Unverified) => bail!(ApiError::UnverifiedFormat),

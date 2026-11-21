@@ -83,6 +83,10 @@ pub struct AudioCache {
     streams: Mutex<HashMap<String, Arc<Stream>>>,
     /// 正在播放的缓存文件名，淘汰和清除时跳过。
     playing: Mutex<Option<String>>,
+    /// 查到了、播放器还没打开的缓存文件，和 [`Self::playing`] 一样不淘汰。
+    looked_up: Mutex<Option<String>>,
+    /// 播放器正在用的中转 id。下一首的中转在旧歌淡出前就建好，旧的要等 [`Self::activate`] 才停。
+    active: Mutex<Option<String>>,
 }
 
 static CACHE: OnceLock<AudioCache> = OnceLock::new();
@@ -128,6 +132,8 @@ impl AudioCache {
             server: Mutex::new(None),
             streams: Mutex::new(HashMap::new()),
             playing: Mutex::new(None),
+            looked_up: Mutex::new(None),
+            active: Mutex::new(None),
         })
     }
 
@@ -192,9 +198,16 @@ impl AudioCache {
             core().store.audio_delete(mid, key);
             return None;
         }
-        self.cancel_downloads();
-        *self.playing.lock().unwrap() = Some(file);
+        *self.looked_up.lock().unwrap() = Some(file);
         Some(path.to_string_lossy().into_owned())
+    }
+
+    /// 淘汰和清除时跳过的文件：正在播的和查到了还没打开的。
+    fn in_use(&self) -> Vec<String> {
+        [&self.playing, &self.looked_up]
+            .into_iter()
+            .filter_map(|m| m.lock().unwrap().clone())
+            .collect()
     }
 
     /// 缓存文件播不了时删掉它。
@@ -208,10 +221,10 @@ impl AudioCache {
 
     /// 删掉所有歌曲缓存（正在播放和删不掉的文件除外）。
     pub fn clear(&self) {
-        let playing = self.playing.lock().unwrap().clone();
+        let keep = self.in_use();
         let store = &core().store;
         for (mid, q, file, _) in store.audio_lru() {
-            if playing.as_ref() == Some(&file) {
+            if keep.contains(&file) {
                 continue;
             }
             match std::fs::remove_file(self.dir.join(&file)) {
@@ -240,7 +253,7 @@ impl AudioCache {
             } else {
                 let (_, port) = self.server()?;
                 let id = uuid::Uuid::new_v4().simple().to_string();
-                self.cancel_downloads();
+                self.cancel_pending();
                 self.streams.lock().unwrap().insert(
                     id.clone(),
                     Arc::new(Stream::Encrypted {
@@ -249,18 +262,16 @@ impl AudioCache {
                         audio,
                     }),
                 );
-                *self.playing.lock().unwrap() = None;
                 return Ok(format!("http://127.0.0.1:{port}/a/{id}"));
             }
         } else {
             None
         };
         if self.limit_mb() <= 0 && !decode {
-            self.cancel_downloads();
             return Ok(url.to_owned());
         }
         let (handle, port) = self.server()?;
-        self.cancel_downloads();
+        self.cancel_pending();
         let id = uuid::Uuid::new_v4().simple().to_string();
         let file = file_name(mid, q, &id);
         let (tx, rx) = watch::channel(Progress::default());
@@ -277,7 +288,6 @@ impl AudioCache {
             .lock()
             .unwrap()
             .insert(id.clone(), Arc::new(Stream::Cached(d.clone())));
-        *self.playing.lock().unwrap() = Some(file);
         handle.spawn(self.download(d, tx));
         Ok(format!("http://127.0.0.1:{port}/a/{id}"))
     }
@@ -299,9 +309,45 @@ impl AudioCache {
         Ok(())
     }
 
-    /// 换歌后之前没下完的歌不再下载。
-    fn cancel_downloads(&self) {
-        for (_, stream) in self.streams.lock().unwrap().drain() {
+    /// 播放器就要打开 `source`（缓存文件路径、中转地址或在线链接）：停掉别的中转，记下正在播的缓存文件。
+    pub fn activate(&self, source: &str) {
+        let stream = source.rsplit_once("/a/").and_then(|(_, id)| {
+            let s = self.streams.lock().unwrap().get(id).cloned()?;
+            Some((id.to_owned(), s))
+        });
+        let id = stream.as_ref().map(|(id, _)| id.clone());
+        self.cancel_except(id.as_deref());
+        *self.playing.lock().unwrap() = match stream.as_ref().map(|(_, s)| s.as_ref()) {
+            Some(Stream::Cached(d)) => Some(d.file_name.clone()),
+            Some(Stream::Encrypted { .. }) => None,
+            None => std::path::Path::new(source)
+                .strip_prefix(&self.dir)
+                .ok()
+                .map(|p| p.to_string_lossy().into_owned()),
+        };
+        *self.looked_up.lock().unwrap() = None;
+        *self.active.lock().unwrap() = id;
+    }
+
+    /// 新建中转前停掉之前建了却没用上的（取链接期间又切了歌），正在播的留着。
+    fn cancel_pending(&self) {
+        let active = self.active.lock().unwrap().clone();
+        self.cancel_except(active.as_deref());
+    }
+
+    fn cancel_except(&self, keep: Option<&str>) {
+        let dropped: Vec<_> = {
+            let mut streams = self.streams.lock().unwrap();
+            let ids: Vec<_> = streams
+                .keys()
+                .filter(|id| Some(id.as_str()) != keep)
+                .cloned()
+                .collect();
+            ids.into_iter()
+                .filter_map(|id| streams.remove(&id))
+                .collect()
+        };
+        for stream in dropped {
             if let Stream::Cached(d) = stream.as_ref() {
                 d.cancelled.store(true, Ordering::Relaxed);
                 if quality::requires_pcm(d.quality) {
@@ -394,9 +440,7 @@ impl AudioCache {
     }
 
     async fn fetch_pcm(&self, d: Arc<Download>, tx: watch::Sender<Progress>) -> Result<u64> {
-        // 360RA 码率远高于其他需要解码的音质。
-        let max_encoded_bytes: usize =
-            if d.quality == Quality::Ra360 { 128 } else { 32 } * 1024 * 1024;
+        let max_encoded_bytes = quality::max_encoded_bytes(d.quality);
         let mut resp = self
             .http
             .get(&d.url)
@@ -489,12 +533,12 @@ impl AudioCache {
         }
         let store = &core().store;
         let mut total = store.audio_total();
-        let playing = self.playing.lock().unwrap().clone();
+        let keep = self.in_use();
         for (mid, q, file, size) in store.audio_lru() {
             if total <= limit * MB {
                 break;
             }
-            if playing.as_ref() == Some(&file) {
+            if keep.contains(&file) {
                 continue;
             }
             match std::fs::remove_file(self.dir.join(&file)) {
@@ -948,6 +992,40 @@ mod tests {
 
         c.clear();
         assert!(c.lookup("mid1", Quality::High).is_none());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn keeps_playing_stream_until_next_is_activated() {
+        // 够大，测试结束前谁都下不完，不会写进和别的测试共用的索引
+        let (upstream, _resume) = fake_upstream(Arc::new(vec![0u8; 4_000_000]));
+        let dir = std::env::temp_dir().join(format!("kanade-activate-{}", std::process::id()));
+        let c: &'static AudioCache = Box::leak(Box::new(AudioCache::new(dir).unwrap()));
+        c.limit_mb.store(1024, Ordering::Relaxed);
+        let has = |u: &str| {
+            c.streams
+                .lock()
+                .unwrap()
+                .contains_key(u.rsplit_once("/a/").unwrap().1)
+        };
+
+        let a = c.stream("ka", Quality::High, &upstream, None).unwrap();
+        c.activate(&a);
+        // 下一首取链接时旧歌还在放
+        let b = c.stream("kb", Quality::High, &upstream, None).unwrap();
+        assert!(has(&a) && has(&b));
+        // 取链接期间又切了歌：没用上的停掉，正在放的留着
+        let d = c.stream("kd", Quality::High, &upstream, None).unwrap();
+        assert!(has(&a) && !has(&b) && has(&d));
+        c.activate(&d);
+        assert!(!has(&a) && has(&d));
+        assert!(c
+            .playing
+            .lock()
+            .unwrap()
+            .as_deref()
+            .is_some_and(|f| f.starts_with("kd_")));
+        c.activate("");
+        assert!(!has(&d));
     }
 
     #[test]

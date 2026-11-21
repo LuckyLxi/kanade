@@ -72,7 +72,8 @@ Future<void> showSongActions(
     context: context,
     builder: (sheet) {
       final liked = sheet.watch<LibraryController>().isLiked(song);
-      final download = sheet.watch<DownloadController>().item(song.mid);
+      final downloads = sheet.watch<DownloadController>();
+      final download = downloads.item(song.mid);
       // 正在放的这首（比如从播放页打开）没必要“下一首播放”
       final isCurrent = sheet.select<PlayerController, bool>(
         (p) => p.current?.mid == song.mid,
@@ -144,11 +145,12 @@ Future<void> showSongActions(
                   : downloadStateText(l, download.state),
               trailing: download == null
                   ? null
-                  : label(
-                      download.state == DownloadState.running
-                          ? downloadProgressText(download)
-                          : qualityLabel(l, download.quality),
-                    ),
+                  : download.state == DownloadState.running
+                  ? ValueListenableBuilder(
+                      valueListenable: downloads.live(download),
+                      builder: (_, d, _) => label(downloadProgressText(d)),
+                    )
+                  : label(qualityLabel(l, download.quality)),
               onTap: () => run(
                 () => download == null
                     ? downloadSong(context, song)

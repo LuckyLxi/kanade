@@ -65,7 +65,7 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 
 ### App updates
 
-- `rust/src/update.rs` reads a version manifest from the repo's `update-manifest` branch (`stable.json` / `preview.json`), downloads the installer from GitHub Releases and verifies its SHA-256. With the mirror pref on, it fetches both through `ghfast.top` / `gh-proxy.com` instead of GitHub; mirrors don't forward the GitHub API, so version info is a plain file.
+- `rust/src/update.rs` reads a version manifest from the repo's `update-manifest` branch (`stable.json` / `preview.json`), downloads the installer from GitHub Releases and verifies its SHA-256. With the mirror pref on, it fetches both through `ghfast.top` / `gh-proxy.com` instead of GitHub; mirrors don't forward the GitHub API, so version info is a plain file. Each manifest has a `<channel>.json.sig` Ed25519 signature that the release workflow makes with the `UPDATE_SIGNING_KEY` secret; `update.rs` verifies it against the built-in `MANIFEST_KEY` before trusting the hashes, so a mirror cannot swap the installer.
 - The release workflow writes that manifest, so changing the manifest shape means changing `release.yml` and `update.rs` together. Dart-side prefs and install live in `lib/update/app_update.dart`.
 - Release notes come from `release-notes/<tag>.md` when it exists, otherwise from the commit log.
 
@@ -78,7 +78,7 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 ## Reference material
 
 - `docs/qqmusic-api.md` maps each upstream QQ Music HTTP/MQTT endpoint to its Rust/Dart entry point. Read it before adding or changing an API call.
-- The repo root holds local `.har` / `.saz` / `.etl` / `.pcapng` captures (gitignored). Use them as reference for request shapes; they contain credentials, so never commit or quote them.
+- `captures/` holds local `.har` / `.saz` / `.etl` / `.pcapng` captures (gitignored). Use them as reference for request shapes; they contain credentials, so never commit or quote them.
 - Frame/perf/screenshot integration tests run with `flutter drive --driver=test_driver/integration_test.dart --target=integration_test/<name>_test.dart` (add `--profile` for perf). Each test's header comment has its exact command and device. Driving on the Android phone replaces the installed release build and wipes its data, so ask first.
 - `rust/tests/live.rs` holds opt-in live smoke tests. They read the login state from the HAR at `QQMUSIC_TEST_HAR` into an in-memory DB.
 - Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed (Flutter 3.50.0, Windows zip + Inno Setup installer, Android arm64 APK).

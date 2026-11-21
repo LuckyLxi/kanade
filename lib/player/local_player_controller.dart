@@ -204,6 +204,16 @@ class _LocalPlayerController extends PlayerController {
     }();
   }
 
+  /// 淡出后新歌没换成（取不到音源、跳过也都失败）：旧歌还在放，音量和进度重新跟着它走，
+  /// 不然它静音放下去、放完也不切歌。
+  void _releaseHold() {
+    if (!_holdGain) return;
+    _holdGain = false;
+    _setGain(_gainAt(_player.state.position));
+    // 淡出期间旧歌放完的事件被忽略了
+    if (_player.state.completed) _onCompleted();
+  }
+
   /// 设置里改播放过渡时长，从当前进度起生效。
   @override
   void setFade(Duration d) {
@@ -467,6 +477,7 @@ class _LocalPlayerController extends PlayerController {
       if (token != _token || urlToken != _urlToken) return;
       error = PlaybackFailed(song, e);
       if (await _skipFailed()) return;
+      _releaseHold();
       _syncPlaying();
     }
     // 降级重试已经接手时由它收尾
@@ -566,13 +577,17 @@ class _LocalPlayerController extends PlayerController {
       await _setNetworkTimeout(decoded: ready != null);
       // 改了当场生效，留到最后，免得旧歌最后一下按新歌的增益放
       await _applyGain(db);
+      // 等上面两步时又切了歌：再往下会停掉新歌已经建好的中转
+      if (stale()) return;
       _opening = play;
+      api.activateAudio(source: src.url);
       await _player.open(src.media(start: start), play: play);
     } catch (e) {
       _downgrade(e);
     } finally {
       _opening = false;
-      _holdGain = false;
+      // 过期了由接手的那次切歌放开旧歌的音量
+      if (!stale()) _holdGain = false;
     }
   }
 
@@ -601,6 +616,7 @@ class _LocalPlayerController extends PlayerController {
         if (a.token != _token) return;
         error = PlaybackFailed(a.song, e);
         if (await _skipFailed()) return;
+        _releaseHold();
         _syncPlaying();
       }
       loading = false;
@@ -722,8 +738,7 @@ class _LocalPlayerController extends PlayerController {
   );
 
   @override
-  Future<void> setAudioCacheLimit(int mb) async =>
-      api.setAudioCacheLimitMb(mb: mb);
+  Future<void> setAudioCacheLimit(int mb) => api.setAudioCacheLimitMb(mb: mb);
 
   @override
   Future<void> clearAudioCache() => api.clearAudioCache();

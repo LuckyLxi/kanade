@@ -90,6 +90,11 @@ String? getCachedAudio({required String mid, required Quality quality}) =>
 CachedAudio? getAnyCachedAudio({required String mid}) =>
     RustLib.instance.api.crateApiMusicGetAnyCachedAudio(mid: mid);
 
+/// 播放器就要打开这个音源了（缓存路径、中转地址或在线链接）：停掉之前的中转，
+/// 正在播的缓存文件不被淘汰。在这之前旧歌的中转照常工作，淡出时不会断。
+void activateAudio({required String source}) =>
+    RustLib.instance.api.crateApiMusicActivateAudio(source: source);
+
 /// 缓存文件播不了时删掉。
 void removeCachedAudio({required String mid, required Quality quality}) =>
     RustLib.instance.api.crateApiMusicRemoveCachedAudio(
@@ -118,7 +123,8 @@ Future<void> waitForDecodedAudio({required String url}) =>
 PlatformInt64 getAudioCacheLimitMb() =>
     RustLib.instance.api.crateApiMusicGetAudioCacheLimitMb();
 
-void setAudioCacheLimitMb({required PlatformInt64 mb}) =>
+/// 调小时当场淘汰多出来的文件，不放在界面线程上做。
+Future<void> setAudioCacheLimitMb({required PlatformInt64 mb}) =>
     RustLib.instance.api.crateApiMusicSetAudioCacheLimitMb(mb: mb);
 
 /// 歌曲缓存占用的字节数。

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kanade/download/download_controller.dart';
@@ -47,6 +48,9 @@ class _Downloads extends ChangeNotifier implements DownloadController {
 
   @override
   DownloadItem? item(String mid) => done?.song.mid == mid ? done : null;
+
+  @override
+  ValueListenable<DownloadItem> live(DownloadItem d) => ValueNotifier(d);
 
   @override
   Future<void> remove(String mid) async {

@@ -116,6 +116,13 @@ pub fn get_any_cached_audio(mid: String) -> Option<CachedAudio> {
         .map(|(path, quality)| CachedAudio { path, quality })
 }
 
+/// 播放器就要打开这个音源了（缓存路径、中转地址或在线链接）：停掉之前的中转，
+/// 正在播的缓存文件不被淘汰。在这之前旧歌的中转照常工作，淡出时不会断。
+#[flutter_rust_bridge::frb(sync)]
+pub fn activate_audio(source: String) {
+    cache().activate(&source)
+}
+
 /// 缓存文件播不了时删掉。
 #[flutter_rust_bridge::frb(sync)]
 pub fn remove_cached_audio(mid: String, quality: Quality) {
@@ -146,7 +153,7 @@ pub fn get_audio_cache_limit_mb() -> i64 {
     crate::qq::audio_cache::limit_mb()
 }
 
-#[flutter_rust_bridge::frb(sync)]
+/// 调小时当场淘汰多出来的文件，不放在界面线程上做。
 pub fn set_audio_cache_limit_mb(mb: i64) -> Result<(), ApiError> {
     cache().set_limit_mb(mb).map_err(api_error)
 }
