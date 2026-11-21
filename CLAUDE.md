@@ -11,7 +11,7 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 ### Dart ↔ Rust boundary
 
 - `rust/src/api/music.rs` is the only Rust surface Dart calls (via flutter_rust_bridge 2.13.0, configured in `flutter_rust_bridge.yaml`: `rust_input: crate::api`, output `lib/src/rust`). Each function is a thin wrapper around `crate::qq::*` (or `crate::update` for app updates). Shared data types live in `rust/src/api/types.rs`.
-- Every API error passes through `api_error()`, which maps it to an `ApiError` code that Dart translates, and calls `client::suspect_session()` when the server rejects auth. New API functions should use the same `.map_err(api_error)` pattern.
+- Every API error passes through `api_error()`, which maps it to an `ApiError` code (`rust/src/api/error.rs`; its `Display`/`From` impls sit in `crate::qq::error` so frb doesn't scan them) that Dart translates, and calls `client::suspect_session()` when the server rejects auth. New API functions should use the same `.map_err(api_error)` pattern.
 - Rust pushes events to Dart through frb `StreamSink` parameters (`watch_downloads`, `watch_session_end`, update progress, device-capture PCM).
 - After changing anything in `rust/src/api/`, run `flutter_rust_bridge_codegen generate`. Dart imports the generated code as `src/rust/api/music.dart as api`.
 - `rust/src/qq/client.rs` is the single place for the network client, login session (`Session`: uin/musickey/login_type) and request signing (`sign.rs`). `store.rs` is one SQLite DB (`kanade.db` in the app support dir) that holds API response cache, song cache index and key-value prefs, login included.
@@ -19,7 +19,8 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 ### Startup and state
 
 - `lib/main.dart` → `initApp()` in `lib/app.dart`: MediaKit, `RustLib.init()`, window setup, `api.initCore(dataDir)`, glass shader warm-up. Integration tests call the same `initApp` with a copied data dir (`integration_test/harness.dart` `initTestApp`) so they never touch the live `kanade.db`.
-- State uses `provider` `ChangeNotifier`s wired in `AppProviders`: `LocaleController`, `ThemeController`, `AuthController`, `LibraryController` (liked songs, eager), `PlayerController`. `MediaSession` (SMTC on Windows, `audio_service` on Android) attaches once all of these exist.
+- `api.initCore` = `initUiCore` (SQLite store + download stage) plus the audio cache. Init is composed there in the API layer, not in `client.rs`.
+- State uses `provider` `ChangeNotifier`s wired in `AppProviders`: `LocaleController`, `ThemeController`, `LyricSettings`, `DesktopSettings`, `AuthController`, `LibraryController` (liked songs, eager), `PlayerController`, `DownloadController`. Once they exist, `_MediaSessionHost` attaches `MediaSession` (SMTC on Windows, `audio_service` on Android) and `DesktopIntegration`; integration tests skip both.
 
 ### Playback: two implementations behind `PlayerController`
 
@@ -27,7 +28,7 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 
 - `_LocalPlayerController` (`local_player_controller.dart`) owns a media_kit `Player`. Windows uses it directly.
 - `_RemotePlayerController` (`remote_player_controller.dart`) is used on Android when `KANADE_SEPARATE_ANDROID_PLAYBACK` is set (the default). Playback runs in a separate Flutter engine (`androidPlaybackMain` → `runAndroidPlayback()` in `android_playback_service.dart`), which itself runs a `_LocalPlayerController`. The UI talks to it over a Unix socket (`<dataDir>/playback.sock`) using newline-delimited JSON (`android_playback_connection.dart`, `playback_messages.dart`).
-- On Android the UI process calls `api.initUiCore` (DB only) and the playback process calls `api.initCore`. Only the playback process opens the audio cache.
+- On Android the UI process calls `api.initUiCore` (no audio cache) and the playback process calls `api.initCore`. Only the playback process opens the audio cache.
 - Playback-facing changes usually touch both sides. Anything the UI needs from the player must go through the message protocol on Android.
 
 ### Audio sources and caching
@@ -49,6 +50,10 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 - `ExcludeSemantics(excluding: Platform.isWindows)` in `main.dart` deliberately works around a Flutter Windows accessibility crash. Keep it.
 - Widgets come from the split `material_ui` / `cupertino_ui` packages, not `package:flutter/material.dart`; don't mix the two. For the same reason the app uses `lib/l10n/localizations_delegates.dart` instead of the gen-l10n `AppLocalizations.localizationsDelegates`, which would make widgets fall back to English.
 - The ARB template is `lib/l10n/app_zh.arb` (Chinese is the source language). Code comments and docs are mostly in Chinese.
+
+### Windows desktop integration
+
+- Tray, close-to-tray, global hotkeys and start-at-login live in `lib/desktop/` (`DesktopIntegration`, `DesktopSettings`) and talk to `windows/runner/desktop_integration.cpp` over the `kanade/desktop` MethodChannel. The native side forwards close clicks, tray menu and hotkeys; Dart pushes tray tooltip and menu text.
 
 ### Song recognition
 
