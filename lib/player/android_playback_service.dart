@@ -7,10 +7,10 @@ import 'package:path_provider/path_provider.dart';
 
 import '../auth/auth_controller.dart';
 import '../data/song_json.dart';
-import '../desktop/desktop_settings.dart';
 import '../library/library_controller.dart';
 import '../settings/locale_controller.dart';
 import '../settings/lyric_settings.dart';
+import '../settings/lyrics_window_settings.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import '../src/rust/frb_generated.dart';
@@ -32,7 +32,7 @@ Future<void> runAndroidPlayback() async {
   final locale = LocaleController();
   final player = PlayerController(auth, loadDisplayMetadata: false);
   // 悬浮歌词的设置，界面进程那份改了会让这边重读
-  final lyrics = DesktopSettings();
+  final lyrics = LyricsWindowSettings();
   final lyricSettings = LyricSettings();
   await MediaSession.attach(player, library, locale, lyrics: lyrics);
   FloatingLyrics.attach(player, lyrics, lyricSettings, locale);
@@ -60,7 +60,7 @@ class _PlaybackServer {
   final AuthController auth;
   final LibraryController library;
   final LocaleController locale;
-  final DesktopSettings lyrics;
+  final LyricsWindowSettings lyrics;
   final LyricSettings lyricSettings;
   final _clients = <Socket>{};
   final _watching = <Socket>{};

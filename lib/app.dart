@@ -20,6 +20,7 @@ import 'player/media_session.dart';
 import 'player/player_controller.dart';
 import 'settings/locale_controller.dart';
 import 'settings/lyric_settings.dart';
+import 'settings/lyrics_window_settings.dart';
 import 'settings/theme_controller.dart';
 import 'src/rust/api/music.dart' as api;
 import 'src/rust/frb_generated.dart';
@@ -81,6 +82,7 @@ class AppProviders extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeController()),
         ChangeNotifierProvider(create: (_) => LyricSettings()),
         ChangeNotifierProvider(create: (_) => DesktopSettings()),
+        ChangeNotifierProvider(create: (_) => LyricsWindowSettings()),
         ChangeNotifierProvider(create: (_) => AuthController()),
         // 启动时就去取红心列表
         ChangeNotifierProvider(
@@ -119,7 +121,7 @@ class AppProviders extends StatelessWidget {
             lazy: false,
             create: (context) => FloatingLyricsLink(
               context.read<AndroidPlaybackConnection?>()!,
-              context.read<DesktopSettings>(),
+              context.read<LyricsWindowSettings>(),
               context.read<LyricSettings>(),
             ),
             dispose: (_, link) => link.dispose(),
@@ -152,13 +154,15 @@ class _MediaSessionHostState extends State<_MediaSessionHost> {
         context.read<PlayerController>(),
         context.read<LibraryController>(),
         context.read<LocaleController>(),
-        lyrics: Platform.isAndroid ? context.read<DesktopSettings>() : null,
+        lyrics: Platform.isAndroid
+            ? context.read<LyricsWindowSettings>()
+            : null,
       ),
     );
     // 播放不分进程时悬浮歌词跟着界面这边的播放器
     FloatingLyrics.attach(
       context.read<PlayerController>(),
-      context.read<DesktopSettings>(),
+      context.read<LyricsWindowSettings>(),
       context.read<LyricSettings>(),
       context.read<LocaleController>(),
     );
@@ -167,6 +171,7 @@ class _MediaSessionHostState extends State<_MediaSessionHost> {
       context.read<LibraryController>(),
       context.read<LocaleController>(),
       context.read<DesktopSettings>(),
+      context.read<LyricsWindowSettings>(),
       context.read<LyricSettings>(),
       _navigator,
     );

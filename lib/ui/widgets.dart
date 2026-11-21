@@ -13,6 +13,13 @@ String formatDuration(Duration d) {
   return '$m:${s.toString().padLeft(2, '0')}';
 }
 
+String formatBytes(int bytes) {
+  const mb = 1024 * 1024;
+  if (bytes < mb) return '${(bytes / 1024).toStringAsFixed(0)} KB';
+  if (bytes < 1024 * mb) return '${(bytes / mb).toStringAsFixed(1)} MB';
+  return '${(bytes / mb / 1024).toStringAsFixed(2)} GB';
+}
+
 class Cover extends StatefulWidget {
   const Cover(
     this.url, {

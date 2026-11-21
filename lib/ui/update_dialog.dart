@@ -10,6 +10,7 @@ import '../src/rust/api/types.dart';
 import '../update/app_update.dart';
 import 'kanade_dialog.dart';
 import 'sheet.dart';
+import 'widgets.dart';
 
 /// 发现新版本时的弹窗：说明 → 下载进度 → 失败，三步在同一个弹窗里切换，高度平滑过渡。
 Future<void> showUpdateDialog(
@@ -22,8 +23,6 @@ Future<void> showUpdateDialog(
 );
 
 enum _Failure { network, corrupted, notWritable, install }
-
-String _mb(int bytes) => '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
 
 class _UpdateDialog extends StatefulWidget {
   const _UpdateDialog({required this.info, required this.current});
@@ -163,7 +162,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                   title: a.name.endsWith('.zip')
                       ? l.updateArchive
                       : l.updateInstaller,
-                  size: _mb(a.size),
+                  size: formatBytes(a.size),
                   hint: a.name.endsWith('.zip')
                       ? l.updateArchiveHint
                       : l.updateInstallerHint,
@@ -225,9 +224,13 @@ class _UpdateDialogState extends State<_UpdateDialog> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Text('${_mb(_received)} / ${_mb(total)}', style: muted),
+              Text(
+                '${formatBytes(_received)} / ${formatBytes(total)}',
+                style: muted,
+              ),
               const Spacer(),
-              if (speed != null) Text('${_mb(speed.round())}/s', style: muted),
+              if (speed != null)
+                Text('${formatBytes(speed.round())}/s', style: muted),
             ],
           ),
           const SizedBox(height: 14),

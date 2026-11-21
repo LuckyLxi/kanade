@@ -8,7 +8,7 @@ class _RemotePlayerController extends PlayerController {
     this._connection,
   ) : super._() {
     _subscriptions = [
-      _connection.updates.listen(_applyUpdate),
+      _connection.state.listen(_applyUpdate),
       _connection.restarts.listen((_) => _resumePosition()),
     ];
     _lifecycle = AppLifecycleListener(
@@ -77,10 +77,6 @@ class _RemotePlayerController extends PlayerController {
 
   void _applyUpdate(PlaybackMessage message) {
     if (_disposed) return;
-    // 下载改动由 DownloadController 处理
-    if (message['download'] is String) return;
-    // 悬浮歌词设置改动由 FloatingLyricsLink 处理
-    if (message['floatingLyrics'] == true) return;
     if (message['position'] case final int milliseconds) {
       if (_resuming) return;
       position.value = Duration(milliseconds: milliseconds);

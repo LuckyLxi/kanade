@@ -26,11 +26,19 @@ class AndroidPlaybackConnection {
     : _address = playbackAddress(directory);
 
   final InternetAddress _address;
-  final _updates = StreamController<PlaybackMessage>.broadcast(sync: true);
+  final _state = StreamController<PlaybackMessage>.broadcast(sync: true);
+  final _downloads = StreamController<String>.broadcast(sync: true);
+  final _floatingLyrics = StreamController<void>.broadcast(sync: true);
   final _restarts = StreamController<void>.broadcast(sync: true);
 
-  /// 播放进程主动推来的消息：播放状态、下载改动。
-  Stream<PlaybackMessage> get updates => _updates.stream;
+  /// 播放进程推来的播放状态快照和进度。
+  Stream<PlaybackMessage> get state => _state.stream;
+
+  /// 播放进程里下载记录变了的歌曲 mid，记录本身从共用的数据库读。
+  Stream<String> get downloads => _downloads.stream;
+
+  /// 悬浮窗上改了歌词设置，从共用的数据库重读。
+  Stream<void> get floatingLyrics => _floatingLyrics.stream;
 
   /// 断开后重新连上：原来的播放进程已经没了，连上的是新拉起的。
   Stream<void> get restarts => _restarts.stream;
@@ -123,7 +131,14 @@ class AndroidPlaybackConnection {
   void _receive(PlaybackMessage message) {
     final id = message['id'];
     if (id is! int) {
-      if (!_disposed) _updates.add(message);
+      if (_disposed) return;
+      if (message['download'] case final String mid) {
+        _downloads.add(mid);
+      } else if (message['floatingLyrics'] == true) {
+        _floatingLyrics.add(null);
+      } else {
+        _state.add(message);
+      }
       return;
     }
     final pending = _pending.remove(id);
@@ -150,7 +165,9 @@ class AndroidPlaybackConnection {
     if (_socket case final socket?) {
       _disconnect(socket, StateError('Playback connection has closed'));
     }
-    unawaited(_updates.close());
+    unawaited(_state.close());
+    unawaited(_downloads.close());
+    unawaited(_floatingLyrics.close());
     unawaited(_restarts.close());
   }
 }

@@ -13,6 +13,7 @@ import '../l10n/l10n_ext.dart';
 import '../player/player_controller.dart';
 import '../settings/locale_controller.dart';
 import '../settings/lyric_settings.dart';
+import '../settings/lyrics_window_settings.dart';
 import '../settings/theme_controller.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
@@ -57,13 +58,6 @@ const _themeIcons = {
 
 /// 内容区宽过这个就左边分类、右边内容。
 const _wideWidth = 720.0;
-
-String _sizeText(int bytes) {
-  const mb = 1024 * 1024;
-  if (bytes < mb) return '${(bytes / 1024).toStringAsFixed(0)} KB';
-  if (bytes < 1024 * mb) return '${(bytes / mb).toStringAsFixed(1)} MB';
-  return '${(bytes / mb / 1024).toStringAsFixed(2)} GB';
-}
 
 String _limitText(AppLocalizations l, int mb) => switch (mb) {
   0 => l.audioCacheOff,
@@ -156,14 +150,18 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   /// 第一次打开时还没有悬浮窗权限，直接去系统设置里开。
-  Future<void> _setFloatingLyrics(DesktopSettings desktop, bool on) async {
-    desktop.setLyricsVisible(on);
+  Future<void> _setFloatingLyrics(LyricsWindowSettings lyrics, bool on) async {
+    lyrics.setLyricsVisible(on);
     if (on && _canOverlay == false) {
       await _overlay.invokeMethod('openOverlaySettings');
     }
   }
 
-  List<Widget> _desktopRows(AppLocalizations l, DesktopSettings desktop) {
+  List<Widget> _desktopRows(
+    AppLocalizations l,
+    DesktopSettings desktop,
+    LyricsWindowSettings lyrics,
+  ) {
     String closeText(CloseAction a) => switch (a) {
       CloseAction.ask => l.closeActionAsk,
       CloseAction.tray => l.closeToTray,
@@ -196,7 +194,7 @@ class _SettingsPageState extends State<SettingsPage> {
           onChanged: _setAutostart,
         ),
       ),
-      ..._lyricsRows(l, desktop),
+      ..._lyricsRows(l, lyrics),
       _Item(
         icon: Icons.keyboard_outlined,
         title: l.hotkeys,
@@ -237,7 +235,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   /// Windows 的桌面歌词和 Android 的悬浮歌词，设置是同一份。
-  List<Widget> _lyricsRows(AppLocalizations l, DesktopSettings desktop) {
+  List<Widget> _lyricsRows(AppLocalizations l, LyricsWindowSettings lyrics) {
     final android = Platform.isAndroid;
     String linesText(bool single) =>
         single ? l.desktopLyricsSingle : l.desktopLyricsDouble;
@@ -248,56 +246,56 @@ class _SettingsPageState extends State<SettingsPage> {
       LyricsAlign.stagger => l.alignStagger,
     };
     final align =
-        desktop.lyricsSingleLine && desktop.lyricsAlign == LyricsAlign.stagger
+        lyrics.lyricsSingleLine && lyrics.lyricsAlign == LyricsAlign.stagger
         ? LyricsAlign.center
-        : desktop.lyricsAlign;
+        : lyrics.lyricsAlign;
     void setVisible(bool v) =>
-        android ? _setFloatingLyrics(desktop, v) : desktop.setLyricsVisible(v);
+        android ? _setFloatingLyrics(lyrics, v) : lyrics.setLyricsVisible(v);
     return [
       _Item(
         icon: Icons.lyrics_outlined,
         title: android ? l.floatingLyrics : l.desktopLyrics,
         hint: !android
             ? l.desktopLyricsHint
-            : desktop.lyricsVisible && _canOverlay == false
+            : lyrics.lyricsVisible && _canOverlay == false
             ? l.floatingLyricsNoPermission
             : l.floatingLyricsHint,
-        onTap: () => android && desktop.lyricsVisible && _canOverlay == false
+        onTap: () => android && lyrics.lyricsVisible && _canOverlay == false
             ? _overlay.invokeMethod('openOverlaySettings')
-            : setVisible(!desktop.lyricsVisible),
+            : setVisible(!lyrics.lyricsVisible),
         trailing: Switch(
-          value: desktop.lyricsVisible,
+          value: lyrics.lyricsVisible,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           onChanged: setVisible,
         ),
       ),
-      if (desktop.lyricsVisible)
+      if (lyrics.lyricsVisible)
         _Item(
           icon: Icons.lock_outline_rounded,
           title: android ? l.floatingLyricsLock : l.desktopLyricsLock,
           hint: android ? l.floatingLyricsLockHint : l.desktopLyricsLockHint,
-          onTap: () => desktop.setLyricsLocked(!desktop.lyricsLocked),
+          onTap: () => lyrics.setLyricsLocked(!lyrics.lyricsLocked),
           trailing: Switch(
-            value: desktop.lyricsLocked,
+            value: lyrics.lyricsLocked,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            onChanged: desktop.setLyricsLocked,
+            onChanged: lyrics.setLyricsLocked,
           ),
         ),
-      if (desktop.lyricsVisible)
+      if (lyrics.lyricsVisible)
         for (final (menu, icon, title, color, onSelected) in [
           (
             _sungMenu,
             Icons.format_color_fill_rounded,
             l.desktopLyricsSung,
-            desktop.lyricsSung,
-            desktop.setLyricsSung,
+            lyrics.lyricsSung,
+            lyrics.setLyricsSung,
           ),
           (
             _unsungMenu,
             Icons.format_color_text_rounded,
             l.desktopLyricsUnsung,
-            desktop.lyricsUnsung,
-            desktop.setLyricsUnsung,
+            lyrics.lyricsUnsung,
+            lyrics.setLyricsUnsung,
           ),
         ])
           _Item(
@@ -315,7 +313,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             onTap: () => menu.currentState?.open(),
           ),
-      if (desktop.lyricsVisible) ...[
+      if (lyrics.lyricsVisible) ...[
         _Item(
           icon: Icons.view_agenda_outlined,
           title: l.desktopLyricsLines,
@@ -323,10 +321,10 @@ class _SettingsPageState extends State<SettingsPage> {
             key: _linesMenu,
             title: l.desktopLyricsLines,
             values: const [false, true],
-            selected: desktop.lyricsSingleLine,
+            selected: lyrics.lyricsSingleLine,
             label: linesText,
-            onSelected: desktop.setLyricsSingleLine,
-            child: _Value(linesText(desktop.lyricsSingleLine)),
+            onSelected: lyrics.setLyricsSingleLine,
+            child: _Value(linesText(lyrics.lyricsSingleLine)),
           ),
           onTap: () => _linesMenu.currentState?.open(),
         ),
@@ -337,7 +335,7 @@ class _SettingsPageState extends State<SettingsPage> {
             key: _alignMenu,
             title: l.desktopLyricsAlign,
             // 单行没有错开，显示成居中
-            values: desktop.lyricsSingleLine
+            values: lyrics.lyricsSingleLine
                 ? const [
                     LyricsAlign.left,
                     LyricsAlign.center,
@@ -346,7 +344,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 : LyricsAlign.values,
             selected: align,
             label: alignText,
-            onSelected: desktop.setLyricsAlign,
+            onSelected: lyrics.setLyricsAlign,
             child: _Value(alignText(align)),
           ),
           onTap: () => _alignMenu.currentState?.open(),
@@ -697,7 +695,7 @@ class _SettingsPageState extends State<SettingsPage> {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                size == null ? '…' : _sizeText(size),
+                size == null ? '…' : formatBytes(size),
                 style: const TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w700,
@@ -959,7 +957,7 @@ class _SettingsPageState extends State<SettingsPage> {
       icon: Icons.dataset_outlined,
       title: l.apiCacheSize,
       hint:
-          '${l.apiCacheSizeHint} · ${_apiSize == null ? '…' : _sizeText(_apiSize!)}',
+          '${l.apiCacheSizeHint} · ${_apiSize == null ? '…' : formatBytes(_apiSize!)}',
       trailing: _ClearButton(
         onPressed: _apiSize == null || _apiSize == 0 ? null : _clearApi,
       ),
@@ -1106,6 +1104,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final desktop = context.watch<DesktopSettings>();
+    final lyrics = context.watch<LyricsWindowSettings>();
     final loggedIn = context.select<AuthController, bool>((a) => a.loggedIn);
 
     final List<_Section> sections = [
@@ -1125,7 +1124,7 @@ class _SettingsPageState extends State<SettingsPage> {
         (
           title: l.settingsDesktop,
           icon: Icons.desktop_windows_outlined,
-          rows: _desktopRows(l, desktop),
+          rows: _desktopRows(l, desktop, lyrics),
           after: null,
         ),
       ],
@@ -1133,7 +1132,7 @@ class _SettingsPageState extends State<SettingsPage> {
         (
           title: l.floatingLyrics,
           icon: Icons.lyrics_outlined,
-          rows: _lyricsRows(l, desktop),
+          rows: _lyricsRows(l, lyrics),
           after: null,
         ),
       (

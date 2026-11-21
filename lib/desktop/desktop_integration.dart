@@ -12,6 +12,7 @@ import '../player/media_session.dart';
 import '../player/player_controller.dart';
 import '../settings/locale_controller.dart';
 import '../settings/lyric_settings.dart';
+import '../settings/lyrics_window_settings.dart';
 import '../ui/kanade_dialog.dart';
 import 'desktop_settings.dart';
 
@@ -23,6 +24,7 @@ class DesktopIntegration {
     this._library,
     this._locale,
     this._settings,
+    this._lyricsWindow,
     this._lyricSettings,
     this._navigator,
   ) {
@@ -34,6 +36,8 @@ class DesktopIntegration {
     _lyricSettings.addListener(_lyricsFeed.push);
     _p.position.addListener(_lyricsFeed.sync);
     _lyricsFeed.push();
+    _lyricsWindow.addListener(_pushLyricsConfig);
+    _pushLyricsConfig();
     _settings.activate();
     unawaited(_channel.invokeMethod('interceptClose', true));
   }
@@ -44,10 +48,14 @@ class DesktopIntegration {
   final LibraryController _library;
   final LocaleController _locale;
   final DesktopSettings _settings;
+  final LyricsWindowSettings _lyricsWindow;
   final LyricSettings _lyricSettings;
   final GlobalKey<NavigatorState> _navigator;
   Object? _tray;
   bool _asking = false;
+
+  /// 歌词窗口自己报上来的改动不再推回去。
+  bool _applyingNative = false;
 
   late final _lyricsFeed = LyricsFeed(_channel, _p, _lyricSettings, _locale);
 
@@ -56,6 +64,7 @@ class DesktopIntegration {
     LibraryController library,
     LocaleController locale,
     DesktopSettings settings,
+    LyricsWindowSettings lyricsWindow,
     LyricSettings lyricSettings,
     GlobalKey<NavigatorState> navigator,
   ) {
@@ -65,9 +74,19 @@ class DesktopIntegration {
         library,
         locale,
         settings,
+        lyricsWindow,
         lyricSettings,
         navigator,
       );
+    }
+  }
+
+  Future<void> _pushLyricsConfig() async {
+    if (_applyingNative) return;
+    try {
+      await _channel.invokeMethod('lyricsConfig', _lyricsWindow.lyricsConfig);
+    } catch (e) {
+      debugPrint('push desktop lyrics config failed: $e');
     }
   }
 
@@ -122,7 +141,12 @@ class DesktopIntegration {
       case 'tray' || 'hotkey':
         await _run(call.arguments as String);
       case 'lyricsState':
-        _settings.applyLyricsState(call.arguments as Map);
+        _applyingNative = true;
+        try {
+          _lyricsWindow.applyLyricsState(call.arguments as Map);
+        } finally {
+          _applyingNative = false;
+        }
     }
   }
 

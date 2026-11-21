@@ -4,9 +4,9 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
-import '../desktop/desktop_settings.dart';
 import '../settings/locale_controller.dart';
 import '../settings/lyric_settings.dart';
+import '../settings/lyrics_window_settings.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import 'android_playback_connection.dart';
@@ -15,7 +15,7 @@ import 'playback_messages.dart';
 import 'player_controller.dart';
 
 /// Android 悬浮歌词，在播放所在的进程里把设置、歌词和进度推给原生的悬浮窗（FloatingLyrics.kt）。
-/// 设置和 Windows 桌面歌词是同一份，就是 [DesktopSettings] 里的 lyrics*。
+/// 设置和 Windows 桌面歌词是同一份 [LyricsWindowSettings]。
 class FloatingLyrics {
   FloatingLyrics._(this._p, this._settings, this._lyricSettings, this._locale) {
     _channel.setMethodCallHandler(_onCall);
@@ -29,7 +29,7 @@ class FloatingLyrics {
   static const _channel = MethodChannel('kanade/lyrics');
 
   final PlayerController _p;
-  final DesktopSettings _settings;
+  final LyricsWindowSettings _settings;
   final LyricSettings _lyricSettings;
   final LocaleController _locale;
   late final _feed = LyricsFeed(
@@ -51,7 +51,7 @@ class FloatingLyrics {
 
   static void attach(
     PlayerController p,
-    DesktopSettings settings,
+    LyricsWindowSettings settings,
     LyricSettings lyricSettings,
     LocaleController locale,
   ) {
@@ -128,16 +128,14 @@ class FloatingLyricsLink {
     _settings.addListener(_push);
     _lyricSettings.addListener(_push);
     _subs = [
-      _remote.updates.listen((m) {
-        if (m['floatingLyrics'] == true) _settings.reloadLyrics();
-      }),
+      _remote.floatingLyrics.listen((_) => _settings.reloadLyrics()),
       // 断开期间的转告收不到，重连后重读，免得拿旧的一份把悬浮窗上的改动盖掉
       _remote.restarts.listen((_) => _settings.reloadLyrics()),
     ];
   }
 
   final AndroidPlaybackConnection _remote;
-  final DesktopSettings _settings;
+  final LyricsWindowSettings _settings;
   final LyricSettings _lyricSettings;
   late final List<StreamSubscription<Object?>> _subs;
 

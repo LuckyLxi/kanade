@@ -171,7 +171,7 @@ class _Connection implements AndroidPlaybackConnection {
   void update(PlaybackMessage message) => _updates.add(message);
   bool get listened => _updates.hasListener || _restarts.hasListener;
   @override
-  Stream<PlaybackMessage> get updates => _updates.stream;
+  Stream<PlaybackMessage> get state => _updates.stream;
   @override
   Stream<void> get restarts => _restarts.stream;
   @override

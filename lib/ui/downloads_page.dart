@@ -330,8 +330,8 @@ class _ActiveRow extends StatelessWidget {
       DownloadState.queued when waitingForWifi => l.downloadWaitingWifi,
       DownloadState.queued => l.downloadQueued,
       DownloadState.running => [
-        _size(d.received),
-        if (d.total > BigInt.zero) _size(d.total),
+        formatBytes(d.received.toInt()),
+        if (d.total > BigInt.zero) formatBytes(d.total.toInt()),
       ].join(' / '),
       DownloadState.paused => l.downloadPaused,
       DownloadState.failed => [
@@ -408,11 +408,4 @@ class _ActiveRow extends StatelessWidget {
       ),
     );
   }
-}
-
-String _size(BigInt bytes) {
-  const mb = 1024 * 1024;
-  final n = bytes.toInt();
-  if (n < mb) return '${(n / 1024).toStringAsFixed(0)} KB';
-  return '${(n / mb).toStringAsFixed(1)} MB';
 }

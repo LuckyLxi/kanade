@@ -17,9 +17,7 @@ class DownloadController extends ChangeNotifier {
     _reload();
     _subs = switch (_remote) {
       final remote? => [
-        remote.updates.listen((message) {
-          if (message['download'] case final String mid) _onRemote(mid);
-        }),
+        remote.downloads.listen(_onRemote),
         // 播放进程重启过，可能都变了
         remote.restarts.listen((_) => _onRemote(null)),
       ],

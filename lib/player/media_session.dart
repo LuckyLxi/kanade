@@ -7,9 +7,9 @@ import 'package:flutter/widgets.dart';
 import 'package:smtc_windows/smtc_windows.dart';
 
 import '../data/data_ext.dart';
-import '../desktop/desktop_settings.dart';
 import '../library/library_controller.dart';
 import '../settings/locale_controller.dart';
+import '../settings/lyrics_window_settings.dart';
 import '../src/rust/api/types.dart';
 import 'player_controller.dart';
 import 'taskbar_thumbnail.dart';
@@ -62,7 +62,7 @@ class MediaSession {
   final PlayerController _p;
   final LibraryController _library;
   final LocaleController _locale;
-  final DesktopSettings? _lyrics;
+  final LyricsWindowSettings? _lyrics;
   final _Sink _sink;
   AppLifecycleListener? _lifecycle;
   Future<AppExitResponse>? _exitRequest;
@@ -95,7 +95,7 @@ class MediaSession {
     PlayerController p,
     LibraryController library,
     LocaleController locale, {
-    DesktopSettings? lyrics,
+    LyricsWindowSettings? lyrics,
   }) async {
     try {
       final _Sink? sink;
