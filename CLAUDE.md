@@ -20,7 +20,7 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 
 - `lib/main.dart` → `initApp()` in `lib/app.dart`: MediaKit, `RustLib.init()`, window setup, `api.initCore(dataDir)`, glass shader warm-up. Integration tests call the same `initApp` with a copied data dir (`integration_test/harness.dart` `initTestApp`) so they never touch the live `kanade.db`.
 - `api.initCore` = `initUiCore` (SQLite store + download stage) plus the audio cache. Init is composed there in the API layer, not in `client.rs`.
-- State uses `provider` `ChangeNotifier`s wired in `AppProviders`: `LocaleController`, `ThemeController`, `LyricSettings`, `DesktopSettings`, `AuthController`, `LibraryController` (liked songs, eager), `PlayerController`, `DownloadController`. Once they exist, `_MediaSessionHost` attaches `MediaSession` (SMTC on Windows, `audio_service` on Android) and `DesktopIntegration`; integration tests skip both.
+- State uses `provider` `ChangeNotifier`s wired in `AppProviders`: `LocaleController`, `ThemeController`, `LyricSettings`, `DesktopSettings`, `LyricsWindowSettings`, `AuthController`, `LibraryController` (liked songs, eager), `PlayerController`, `DownloadController` (plus `FloatingLyricsLink` on Android). Once they exist, `_MediaSessionHost` attaches `MediaSession` (SMTC on Windows, `audio_service` on Android) and `DesktopIntegration`; integration tests skip both.
 
 ### Playback: two implementations behind `PlayerController`
 
@@ -54,6 +54,13 @@ AGENTS.md (imported above) covers the commands, capture scripts, style, testing,
 ### Windows desktop integration
 
 - Tray, close-to-tray, global hotkeys and start-at-login live in `lib/desktop/` (`DesktopIntegration`, `DesktopSettings`) and talk to `windows/runner/desktop_integration.cpp` over the `kanade/desktop` MethodChannel. The native side forwards close clicks, tray menu and hotkeys; Dart pushes tray tooltip and menu text.
+- Other runner pieces: `taskbar_thumbnail.cpp` (taskbar hover preview with cover and prev/play/next, `kanade/taskbar`, Dart side `lib/player/taskbar_thumbnail.dart`) and `software_rendering.cpp` (`kanade/rendering`; a registry flag read at startup in `main.cpp` that hooks the engine's `GetProcAddress` so ANGLE gets a WARP device).
+
+### Lyrics window (Windows desktop lyrics / Android floating lyrics)
+
+- One `LyricsWindowSettings` (`lib/settings/lyrics_window_settings.dart`) drives both. `LyricsFeed` (`lib/player/lyrics_feed.dart`) pushes lyrics and position to the native window, which advances the position on its own; Dart only resyncs when play state changes or the position jumps.
+- Windows: `DesktopIntegration` owns the feed over `kanade/desktop`; the window is `windows/runner/desktop_lyrics.cpp` (layered topmost Direct2D/DirectWrite window). Dart's `LyricsAlign` order must match the native `Align` enum.
+- Android: `FloatingLyrics` runs in the playback process and talks to `FloatingLyrics.kt` over `kanade/lyrics`. In the UI process `FloatingLyricsLink` relays settings changes over the playback connection and rereads settings when the overlay changes them (lock, size, drag, close) or the playback process restarts.
 
 ### Song recognition
 
