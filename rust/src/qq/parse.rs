@@ -67,7 +67,8 @@ pub fn song(v: &Value) -> Option<Song> {
     };
     Some(Song {
         id: n(&v["id"]).max(n(&v["songid"])),
-        name: first_s(v, &["name", "title", "songname"]),
+        // title 带版本后缀，比如 name 是 “My Color”，title 是 “My Color (Acoustic ver.)”
+        name: first_s(v, &["title", "name", "songname"]),
         media_mid: if media_mid.is_empty() { mid.clone() } else { media_mid },
         mid,
         singers,

@@ -46,9 +46,10 @@ fn parse_lrc(lrc: &str) -> Vec<(u32, String)> {
 }
 
 /// QRC 是一段 XML，歌词在 `LyricContent` 属性里；不是 QRC 时返回 None。
+/// 属性里的引号不一定转义（比如 `[al:… "ラッキーシアン"]`），所以找到 `"/>` 才算结束。
 fn qrc_content(text: &str) -> Option<String> {
     let start = text.find("LyricContent=\"")? + "LyricContent=\"".len();
-    let len = text[start..].find('"')?;
+    let len = text[start..].find("\"/>")?;
     Some(unescape(&text[start..start + len]))
 }
 
@@ -214,7 +215,7 @@ mod tests {
 
     #[test]
     fn parses_qrc_with_trans_and_roma() {
-        let qrc = "<Lyric_1 LyricType=\"1\" LyricContent=\"[ti:Song]\n\
+        let qrc = "<Lyric_1 LyricType=\"1\" LyricContent=\"[ti:Song]\n[al:Album \"Quoted\"]\n\
             [514,500]Turning (514,152)Around ((666,158)&amp;(824,160))(984,10)\n\
             [2801,300]君(2801,150)の(2951,150)\n\"/>";
         let trans = "[00:00.51]转身\n[00:02.80]//\n";
