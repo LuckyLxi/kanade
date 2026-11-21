@@ -709,6 +709,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get songFadeHint => '切歌、暂停和继续播放时音量渐变';
 
   @override
+  String get normalizeVolume => '音量均衡';
+
+  @override
+  String get normalizeVolumeHint => '按 QQ 音乐给的响度把每首歌调到差不多响';
+
+  @override
   String get floatOutput => '32 位浮点输出';
 
   @override

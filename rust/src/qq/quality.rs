@@ -504,6 +504,12 @@ async fn quality_track(mid: &str, desktop: bool) -> Result<Value> {
     .await
 }
 
+/// 列表里没带响度的歌（旧版本存下的队列等）从歌曲信息里补，和音质列表共用缓存。
+pub async fn song_gain(mid: &str) -> Result<f64> {
+    let tracks = quality_track(mid, core().session().is_some()).await?;
+    Ok(super::parse::song(&tracks["tracks"][0]).map_or(0.0, |s| s.gain_db))
+}
+
 pub async fn song_qualities(mid: &str) -> Result<Vec<QualityOption>> {
     let c = core();
     let desktop = c.session().is_some();

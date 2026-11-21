@@ -220,6 +220,13 @@ class _RemotePlayerController extends PlayerController {
   }
 
   @override
+  void setNormalizeVolume(bool v) {
+    normalizeVolume = v;
+    notifyListeners();
+    _ignore(_send(PlaybackOp.normalizeVolume, v));
+  }
+
+  @override
   Future<void> setVolume(double v) {
     volume = v.clamp(0, 100);
     notifyListeners();

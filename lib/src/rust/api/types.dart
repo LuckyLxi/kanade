@@ -1449,6 +1449,9 @@ class Song {
   /// 歌曲关联的视频 VID；数字 mv.id 为 0 时也可能有值。
   final String mvVid;
 
+  /// 音量均衡要调的分贝数，QQ 给的修正值按峰值限制过、调大不会爆音；0 是不调。
+  final double gainDb;
+
   const Song({
     required this.id,
     required this.mid,
@@ -1463,6 +1466,7 @@ class Song {
     required this.hasHq,
     required this.hasFlac,
     required this.mvVid,
+    this.gainDb = 0.0,
   });
 
   @override
@@ -1479,7 +1483,8 @@ class Song {
       vip.hashCode ^
       hasHq.hashCode ^
       hasFlac.hashCode ^
-      mvVid.hashCode;
+      mvVid.hashCode ^
+      gainDb.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1498,7 +1503,8 @@ class Song {
           vip == other.vip &&
           hasHq == other.hasHq &&
           hasFlac == other.hasFlac &&
-          mvVid == other.mvVid;
+          mvVid == other.mvVid &&
+          gainDb == other.gainDb;
 }
 
 /// 播放页右滑的歌曲信息页。哪一栏没有内容就是空的。

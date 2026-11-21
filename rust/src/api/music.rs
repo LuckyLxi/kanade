@@ -262,6 +262,10 @@ pub async fn get_song_qualities(mid: String) -> Result<Vec<QualityOption>, ApiEr
     quality::song_qualities(&mid).await.map_err(api_error)
 }
 
+pub async fn get_song_gain(mid: String) -> Result<f64, ApiError> {
+    quality::song_gain(&mid).await.map_err(api_error)
+}
+
 pub async fn get_lyric(mid: String, id: i64) -> Result<Lyric, ApiError> {
     if download::is_local(&mid) {
         return download::local_lyric(&mid).map_err(api_error);

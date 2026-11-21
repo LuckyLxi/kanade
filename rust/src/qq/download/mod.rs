@@ -123,6 +123,8 @@ fn song_json(s: &Song) -> Value {
         },
         "pay": { "pay_play": s.vip as i64 },
         "mv": { "vid": s.mv_vid },
+        // gain_db 已经按峰值限制过；没有峰值的调大会被读回时截掉，所以配一个刚好不截的峰值
+        "volume": { "gain": s.gain_db, "peak": 10f64.powf(-s.gain_db.max(0.0) / 20.0) },
     })
 }
 
@@ -880,6 +882,7 @@ mod tests {
             has_hq: true,
             has_flac: false,
             mv_vid: "v".into(),
+            gain_db: -3.5,
         }
     }
 
@@ -894,6 +897,9 @@ mod tests {
         assert_eq!(back.singers.len(), 2);
         assert!(back.vip && back.has_hq && !back.has_flac);
         assert_eq!(back.mv_vid, "v");
+        assert_eq!(back.gain_db, -3.5);
+        let louder = Song { gain_db: 2.5, ..song() };
+        assert!((parse::song(&song_json(&louder)).unwrap().gain_db - 2.5).abs() < 1e-9);
     }
 
     #[test]

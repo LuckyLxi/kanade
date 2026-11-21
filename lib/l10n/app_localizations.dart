@@ -1353,6 +1353,18 @@ abstract class AppLocalizations {
   /// **'切歌、暂停和继续播放时音量渐变'**
   String get songFadeHint;
 
+  /// No description provided for @normalizeVolume.
+  ///
+  /// In zh, this message translates to:
+  /// **'音量均衡'**
+  String get normalizeVolume;
+
+  /// No description provided for @normalizeVolumeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'按 QQ 音乐给的响度把每首歌调到差不多响'**
+  String get normalizeVolumeHint;
+
   /// No description provided for @floatOutput.
   ///
   /// In zh, this message translates to:

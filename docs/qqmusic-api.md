@@ -142,9 +142,11 @@ Android 客户端还有这些接口，Kanade 还没接：
 | 用途 | 通道 | 参数 | 返回 |
 | --- | --- | --- | --- |
 | 按数字 ID 补全歌曲（`music::tracks_by_id`） | 通用 | `ids=[id,…]`、`types=[0,…]`，两个数组一样长 | `tracks[]` |
-| 取文件信息（`quality_track`） | 登录后 PC 公共，未登录通用 | `ctx=0`、`client=1`、`types=[0]`、`modify_stamp=[0]`、`mids=[mid]` | `tracks[0].file`、`tracks[0].vs` |
+| 取文件信息（`quality_track`） | 登录后 PC 公共，未登录通用 | `ctx=0`、`client=1`、`types=[0]`、`modify_stamp=[0]`、`mids=[mid]` | `tracks[0].file`、`tracks[0].vs`、`tracks[0].volume` |
 
 推荐卡片、专属乐流、听歌识曲拿到的只有数字 ID，都靠第一种补全。
+
+歌曲里的 `volume` 是响度修正：`gain` 是要调的分贝数，`peak` 是线性峰值（满幅为 1）。音量均衡用 `min(gain, -20·log10(peak))`，调大不超过满幅（`parse::gain_db`）。列表里没带的，播放时用第二种补（`quality::song_gain`）。
 
 三种 ID 不能混用：`song.id` 是数字 ID（评论、红心、上报都用它），`song.mid` 是歌曲 MID，`file.media_mid` 是拼文件名用的媒体 MID。`media_mid` 缺失时用歌曲 MID。
 

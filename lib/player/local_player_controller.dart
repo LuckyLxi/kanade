@@ -520,6 +520,7 @@ class _LocalPlayerController extends PlayerController {
     bool fadeOut = false,
   }) async {
     bool stale() => token != _token || urlToken != _urlToken;
+    final gain = _gainOf(song);
     final src = await AudioSource.resolve(song, q, stale: stale);
     if (src == null || stale()) return;
     if (Platform.isAndroid) {
@@ -540,6 +541,8 @@ class _LocalPlayerController extends PlayerController {
       }
       if (stale()) return;
     }
+    final db = await gain;
+    if (stale()) return;
     actualQuality = src.quality;
     // 链接取到了再淡出，取链接的这段时间旧歌照常放
     if (fadeOut) {
@@ -561,6 +564,8 @@ class _LocalPlayerController extends PlayerController {
     _applyVolume();
     try {
       await _setNetworkTimeout(decoded: ready != null);
+      // 改了当场生效，留到最后，免得旧歌最后一下按新歌的增益放
+      await _applyGain(db);
       _opening = play;
       await _player.open(src.media(start: start), play: play);
     } catch (e) {
@@ -828,6 +833,48 @@ class _LocalPlayerController extends PlayerController {
       _aoReloadPending = true;
     } else {
       await _reloadAo();
+    }
+  }
+
+  @override
+  void setNormalizeVolume(bool v) {
+    normalizeVolume = v;
+    api.setPref(key: PlayerController._normalizeVolumeKey, value: '$v');
+    final song = current;
+    // 换歌途中旧歌还在放，交给 [_open] 按新设置调
+    if (song != null && !loading) {
+      unawaited(
+        _gainOf(song).then((db) async {
+          if (identical(current, song) && !loading) await _applyGain(db);
+        }),
+      );
+    }
+    notifyListeners();
+  }
+
+  /// 列表里没带响度的歌（旧版本存的队列等）去歌曲信息里补；最多等 1 秒，免得断网时卡住换歌。
+  Future<double> _gainOf(Song song) async {
+    if (!normalizeVolume) return 0;
+    if (song.gainDb != 0 || isLocalSong(song)) return song.gainDb;
+    try {
+      return await api
+          .getSongGain(mid: song.mid)
+          .timeout(const Duration(seconds: 1));
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // mpv 默认不读回放增益标签，这时 replaygain-fallback 就是固定要调的分贝数，改了当场生效。
+  // 不用 af 滤镜：这个 libmpv 里没有 ffmpeg 的 volume。
+  Future<void> _applyGain(double db) async {
+    final native = _player.platform;
+    if (native is! NativePlayer) return;
+    if (!normalizeVolume) db = 0;
+    try {
+      await native.setProperty('replaygain-fallback', db.toStringAsFixed(2));
+    } catch (e) {
+      debugPrint('volume normalize failed: $e');
     }
   }
 

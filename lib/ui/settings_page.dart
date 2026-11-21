@@ -750,6 +750,9 @@ class _SettingsPageState extends State<SettingsPage> {
     final floatOutput = context.select<PlayerController, bool>(
       (p) => p.floatOutput,
     );
+    final normalizeVolume = context.select<PlayerController, bool>(
+      (p) => p.normalizeVolume,
+    );
     return [
       _Item(
         icon: Icons.high_quality_outlined,
@@ -780,6 +783,19 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Text(_fadeText(l, s)),
             ),
         ],
+      ),
+      _Item(
+        icon: Icons.volume_up_outlined,
+        title: l.normalizeVolume,
+        hint: l.normalizeVolumeHint,
+        onTap: () => context.read<PlayerController>().setNormalizeVolume(
+          !normalizeVolume,
+        ),
+        trailing: Switch(
+          value: normalizeVolume,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          onChanged: context.read<PlayerController>().setNormalizeVolume,
+        ),
       ),
       if (Platform.isAndroid)
         _Item(

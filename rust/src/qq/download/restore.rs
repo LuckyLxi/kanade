@@ -135,6 +135,7 @@ pub(super) fn local_song(entry: &Entry, info: &Info) -> Song {
         has_hq: false,
         has_flac: false,
         mv_vid: String::new(),
+        gain_db: 0.0,
     }
 }
 

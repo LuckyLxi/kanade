@@ -114,6 +114,7 @@ abstract class PlayerController extends ChangeNotifier {
   static const _fadeKey = 'song_fade_seconds';
   static const _sleepAfterSongKey = 'sleep_after_song';
   static const _floatOutputKey = 'audio_float_output';
+  static const _normalizeVolumeKey = 'volume_normalize';
 
   List<Song> queue = [];
   int index = -1;
@@ -169,6 +170,9 @@ abstract class PlayerController extends ChangeNotifier {
   /// 以 32 位浮点格式交给系统音频输出。Windows 共享模式本来就是浮点，只在 Android 上有用。
   bool floatOutput =
       Platform.isAndroid && api.getPref(key: _floatOutputKey) == 'true';
+
+  /// 按 QQ 音乐给的响度修正值把每首歌调到差不多响，见 [Song.gainDb]。
+  bool normalizeVolume = api.getPref(key: _normalizeVolumeKey) == 'true';
   int _metadataToken = 0;
   int _qualitiesToken = 0;
 
@@ -201,6 +205,7 @@ abstract class PlayerController extends ChangeNotifier {
   void setSleepTimer(Duration? d);
   void setSleepAfterSong(bool v);
   void setFloatOutput(bool v);
+  void setNormalizeVolume(bool v);
   Future<({int limitMb, int bytes})> audioCacheInfo();
   Future<void> setAudioCacheLimit(int mb);
   Future<void> clearAudioCache();

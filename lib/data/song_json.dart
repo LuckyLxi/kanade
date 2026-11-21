@@ -17,6 +17,7 @@ Map<String, Object?> songToJson(Song s) => {
   'hasHq': s.hasHq,
   'hasFlac': s.hasFlac,
   'mvVid': s.mvVid,
+  'gainDb': s.gainDb,
 };
 
 Song songFromJson(Map<String, dynamic> m) => Song(
@@ -36,4 +37,5 @@ Song songFromJson(Map<String, dynamic> m) => Song(
   hasHq: m['hasHq'] as bool,
   hasFlac: m['hasFlac'] as bool,
   mvVid: m['mvVid'] as String? ?? '',
+  gainDb: (m['gainDb'] as num? ?? 0).toDouble(),
 );

@@ -12,6 +12,14 @@ pub fn s(v: &Value) -> String {
     }
 }
 
+pub fn f(v: &Value) -> f64 {
+    match v {
+        Value::Number(n) => n.as_f64().unwrap_or(0.0),
+        Value::String(s) => s.parse().unwrap_or(0.0),
+        _ => 0.0,
+    }
+}
+
 pub fn n(v: &Value) -> i64 {
     match v {
         Value::Number(n) => n.as_i64().unwrap_or(0),
@@ -81,7 +89,14 @@ pub fn song(v: &Value) -> Option<Song> {
         has_hq: n(&file["size_320mp3"]) > 0 || n(&v["size320"]) > 0,
         has_flac: n(&file["size_flac"]) > 0 || n(&v["sizeflac"]) > 0,
         mv_vid: s(&v["mv"]["vid"]),
+        gain_db: gain_db(&v["volume"]),
     })
+}
+
+/// 调大时不让峰值超过满幅；没给峰值就只调小。
+fn gain_db(volume: &Value) -> f64 {
+    let (gain, peak) = (f(&volume["gain"]), f(&volume["peak"]));
+    if peak > 0.0 { gain.min(-20.0 * peak.log10()) } else { gain.min(0.0) }
 }
 
 pub fn songs(arr: &Value) -> Vec<Song> {
@@ -100,5 +115,17 @@ mod tests {
         assert_eq!(song(&json!({"songInfo": track})).unwrap().mv_vid, "video-vid");
         assert_eq!(song(&json!({"mid": "no-video"})).unwrap().mv_vid, "");
         assert_eq!(song(&json!({"mid": "empty-video", "mv": {"id": 0, "vid": ""}})).unwrap().mv_vid, "");
+    }
+
+    #[test]
+    fn gain_is_capped_by_peak() {
+        let gain = |gain: f64, peak: f64| song(&json!({"mid": "m", "volume": {"gain": gain, "peak": peak}})).unwrap().gain_db;
+        assert_eq!(gain(-10.5, 1.0), -10.5);
+        assert_eq!(gain(3.0, 1.0), 0.0);
+        assert!((gain(6.0, 0.648) - 3.769).abs() < 0.01);
+        assert_eq!(gain(0.0, 0.0), 0.0);
+        assert_eq!(gain(3.0, 0.0), 0.0);
+        assert_eq!(gain(-4.0, 0.0), -4.0);
+        assert_eq!(song(&json!({"mid": "m"})).unwrap().gain_db, 0.0);
     }
 }

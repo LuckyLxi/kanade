@@ -204,6 +204,9 @@ void setDownloadDir({required String dir}) =>
 Future<List<QualityOption>> getSongQualities({required String mid}) =>
     RustLib.instance.api.crateApiMusicGetSongQualities(mid: mid);
 
+Future<double> getSongGain({required String mid}) =>
+    RustLib.instance.api.crateApiMusicGetSongGain(mid: mid);
+
 Future<Lyric> getLyric({required String mid, required PlatformInt64 id}) =>
     RustLib.instance.api.crateApiMusicGetLyric(mid: mid, id: id);
 

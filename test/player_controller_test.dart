@@ -204,6 +204,7 @@ PlaybackMessage _snapshot(List<Song> queue, int index) => {
   'sleepAt': null,
   'sleepAfterSong': false,
   'floatOutput': false,
+  'normalizeVolume': false,
   'error': null,
 };
 
@@ -423,6 +424,7 @@ void main() {
           'hasHq': true,
           'hasFlac': true,
           'mvVid': '',
+          'gainDb': 0.0,
         },
       ],
       0,
@@ -432,6 +434,7 @@ void main() {
     player.setMode(PlayMode.shuffle);
     player.setSleepTimer(const Duration(minutes: 1));
     await player.setVolume(25);
+    player.setNormalizeVolume(true);
     await tester.pump();
     expect(connection.calls.skip(1), [
       ('pause', null),
@@ -439,6 +442,7 @@ void main() {
       ('mode', 'shuffle'),
       ('sleep', 60),
       ('volume', 25.0),
+      ('normalizeVolume', true),
     ]);
     expect(player.volume, 25);
     player.dispose();
@@ -467,6 +471,7 @@ void main() {
       ..sleepAt = DateTime.fromMillisecondsSinceEpoch(1700000000000)
       ..sleepAfterSong = true
       ..floatOutput = true
+      ..normalizeVolume = true
       ..error = const StreamFailed('boom');
     late _Connection connection;
     final remote = PlayerController.android(
@@ -491,6 +496,7 @@ void main() {
     expect(remote.sleepAt, source.sleepAt);
     expect(remote.sleepAfterSong, true);
     expect(remote.floatOutput, true);
+    expect(remote.normalizeVolume, true);
     expect((remote.error as StreamFailed).message, 'boom');
     remote.dispose();
     source.dispose();

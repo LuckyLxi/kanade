@@ -209,6 +209,8 @@
   "defaultQualityHint": "Falls back to a lower quality when unavailable or unplayable",
   "songFade": "Playback transition",
   "songFadeHint": "Fades volume when switching songs, pausing and resuming",
+  "normalizeVolume": "Volume normalization",
+  "normalizeVolumeHint": "Plays every song at about the same loudness, using QQ Music's loudness data",
   "floatOutput": "32-bit float output",
   "floatOutputHint": "Sends audio to the system as 32-bit float; most songs sound the same",
   "songFadeOff": "Off",

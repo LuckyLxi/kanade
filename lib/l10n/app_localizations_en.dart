@@ -748,6 +748,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Fades volume when switching songs, pausing and resuming';
 
   @override
+  String get normalizeVolume => 'Volume normalization';
+
+  @override
+  String get normalizeVolumeHint =>
+      'Plays every song at about the same loudness, using QQ Music\'s loudness data';
+
+  @override
   String get floatOutput => '32-bit float output';
 
   @override

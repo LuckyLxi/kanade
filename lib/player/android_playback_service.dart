@@ -233,6 +233,8 @@ class _PlaybackServer {
         player.setSleepAfterSong(argument as bool);
       case PlaybackOp.floatOutput:
         player.setFloatOutput(argument as bool);
+      case PlaybackOp.normalizeVolume:
+        player.setNormalizeVolume(argument as bool);
       case PlaybackOp.volume:
         await player.setVolume((argument as num).toDouble());
       case PlaybackOp.quality:

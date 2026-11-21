@@ -8,6 +8,7 @@ pub struct Singer {
     pub name: String,
 }
 
+#[flutter_rust_bridge::frb]
 #[derive(Debug, Clone)]
 pub struct Song {
     pub id: i64,
@@ -26,6 +27,9 @@ pub struct Song {
     pub has_flac: bool,
     /// 歌曲关联的视频 VID；数字 mv.id 为 0 时也可能有值。
     pub mv_vid: String,
+    /// 音量均衡要调的分贝数，QQ 给的修正值按峰值限制过、调大不会爆音；0 是不调。
+    #[frb(default = 0.0)]
+    pub gain_db: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
