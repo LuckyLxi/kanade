@@ -15,6 +15,7 @@ import 'l10n/app_localizations.dart';
 import 'l10n/localizations_delegates.dart';
 import 'library/library_controller.dart';
 import 'player/android_playback_connection.dart';
+import 'player/floating_lyrics.dart';
 import 'player/media_session.dart';
 import 'player/player_controller.dart';
 import 'settings/locale_controller.dart';
@@ -112,6 +113,17 @@ class AppProviders extends StatelessWidget {
           create: (context) =>
               DownloadController(context.read<AndroidPlaybackConnection?>()),
         ),
+        // 悬浮歌词跑在播放进程里，设置两边互相转告
+        if (androidPlaybackDirectory != null)
+          Provider<FloatingLyricsLink>(
+            lazy: false,
+            create: (context) => FloatingLyricsLink(
+              context.read<AndroidPlaybackConnection?>()!,
+              context.read<DesktopSettings>(),
+              context.read<LyricSettings>(),
+            ),
+            dispose: (_, link) => link.dispose(),
+          ),
       ],
       child: mediaSession && androidPlaybackDirectory == null
           ? _MediaSessionHost(child: child)
@@ -140,7 +152,15 @@ class _MediaSessionHostState extends State<_MediaSessionHost> {
         context.read<PlayerController>(),
         context.read<LibraryController>(),
         context.read<LocaleController>(),
+        lyrics: Platform.isAndroid ? context.read<DesktopSettings>() : null,
       ),
+    );
+    // 播放不分进程时悬浮歌词跟着界面这边的播放器
+    FloatingLyrics.attach(
+      context.read<PlayerController>(),
+      context.read<DesktopSettings>(),
+      context.read<LyricSettings>(),
+      context.read<LocaleController>(),
     );
     DesktopIntegration.attach(
       context.read<PlayerController>(),

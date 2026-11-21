@@ -41,6 +41,16 @@ class MainActivity : AudioServiceActivity() {
         if ((application as KanadeApplication).separateAndroidPlayback) null
         else super.provideFlutterEngine(context)
 
+    override fun onStart() {
+        super.onStart()
+        FloatingLyrics.uiVisible(this, true)
+    }
+
+    override fun onStop() {
+        FloatingLyrics.uiVisible(this, false)
+        super.onStop()
+    }
+
     override fun onDestroy() {
         bubble?.hide()
         stopService(Intent(this, RecognizeService::class.java))

@@ -66,6 +66,12 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
     private static String playbackEntrypoint;
     private static String notificationActivity;
     private static Consumer<Boolean> playbackForegroundListener;
+    private static Consumer<FlutterEngine> engineListener;
+
+    /** Called with the playback engine after it is created and before its Dart entrypoint runs. */
+    public static void setEngineListener(Consumer<FlutterEngine> listener) {
+        engineListener = listener;
+    }
 
     public static void configurePlaybackProcess(
             boolean remote, String entrypoint, String activity, Consumer<Boolean> foregroundListener) {
@@ -128,6 +134,9 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
             }
             flutterEngine.getNavigationChannel().setInitialRoute(initialRoute);
             FlutterEngineCache.getInstance().put(flutterEngineId, flutterEngine);
+            if (engineListener != null) {
+                engineListener.accept(flutterEngine);
+            }
             DartExecutor.DartEntrypoint entrypoint = playbackEntrypoint == null
                     ? DartExecutor.DartEntrypoint.createDefault()
                     : new DartExecutor.DartEntrypoint(

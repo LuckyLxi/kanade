@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:smtc_windows/smtc_windows.dart';
 
 import '../data/data_ext.dart';
+import '../desktop/desktop_settings.dart';
 import '../library/library_controller.dart';
 import '../settings/locale_controller.dart';
 import '../src/rust/api/types.dart';
@@ -29,6 +30,7 @@ abstract class _Sink {
     required Duration duration,
     _Like? like,
     required _Mode mode,
+    String? unlock,
   });
 }
 
@@ -39,10 +41,17 @@ abstract class _Sink {
 /// 进度不逐帧推：系统拿到「某时刻在某位置、是否在播」后会自己往前走，
 /// 只在播放状态变化或进度跳变（拖动、切歌）时重新告诉它。
 class MediaSession {
-  MediaSession._(this._p, this._library, this._locale, this._sink) {
+  MediaSession._(
+    this._p,
+    this._library,
+    this._locale,
+    this._lyrics,
+    this._sink,
+  ) {
     _p.addListener(_sync);
     _library.addListener(_sync);
     _locale.addListener(_sync);
+    _lyrics?.addListener(_sync);
     _p.position.addListener(_onPosition);
     _sync();
     if (Platform.isWindows) {
@@ -53,6 +62,7 @@ class MediaSession {
   final PlayerController _p;
   final LibraryController _library;
   final LocaleController _locale;
+  final DesktopSettings? _lyrics;
   final _Sink _sink;
   AppLifecycleListener? _lifecycle;
   Future<AppExitResponse>? _exitRequest;
@@ -75,25 +85,32 @@ class MediaSession {
   bool? _loading;
   _Like? _like;
   _Mode? _mode;
+  String? _unlock;
   Duration _anchor = Duration.zero;
   final _clock = Stopwatch();
 
   /// 在支持的平台上接入系统媒体控件，其他平台什么都不做。失败只影响系统卡片，不影响播放。
+  /// Android 卡片上在悬浮歌词锁着时多一个解锁键，[lyrics] 是它的设置。
   static Future<void> attach(
     PlayerController p,
     LibraryController library,
-    LocaleController locale,
-  ) async {
+    LocaleController locale, {
+    DesktopSettings? lyrics,
+  }) async {
     try {
       final _Sink? sink;
       if (Platform.isAndroid || Platform.isIOS) {
-        sink = await _AndroidSink.create(p, () => toggleLike(p, library));
+        sink = await _AndroidSink.create(
+          p,
+          () => toggleLike(p, library),
+          () => lyrics?.setLyricsLocked(false),
+        );
       } else if (Platform.isWindows) {
         sink = await _WindowsSink.create(p, locale);
       } else {
         sink = null;
       }
-      if (sink != null) MediaSession._(p, library, locale, sink);
+      if (sink != null) MediaSession._(p, library, locale, lyrics, sink);
     } catch (e) {
       debugPrint('media session unavailable: $e');
     }
@@ -120,6 +137,14 @@ class MediaSession {
     final liked = _library.isLiked(song);
     final l = _locale.strings;
     return (liked: liked, label: liked ? l.unlike : l.like);
+  }
+
+  String? _currentUnlock() {
+    final lyrics = _lyrics;
+    if (lyrics == null || !lyrics.lyricsVisible || !lyrics.lyricsLocked) {
+      return null;
+    }
+    return _locale.strings.floatingLyricsUnlock;
   }
 
   _Mode _currentMode() {
@@ -150,7 +175,8 @@ class MediaSession {
     if (_p.playing != _playing ||
         loading != _loading ||
         _currentLike() != _like ||
-        _currentMode() != _mode) {
+        _currentMode() != _mode ||
+        _currentUnlock() != _unlock) {
       _pushState();
     }
   }
@@ -172,6 +198,7 @@ class MediaSession {
     _loading = _p.loading || _p.buffering;
     _like = _currentLike();
     _mode = _currentMode();
+    _unlock = _currentUnlock();
     _anchor = _p.position.value;
     _clock
       ..reset()
@@ -183,24 +210,28 @@ class MediaSession {
       duration: _p.duration,
       like: _like,
       mode: _mode!,
+      unlock: _unlock,
     );
   }
 }
 
 class _AndroidSink extends BaseAudioHandler with SeekHandler implements _Sink {
-  _AndroidSink(this._p, this._onLike);
+  _AndroidSink(this._p, this._onLike, this._onUnlock);
 
   final PlayerController _p;
   final Future<void> Function() _onLike;
+  final void Function() _onUnlock;
 
   static const _likeAction = 'like';
   static const _modeAction = 'mode';
+  static const _unlockAction = 'unlockLyrics';
 
   static Future<_AndroidSink> create(
     PlayerController p,
     Future<void> Function() onLike,
+    void Function() onUnlock,
   ) => AudioService.init(
-    builder: () => _AndroidSink(p, onLike),
+    builder: () => _AndroidSink(p, onLike, onUnlock),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.lxi.kanade.playback',
       androidNotificationChannelName: 'Playback',
@@ -231,6 +262,7 @@ class _AndroidSink extends BaseAudioHandler with SeekHandler implements _Sink {
     required Duration duration,
     _Like? like,
     required _Mode mode,
+    String? unlock,
   }) {
     playbackState.add(
       PlaybackState(
@@ -238,7 +270,14 @@ class _AndroidSink extends BaseAudioHandler with SeekHandler implements _Sink {
           MediaControl.skipToPrevious,
           playing ? MediaControl.pause : MediaControl.play,
           MediaControl.skipToNext,
-          // 图标在 android/app/src/main/res/drawable，收起的卡片只放前三个，红心和播放模式在展开后和锁屏上显示
+          // 图标在 android/app/src/main/res/drawable，收起的卡片只放前三个，其余的在展开后和锁屏上显示。
+          // 新系统只显示前两个自定义按钮，解锁放最前面，锁着时挤掉播放模式
+          if (unlock != null)
+            MediaControl.custom(
+              androidIcon: 'drawable/ic_lyrics_unlock',
+              label: unlock,
+              name: _unlockAction,
+            ),
           if (like != null)
             MediaControl.custom(
               androidIcon: like.liked
@@ -295,6 +334,7 @@ class _AndroidSink extends BaseAudioHandler with SeekHandler implements _Sink {
   ]) async {
     if (name == _likeAction) await _onLike();
     if (name == _modeAction) _p.cycleMode();
+    if (name == _unlockAction) _onUnlock();
   }
 }
 
@@ -374,6 +414,7 @@ class _WindowsSink implements _Sink {
     required Duration duration,
     _Like? like,
     required _Mode mode,
+    String? unlock,
   }) {
     _taskbar.state(playing: playing);
     if (!_smtc.enabled) return;

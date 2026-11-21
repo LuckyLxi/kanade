@@ -37,7 +37,7 @@ constexpr int kFontStep = 4;
 // scrolls.
 constexpr float kScrollAnchor = 0.6f;
 // Romaji and translation rows against the lyric row.
-constexpr float kSubScale = 0.62f;
+constexpr float kSubScale = 0.8f;
 // How far the second row starts right of the first when staggered, in font
 // sizes.
 constexpr float kStaggerIndent = 3;

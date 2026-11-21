@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -166,10 +167,11 @@ class DesktopSettings extends ChangeNotifier {
   CloseAction closeAction;
   bool hotkeysEnabled;
 
-  /// 桌面歌词。锁定、字号和位置在歌词窗口上改，原生部分报回来再存下。
+  /// 桌面歌词，Android 上是悬浮歌词（lib/player/floating_lyrics.dart）。
+  /// 锁定、字号和位置在歌词窗口上改，原生部分报回来再存下。
   bool lyricsVisible = false;
   bool lyricsLocked = false;
-  int lyricsFontSize = 32;
+  int lyricsFontSize = Platform.isAndroid ? 22 : 32;
   int lyricsSung = lyricsColors[0];
   int lyricsUnsung = lyricsColors[1];
   bool lyricsSingleLine = false;
@@ -281,21 +283,27 @@ class DesktopSettings extends ChangeNotifier {
     }
   }
 
-  void _saveLyrics() => api.setPref(
-    key: _lyricsKey,
-    value: jsonEncode({
-      'visible': lyricsVisible,
-      'locked': lyricsLocked,
-      'fontSize': lyricsFontSize,
-      'sung': lyricsSung,
-      'unsung': lyricsUnsung,
-      'singleLine': lyricsSingleLine,
-      'align': lyricsAlign.name,
-      'translation': lyricsTranslation,
-      'romaji': lyricsRomaji,
-      if (_lyricsPosition case (final x, final y)) ...{'x': x, 'y': y},
-    }),
-  );
+  String _lyricsJson() => jsonEncode({
+    'visible': lyricsVisible,
+    'locked': lyricsLocked,
+    'fontSize': lyricsFontSize,
+    'sung': lyricsSung,
+    'unsung': lyricsUnsung,
+    'singleLine': lyricsSingleLine,
+    'align': lyricsAlign.name,
+    'translation': lyricsTranslation,
+    'romaji': lyricsRomaji,
+    if (_lyricsPosition case (final x, final y)) ...{'x': x, 'y': y},
+  });
+
+  void _saveLyrics() => api.setPref(key: _lyricsKey, value: _lyricsJson());
+
+  /// 另一个进程改了设置后重读。没变就不通知，两个进程互相转告时不会来回转。
+  void reloadLyrics() {
+    final before = _lyricsJson();
+    _loadLyrics();
+    if (_lyricsJson() != before) notifyListeners();
+  }
 
   void setLyricsVisible(bool v) {
     lyricsVisible = v;
@@ -347,39 +355,42 @@ class DesktopSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 推给原生歌词窗口的设置，Windows 和 Android 一样。
+  Map<String, Object?> get lyricsConfig => {
+    'visible': lyricsVisible,
+    'locked': lyricsLocked,
+    'fontSize': lyricsFontSize,
+    'sung': lyricsSung,
+    'unsung': lyricsUnsung,
+    'singleLine': lyricsSingleLine,
+    'align': lyricsAlign.index,
+    'translation': lyricsTranslation,
+    'romaji': lyricsRomaji,
+    'x': _lyricsPosition?.$1,
+    'y': _lyricsPosition?.$2,
+    // 原生那边用 App 自带的 Material Icons 字体画
+    'icons': {
+      for (final (name, icon) in [
+        ('previous', Icons.skip_previous_rounded),
+        ('play', Icons.play_arrow_rounded),
+        ('pause', Icons.pause_rounded),
+        ('next', Icons.skip_next_rounded),
+        ('smaller', Icons.text_decrease_rounded),
+        ('bigger', Icons.text_increase_rounded),
+        ('translation', Icons.translate_rounded),
+        ('romaji', Icons.abc_rounded),
+        ('lock', Icons.lock_outline_rounded),
+        ('unlock', Icons.lock_open_rounded),
+        ('close', Icons.close_rounded),
+      ])
+        name: icon.codePoint,
+    },
+  };
+
   Future<void> _pushLyrics() async {
     if (!_active) return;
     try {
-      await channel.invokeMethod('lyricsConfig', {
-        'visible': lyricsVisible,
-        'locked': lyricsLocked,
-        'fontSize': lyricsFontSize,
-        'sung': lyricsSung,
-        'unsung': lyricsUnsung,
-        'singleLine': lyricsSingleLine,
-        'align': lyricsAlign.index,
-        'translation': lyricsTranslation,
-        'romaji': lyricsRomaji,
-        'x': _lyricsPosition?.$1,
-        'y': _lyricsPosition?.$2,
-        // 原生那边用 App 自带的 Material Icons 字体画
-        'icons': {
-          for (final (name, icon) in [
-            ('previous', Icons.skip_previous_rounded),
-            ('play', Icons.play_arrow_rounded),
-            ('pause', Icons.pause_rounded),
-            ('next', Icons.skip_next_rounded),
-            ('smaller', Icons.text_decrease_rounded),
-            ('bigger', Icons.text_increase_rounded),
-            ('translation', Icons.translate_rounded),
-            ('romaji', Icons.abc_rounded),
-            ('lock', Icons.lock_outline_rounded),
-            ('unlock', Icons.lock_open_rounded),
-            ('close', Icons.close_rounded),
-          ])
-            name: icon.codePoint,
-        },
-      });
+      await channel.invokeMethod('lyricsConfig', lyricsConfig);
     } catch (e) {
       debugPrint('push desktop lyrics config failed: $e');
     }

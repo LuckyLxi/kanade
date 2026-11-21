@@ -1617,4 +1617,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get colorBrightness => 'Brightness';
+
+  @override
+  String get floatingLyrics => 'Floating lyrics';
+
+  @override
+  String get floatingLyricsHint =>
+      'Show lyrics over other apps after you leave Kanade';
+
+  @override
+  String get floatingLyricsNoPermission =>
+      'Kanade needs permission to display over other apps. Tap to open settings';
+
+  @override
+  String get floatingLyricsLock => 'Lock floating lyrics';
+
+  @override
+  String get floatingLyricsLockHint =>
+      'Taps pass through locked lyrics; tap \"Unlock floating lyrics\" in the playback notification to unlock';
+
+  @override
+  String get floatingLyricsUnlock => 'Unlock floating lyrics';
 }

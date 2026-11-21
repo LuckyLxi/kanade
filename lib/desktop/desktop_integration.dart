@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -8,11 +7,11 @@ import 'package:material_ui/material_ui.dart';
 import '../data/data_ext.dart';
 import '../l10n/app_localizations.dart';
 import '../library/library_controller.dart';
+import '../player/lyrics_feed.dart';
 import '../player/media_session.dart';
 import '../player/player_controller.dart';
 import '../settings/locale_controller.dart';
 import '../settings/lyric_settings.dart';
-import '../src/rust/api/types.dart';
 import '../ui/kanade_dialog.dart';
 import 'desktop_settings.dart';
 
@@ -31,10 +30,10 @@ class DesktopIntegration {
     _p.addListener(_pushTray);
     _locale.addListener(_pushTray);
     _pushTray();
-    _p.addListener(_pushLyrics);
-    _lyricSettings.addListener(_pushLyrics);
-    _p.position.addListener(_syncLyrics);
-    _pushLyrics();
+    _p.addListener(_lyricsFeed.push);
+    _lyricSettings.addListener(_lyricsFeed.push);
+    _p.position.addListener(_lyricsFeed.sync);
+    _lyricsFeed.push();
     _settings.activate();
     unawaited(_channel.invokeMethod('interceptClose', true));
   }
@@ -50,15 +49,7 @@ class DesktopIntegration {
   Object? _tray;
   bool _asking = false;
 
-  /// 上次推给桌面歌词的内容，没变就不再推。
-  Song? _lyricSong;
-  Lyric? _lyric;
-  bool? _lyricWords;
-
-  /// 桌面歌词自己往前走进度，只在播放状态变了或进度跳了时对一下。
-  int _syncedMs = 0;
-  bool _syncedPlaying = false;
-  final _sinceSync = Stopwatch();
+  late final _lyricsFeed = LyricsFeed(_channel, _p, _lyricSettings, _locale);
 
   static void attach(
     PlayerController p,
@@ -78,64 +69,6 @@ class DesktopIntegration {
         navigator,
       );
     }
-  }
-
-  void _pushLyrics() {
-    final s = _p.current;
-    final lyric = _p.lyric;
-    final words = _lyricSettings.wordByWord;
-    if (identical(s, _lyricSong) &&
-        identical(lyric, _lyric) &&
-        words == _lyricWords) {
-      _syncLyrics();
-      return;
-    }
-    _lyricSong = s;
-    _lyric = lyric;
-    _lyricWords = words;
-    unawaited(
-      _channel.invokeMethod('lyricsContent', {
-        'title': s == null
-            ? _locale.strings.appTitle
-            : '${s.name} - ${singerNames(s)}',
-        'lines': [
-          for (final line in lyric?.lines ?? const <LyricLine>[])
-            {
-              'time': line.timeMs,
-              'text': line.text,
-              'trans': line.trans,
-              'roma': line.roma,
-              'words': Int32List.fromList([
-                if (words)
-                  for (final w in line.words) ...[
-                    w.startMs,
-                    w.durationMs,
-                    w.text.length,
-                  ],
-              ]),
-            },
-        ],
-      }),
-    );
-    _syncLyrics(force: true);
-  }
-
-  void _syncLyrics({bool force = false}) {
-    final playing = _p.advancing && !_p.buffering && !_p.loading;
-    final ms = _p.position.value.inMilliseconds;
-    final expected =
-        _syncedMs + (_syncedPlaying ? _sinceSync.elapsedMilliseconds : 0);
-    if (!force && playing == _syncedPlaying && (ms - expected).abs() < 300) {
-      return;
-    }
-    _syncedMs = ms;
-    _syncedPlaying = playing;
-    _sinceSync
-      ..reset()
-      ..start();
-    unawaited(
-      _channel.invokeMethod('lyricsSync', {'position': ms, 'playing': playing}),
-    );
   }
 
   void _pushTray() {

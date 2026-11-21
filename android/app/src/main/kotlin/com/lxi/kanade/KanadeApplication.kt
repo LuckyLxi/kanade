@@ -18,6 +18,8 @@ class KanadeApplication : Application() {
         super.onCreate()
         SessionKey.install(this)
         MediaStoreBridge.install(this)
+        // 播放所在的引擎（单独的播放进程里，或不分进程时界面的引擎）由 audio_service 建，悬浮歌词接在它上面
+        AudioServicePlugin.setEngineListener { FloatingLyrics.attach(this, it) }
         if (!separateAndroidPlayback) return
         val process = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             getProcessName()

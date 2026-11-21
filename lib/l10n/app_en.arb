@@ -468,5 +468,11 @@
   "colorCustom": "Custom…",
   "colorHue": "Hue",
   "colorSaturation": "Saturation",
-  "colorBrightness": "Brightness"
+  "colorBrightness": "Brightness",
+  "floatingLyrics": "Floating lyrics",
+  "floatingLyricsHint": "Show lyrics over other apps after you leave Kanade",
+  "floatingLyricsNoPermission": "Kanade needs permission to display over other apps. Tap to open settings",
+  "floatingLyricsLock": "Lock floating lyrics",
+  "floatingLyricsLockHint": "Taps pass through locked lyrics; tap \"Unlock floating lyrics\" in the playback notification to unlock",
+  "floatingLyricsUnlock": "Unlock floating lyrics"
 }

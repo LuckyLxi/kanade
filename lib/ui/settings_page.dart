@@ -110,6 +110,11 @@ class _SettingsPageState extends State<SettingsPage> {
   var _mirror = AppUpdate.mirror;
   var _softwareRendering = false;
   var _autostart = false;
+
+  /// 悬浮歌词要的“显示在其他应用上层”权限，从系统设置回来时重新查。
+  static const _overlay = MethodChannel('kanade/recognize');
+  bool? _canOverlay;
+  AppLifecycleListener? _lifecycle;
   var _sectionCount = 0;
   var _current = 0;
   var _wide = false;
@@ -134,11 +139,28 @@ class _SettingsPageState extends State<SettingsPage> {
         if (mounted) setState(() => _autostart = v);
       });
     }
+    if (Platform.isAndroid) {
+      _checkOverlay();
+      _lifecycle = AppLifecycleListener(onResume: _checkOverlay);
+    }
   }
 
   void _setAutostart(bool on) {
     context.read<DesktopSettings>().setAutostart(on);
     setState(() => _autostart = on);
+  }
+
+  Future<void> _checkOverlay() async {
+    final can = await _overlay.invokeMethod<bool>('canOverlay') ?? false;
+    if (mounted) setState(() => _canOverlay = can);
+  }
+
+  /// 第一次打开时还没有悬浮窗权限，直接去系统设置里开。
+  Future<void> _setFloatingLyrics(DesktopSettings desktop, bool on) async {
+    desktop.setLyricsVisible(on);
+    if (on && _canOverlay == false) {
+      await _overlay.invokeMethod('openOverlaySettings');
+    }
   }
 
   List<Widget> _desktopRows(AppLocalizations l, DesktopSettings desktop) {
@@ -147,18 +169,6 @@ class _SettingsPageState extends State<SettingsPage> {
       CloseAction.tray => l.closeToTray,
       CloseAction.exit => l.closeExit,
     };
-    String linesText(bool single) =>
-        single ? l.desktopLyricsSingle : l.desktopLyricsDouble;
-    String alignText(LyricsAlign a) => switch (a) {
-      LyricsAlign.left => l.alignLeft,
-      LyricsAlign.center => l.alignCenter,
-      LyricsAlign.right => l.alignRight,
-      LyricsAlign.stagger => l.alignStagger,
-    };
-    final align =
-        desktop.lyricsSingleLine && desktop.lyricsAlign == LyricsAlign.stagger
-        ? LyricsAlign.center
-        : desktop.lyricsAlign;
     final error = Theme.of(context).colorScheme.error;
     return [
       _Item(
@@ -186,22 +196,86 @@ class _SettingsPageState extends State<SettingsPage> {
           onChanged: _setAutostart,
         ),
       ),
+      ..._lyricsRows(l, desktop),
+      _Item(
+        icon: Icons.keyboard_outlined,
+        title: l.hotkeys,
+        hint: l.hotkeysHint,
+        onTap: () => desktop.setHotkeysEnabled(!desktop.hotkeysEnabled),
+        trailing: Switch(
+          value: desktop.hotkeysEnabled,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          onChanged: desktop.setHotkeysEnabled,
+        ),
+      ),
+      if (desktop.hotkeysEnabled)
+        for (final (action, icon, title) in [
+          (HotkeyAction.toggle, Icons.play_arrow_rounded, l.hotkeyToggle),
+          (HotkeyAction.previous, Icons.skip_previous_rounded, l.previousSong),
+          (HotkeyAction.next, Icons.skip_next_rounded, l.nextSong),
+          (HotkeyAction.volumeUp, Icons.volume_up_rounded, l.hotkeyVolumeUp),
+          (
+            HotkeyAction.volumeDown,
+            Icons.volume_down_rounded,
+            l.hotkeyVolumeDown,
+          ),
+          (HotkeyAction.like, Icons.favorite_border_rounded, l.hotkeyLike),
+          (HotkeyAction.window, Icons.web_asset_rounded, l.hotkeyWindow),
+          (HotkeyAction.lyrics, Icons.lyrics_outlined, l.hotkeyLyrics),
+        ])
+          _Item(
+            icon: icon,
+            title: title,
+            hint: desktop.taken.contains(action) ? l.hotkeyTaken : null,
+            value: _Value(desktop.hotkeys[action]?.label ?? l.hotkeyNone),
+            onTap: () => _recordHotkey(desktop, action, title),
+            trailing: desktop.taken.contains(action)
+                ? Icon(Icons.error_outline_rounded, size: 20, color: error)
+                : null,
+          ),
+    ];
+  }
+
+  /// Windows 的桌面歌词和 Android 的悬浮歌词，设置是同一份。
+  List<Widget> _lyricsRows(AppLocalizations l, DesktopSettings desktop) {
+    final android = Platform.isAndroid;
+    String linesText(bool single) =>
+        single ? l.desktopLyricsSingle : l.desktopLyricsDouble;
+    String alignText(LyricsAlign a) => switch (a) {
+      LyricsAlign.left => l.alignLeft,
+      LyricsAlign.center => l.alignCenter,
+      LyricsAlign.right => l.alignRight,
+      LyricsAlign.stagger => l.alignStagger,
+    };
+    final align =
+        desktop.lyricsSingleLine && desktop.lyricsAlign == LyricsAlign.stagger
+        ? LyricsAlign.center
+        : desktop.lyricsAlign;
+    void setVisible(bool v) =>
+        android ? _setFloatingLyrics(desktop, v) : desktop.setLyricsVisible(v);
+    return [
       _Item(
         icon: Icons.lyrics_outlined,
-        title: l.desktopLyrics,
-        hint: l.desktopLyricsHint,
-        onTap: () => desktop.setLyricsVisible(!desktop.lyricsVisible),
+        title: android ? l.floatingLyrics : l.desktopLyrics,
+        hint: !android
+            ? l.desktopLyricsHint
+            : desktop.lyricsVisible && _canOverlay == false
+            ? l.floatingLyricsNoPermission
+            : l.floatingLyricsHint,
+        onTap: () => android && desktop.lyricsVisible && _canOverlay == false
+            ? _overlay.invokeMethod('openOverlaySettings')
+            : setVisible(!desktop.lyricsVisible),
         trailing: Switch(
           value: desktop.lyricsVisible,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          onChanged: desktop.setLyricsVisible,
+          onChanged: setVisible,
         ),
       ),
       if (desktop.lyricsVisible)
         _Item(
           icon: Icons.lock_outline_rounded,
-          title: l.desktopLyricsLock,
-          hint: l.desktopLyricsLockHint,
+          title: android ? l.floatingLyricsLock : l.desktopLyricsLock,
+          hint: android ? l.floatingLyricsLockHint : l.desktopLyricsLockHint,
           onTap: () => desktop.setLyricsLocked(!desktop.lyricsLocked),
           trailing: Switch(
             value: desktop.lyricsLocked,
@@ -278,42 +352,6 @@ class _SettingsPageState extends State<SettingsPage> {
           onTap: () => _alignMenu.currentState?.open(),
         ),
       ],
-      _Item(
-        icon: Icons.keyboard_outlined,
-        title: l.hotkeys,
-        hint: l.hotkeysHint,
-        onTap: () => desktop.setHotkeysEnabled(!desktop.hotkeysEnabled),
-        trailing: Switch(
-          value: desktop.hotkeysEnabled,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          onChanged: desktop.setHotkeysEnabled,
-        ),
-      ),
-      if (desktop.hotkeysEnabled)
-        for (final (action, icon, title) in [
-          (HotkeyAction.toggle, Icons.play_arrow_rounded, l.hotkeyToggle),
-          (HotkeyAction.previous, Icons.skip_previous_rounded, l.previousSong),
-          (HotkeyAction.next, Icons.skip_next_rounded, l.nextSong),
-          (HotkeyAction.volumeUp, Icons.volume_up_rounded, l.hotkeyVolumeUp),
-          (
-            HotkeyAction.volumeDown,
-            Icons.volume_down_rounded,
-            l.hotkeyVolumeDown,
-          ),
-          (HotkeyAction.like, Icons.favorite_border_rounded, l.hotkeyLike),
-          (HotkeyAction.window, Icons.web_asset_rounded, l.hotkeyWindow),
-          (HotkeyAction.lyrics, Icons.lyrics_outlined, l.hotkeyLyrics),
-        ])
-          _Item(
-            icon: icon,
-            title: title,
-            hint: desktop.taken.contains(action) ? l.hotkeyTaken : null,
-            value: _Value(desktop.hotkeys[action]?.label ?? l.hotkeyNone),
-            onTap: () => _recordHotkey(desktop, action, title),
-            trailing: desktop.taken.contains(action)
-                ? Icon(Icons.error_outline_rounded, size: 20, color: error)
-                : null,
-          ),
     ];
   }
 
@@ -435,6 +473,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void dispose() {
     _scroll.dispose();
+    _lifecycle?.dispose();
     super.dispose();
   }
 
@@ -1074,6 +1113,13 @@ class _SettingsPageState extends State<SettingsPage> {
           after: null,
         ),
       ],
+      if (Platform.isAndroid)
+        (
+          title: l.floatingLyrics,
+          icon: Icons.lyrics_outlined,
+          rows: _lyricsRows(l, desktop),
+          after: null,
+        ),
       (
         title: l.settingsStorage,
         icon: Icons.storage_outlined,

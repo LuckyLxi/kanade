@@ -40,6 +40,7 @@ enum PlaybackOp {
   removeDownload,
   downloadConcurrency,
   downloadWifiOnly,
+  floatingLyrics,
 }
 
 PlaybackMessage encodePlayerState(

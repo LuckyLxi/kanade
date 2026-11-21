@@ -7,12 +7,15 @@ import 'package:path_provider/path_provider.dart';
 
 import '../auth/auth_controller.dart';
 import '../data/song_json.dart';
+import '../desktop/desktop_settings.dart';
 import '../library/library_controller.dart';
 import '../settings/locale_controller.dart';
+import '../settings/lyric_settings.dart';
 import '../src/rust/api/music.dart' as api;
 import '../src/rust/api/types.dart';
 import '../src/rust/frb_generated.dart';
 import 'android_playback_connection.dart';
+import 'floating_lyrics.dart';
 import 'media_session.dart';
 import 'playback_messages.dart';
 import 'player_controller.dart';
@@ -28,17 +31,37 @@ Future<void> runAndroidPlayback() async {
   final library = LibraryController(auth);
   final locale = LocaleController();
   final player = PlayerController(auth, loadDisplayMetadata: false);
-  await MediaSession.attach(player, library, locale);
-  await _PlaybackServer(player, auth, library, locale).listen(directory);
+  // 悬浮歌词的设置，界面进程那份改了会让这边重读
+  final lyrics = DesktopSettings();
+  final lyricSettings = LyricSettings();
+  await MediaSession.attach(player, library, locale, lyrics: lyrics);
+  FloatingLyrics.attach(player, lyrics, lyricSettings, locale);
+  await _PlaybackServer(
+    player,
+    auth,
+    library,
+    locale,
+    lyrics,
+    lyricSettings,
+  ).listen(directory);
 }
 
 class _PlaybackServer {
-  _PlaybackServer(this.player, this.auth, this.library, this.locale);
+  _PlaybackServer(
+    this.player,
+    this.auth,
+    this.library,
+    this.locale,
+    this.lyrics,
+    this.lyricSettings,
+  );
 
   final PlayerController player;
   final AuthController auth;
   final LibraryController library;
   final LocaleController locale;
+  final DesktopSettings lyrics;
+  final LyricSettings lyricSettings;
   final _clients = <Socket>{};
   final _watching = <Socket>{};
   List<Song>? _sentQueue;
@@ -55,6 +78,12 @@ class _PlaybackServer {
     player.addListener(_publish);
     library.addListener(_publish);
     player.position.addListener(_publishPosition);
+    // 悬浮窗上改了设置，界面进程从共用的数据库重读
+    lyrics.addListener(() {
+      for (final socket in _clients) {
+        sendPlaybackMessage(socket, {'floatingLyrics': true});
+      }
+    });
     // 下载在这个进程里跑；界面从共用的数据库读记录，这里只告诉它哪首变了
     api.watchDownloads().listen((e) {
       final mid = switch (e) {
@@ -94,6 +123,7 @@ class _PlaybackServer {
     _clients.remove(socket);
     _watching.remove(socket);
     socket.destroy();
+    if (_clients.isEmpty) FloatingLyrics.uiDisconnected();
   }
 
   PlaybackMessage get _position => {
@@ -240,6 +270,11 @@ class _PlaybackServer {
         await api.setDownloadConcurrency(n: argument as int);
       case PlaybackOp.downloadWifiOnly:
         await api.setDownloadWifiOnly(enabled: argument as bool);
+      case PlaybackOp.floatingLyrics:
+        lyrics.reloadLyrics();
+        if (lyricSettings.wordByWord != argument) {
+          lyricSettings.setWordByWord(argument as bool);
+        }
     }
     return null;
   }

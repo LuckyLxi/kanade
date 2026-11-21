@@ -860,5 +860,11 @@
   "colorCustom": "自定义…",
   "colorHue": "色相",
   "colorSaturation": "饱和度",
-  "colorBrightness": "亮度"
+  "colorBrightness": "亮度",
+  "floatingLyrics": "悬浮歌词",
+  "floatingLyricsHint": "离开 Kanade 后浮在其他应用上面",
+  "floatingLyricsNoPermission": "需要允许 Kanade 显示在其他应用上层，点这里去打开",
+  "floatingLyricsLock": "锁定悬浮歌词",
+  "floatingLyricsLockHint": "锁定后点击会穿过歌词；在通知栏点“解锁悬浮歌词”即可解锁",
+  "floatingLyricsUnlock": "解锁悬浮歌词"
 }

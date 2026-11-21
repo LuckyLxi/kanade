@@ -79,6 +79,8 @@ class _RemotePlayerController extends PlayerController {
     if (_disposed) return;
     // 下载改动由 DownloadController 处理
     if (message['download'] is String) return;
+    // 悬浮歌词设置改动由 FloatingLyricsLink 处理
+    if (message['floatingLyrics'] == true) return;
     if (message['position'] case final int milliseconds) {
       if (_resuming) return;
       position.value = Duration(milliseconds: milliseconds);

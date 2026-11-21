@@ -1527,4 +1527,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get colorBrightness => '亮度';
+
+  @override
+  String get floatingLyrics => '悬浮歌词';
+
+  @override
+  String get floatingLyricsHint => '离开 Kanade 后浮在其他应用上面';
+
+  @override
+  String get floatingLyricsNoPermission => '需要允许 Kanade 显示在其他应用上层，点这里去打开';
+
+  @override
+  String get floatingLyricsLock => '锁定悬浮歌词';
+
+  @override
+  String get floatingLyricsLockHint => '锁定后点击会穿过歌词；在通知栏点“解锁悬浮歌词”即可解锁';
+
+  @override
+  String get floatingLyricsUnlock => '解锁悬浮歌词';
 }

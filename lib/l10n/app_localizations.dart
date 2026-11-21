@@ -2876,6 +2876,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'亮度'**
   String get colorBrightness;
+
+  /// No description provided for @floatingLyrics.
+  ///
+  /// In zh, this message translates to:
+  /// **'悬浮歌词'**
+  String get floatingLyrics;
+
+  /// No description provided for @floatingLyricsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'离开 Kanade 后浮在其他应用上面'**
+  String get floatingLyricsHint;
+
+  /// No description provided for @floatingLyricsNoPermission.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要允许 Kanade 显示在其他应用上层，点这里去打开'**
+  String get floatingLyricsNoPermission;
+
+  /// No description provided for @floatingLyricsLock.
+  ///
+  /// In zh, this message translates to:
+  /// **'锁定悬浮歌词'**
+  String get floatingLyricsLock;
+
+  /// No description provided for @floatingLyricsLockHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'锁定后点击会穿过歌词；在通知栏点“解锁悬浮歌词”即可解锁'**
+  String get floatingLyricsLockHint;
+
+  /// No description provided for @floatingLyricsUnlock.
+  ///
+  /// In zh, this message translates to:
+  /// **'解锁悬浮歌词'**
+  String get floatingLyricsUnlock;
 }
 
 class _AppLocalizationsDelegate
