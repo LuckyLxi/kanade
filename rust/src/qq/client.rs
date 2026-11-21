@@ -197,20 +197,11 @@ pub struct Core {
 static CORE: OnceLock<Core> = OnceLock::new();
 
 /// App 启动时调用一次；没调用时（比如单元测试）使用内存数据库。
-pub fn init(data_dir: &Path) -> Result<()> {
-    if CORE.get().is_some() {
-        return Ok(());
-    }
-    init_store(data_dir)?;
-    super::audio_cache::init(data_dir.join("audio_cache"))
-}
-
 pub fn init_store(data_dir: &Path) -> Result<()> {
     if CORE.get().is_some() {
         return Ok(());
     }
     std::fs::create_dir_all(data_dir)?;
-    super::download::init(data_dir.join("downloads"));
     let core = Core::new(Store::open(&data_dir.join("kanade.db"))?)?;
     let _ = CORE.set(core);
     Ok(())
